@@ -2,7 +2,9 @@
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
 ## Setup
+
 For Windows
+
 1. Add files from "ofxNDI" to your Visual Studio project.
 2. Copy .dll's from ofxNDI/libs to the application "bin" folder
 3. [Register with Newtek](http://pages.newtek.com/NDI-Developers.html) for the NDI SDK. Install the NewTek SDK and copy files as follows.
