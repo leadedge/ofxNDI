@@ -1,8 +1,9 @@
 /*
 
-	OpenFrameworks NDI receiver example
-
+	OpenFrameworks NDI receiver 
 	using the NewTek NDI SDK to receive frames via network
+
+	Advanced example using a shader for BGRA-RGBA conversion and sender selection dialog
 
 	http://NDI.NewTek.com
 	
@@ -10,7 +11,7 @@
 
 	http://www.spout.zeal.co
 
-	With help from Harvey Buchan
+	BGRA > RGBA swap Shader by Harvey Buchan
 
 	https://github.com/Harvey3141
 
@@ -30,7 +31,9 @@
 	=========================================================================
 
 	13.10.16 - Addon receiver example created
-	14.10.16 - included received frame rate
+	14.10.16 - Included received frame rate
+	03.11.16 - Receive into image pixels directly
+			 - Add a sender selection dialog
 
 */
 #include "ofApp.h"
@@ -44,17 +47,13 @@ void ofApp::setup() {
 	// Set the window title to show that it is a receiver
 	ofSetWindowTitle("Openframeworks NDI receiver");
 	cout << "NDI SDK copyright NewTek (http:\\NDI.NewTek.com)" << endl;
-	cout << "Press 'SPACE' to list NDI senders" << endl;
+	cout << "Press 'SPACE' to list NDI senders or RH click to open sender dialog" << endl;
 	
 	senderName[0] = 0;    // The sender name used for display
 	nSenders = 0;         // Total number of NDI senders
-	ndiBuffer = NULL;     // Receiving pixel buffer
 	senderWidth = 0;      // Sender width
 	senderHeight = 0;     // Sender height
-	bNDIreceiver = false; // User selection
-
-	// Create an intial receiving rgba buffer (adjusted by ReceiveTexture)
-	ndiBuffer = (unsigned char *)malloc(ofGetWidth()*ofGetHeight() * 4 * sizeof(unsigned char));
+	bNDIreceiver = false; // Receiver creation
 
 	// Create an intial receiving image
 	ndiImage.allocate(ofGetWidth(), ofGetHeight(), OF_IMAGE_COLOR_ALPHA);
@@ -125,9 +124,11 @@ void ofApp::draw() {
 	// Receive an image from the NDI sender
 	if(bNDIreceiver) {
 
-		// NDI uses BGRA format, so the received buffer has to be converted to rgba.
-		// by ReceiveImage. Optionally you can flip the image if necessary.
-		if(ndiReceiver.ReceiveImage(ndiBuffer, width, height, true)) {
+		// NDI uses BGRA format, so the received buffer is converted to rgba by ReceiveImage.
+		// Optionally you can flip the image if necessary.
+		if(ndiReceiver.ReceiveImage(ndiImage.getPixels(), width, height, true)) {  // receive as bgra
+
+			ndiImage.update();
 
 			// ----------------------------
 			// Calculate received frame fps
@@ -149,24 +150,15 @@ void ofApp::draw() {
 				senderWidth  = width;
 				senderHeight = height;
 				
-				// Update the receiving buffer
-				cout << "Updating NDI pixel buffer size, width: " << senderWidth << ", height: " << senderHeight << endl;
-				if(ndiBuffer) free((void *)ndiBuffer);
-				ndiBuffer = (unsigned char *)malloc(senderWidth*senderHeight*4*sizeof(unsigned char));
-
-				// Update the receiving image
+				// Update the receiving image size
 				ndiImage.allocate(senderWidth, senderHeight, OF_IMAGE_COLOR_ALPHA);
-
+				
 			}
-
-			// Load the received pixels
-			ndiImage.setFromPixels(ndiBuffer, senderWidth, senderHeight, OF_IMAGE_COLOR_ALPHA, true);
-
 		}
 
 		// If receiveimage fails, the connection could be down so keep waiting for it to come back up.
 		// Or the frame rate of the NDI sender can be less than the receiver draw cycle.
-		// Keep drawing the received image.
+		// Draw the current image.
 		if(bNDIreceiver) ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 
 		// Show fps etc.
@@ -182,7 +174,7 @@ void ofApp::draw() {
 			else {
 				sprintf_s(str, 256, "%d network sources", nSenders);
 				ofDrawBitmapString(str, 20, ofGetHeight()-40);
-				ofDrawBitmapString("'SPACE' to list senders", 20, ofGetHeight()-20);
+				ofDrawBitmapString("'SPACE' to list senders or RH click to open sender dialog", 20, ofGetHeight()-20);
 			}
 		}
 	}
@@ -224,7 +216,7 @@ void ofApp::keyPressed(int key) {
 
 //--------------------------------------------------------------
 void ofApp::exit() {
-	if(ndiBuffer) free((void *)ndiBuffer);
+
 }
 
 //--------------------------------------------------------------
@@ -235,6 +227,34 @@ void ofApp::keyReleased(int key){
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
 
+	char name[256];
+	int index = 0;
+	std::vector<std::string> senderlist;
+
+	if(button == 2) { // RH button
+		// Get the senders into a list for the dialog
+		int nSenders = ndiReceiver.GetSenderCount();
+		if(nSenders > 0) {
+			cout << "Number of NDI senders found: " << nSenders << endl;
+			for (int i = 0; i < nSenders; i++) {
+				ndiReceiver.GetSenderName(name, i);
+				senderlist.push_back(name);
+				cout << "    Sender " << i << " [" << name << "]" << endl;
+			}
+			// Open the sender list dialog
+			// Returns true for OK, false for Cancel and the selected index
+			if(ndiDialog.SelectNDIPanel(senderlist, index)) {
+				// Update the receiver with the returned index
+				// "SenderSelected" will then return true in Draw() to update the receiver
+				ndiReceiver.SetSenderIndex(index);
+				// Show which sender was selected
+				ndiReceiver.GetSenderName(name, index); 
+				cout << "    Selected sender " << index << " [" << name << "]" << endl;
+			}
+		}
+		else 
+			cout << "No NDI senders found" << endl;
+	}
 }
 
 //--------------------------------------------------------------

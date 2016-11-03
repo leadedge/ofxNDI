@@ -30,6 +30,8 @@
 #include "ofMain.h"
 #include "ofxNDI.h" // NDI classes
 
+#include "ofxNDIdialog.h" // for the sender dialog
+
 class ofApp : public ofBaseApp {
 
 	public:
@@ -52,19 +54,18 @@ class ofApp : public ofBaseApp {
 		void gotMessage(ofMessage msg);
 	
 		ofxNDIreceiver ndiReceiver; // NDI receiver object
+		ofxNDIdialog ndiDialog;     // for the sender dialog
 
-		unsigned char *ndiBuffer;   // Buffer used for image transfer
-		ofImage ndiImage;           // Image used for display
-		ofFbo ndiFbo;               // Fbo used for shader bgra conversion
-		ofShader rbSwapShader;      // Shader to do the conversion
+		ofImage ndiImage;           // Image used for pixel transfer and display
 		char senderName[256];	    // Sender name used by a receiver
 		int nSenders;
 		unsigned int senderWidth;
 		unsigned int senderHeight;
 		bool bNDIreceiver;
-		bool bUseShader;            // Method used for bgra to rgba conversion
 
 		// For received frame fps calculations
 		double startTime, lastTime, frameTime, frameRate, fps;
+
+
 
 };

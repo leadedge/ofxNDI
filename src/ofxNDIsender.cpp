@@ -43,8 +43,8 @@ ofxNDIsender::ofxNDIsender()
 	m_frame_rate_D = 1000;
 	// frame_rate_N = 30000; // 29.97 fps
 	// frame_rate_D = 1001;
-	// m_frame_rate_N = 120000; // for frame rate debug
-	m_frame_rate_D = 1000;	m_horizontal_aspect = 1; // source aspect ratio by default
+	m_frame_rate_D = 1000;	
+	m_horizontal_aspect = 1; // source aspect ratio by default
 	m_vertical_aspect = 1;
 	m_picture_aspect_ratio = 16.0f/9.0f;
 	m_bProgressive = TRUE;

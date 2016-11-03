@@ -29,6 +29,9 @@
 	=========================================================================
 
 	16.10.16 - ofxNDI sender example
+	03.11.16 - corrected CreateSender dimensions
+			 - initialize pixel buffers
+			 - BGRA conversion by OpenGL during glReadPixels
 
 */
 #include "ofApp.h"
@@ -50,8 +53,12 @@ void ofApp::setup(){
 	// Create an fbo for collection of data
 	ndiFbo.allocate(senderWidth, senderHeight, GL_RGBA);
 
+	// Initialize pixel buffers
+	ndiBuffer[0].allocate(senderWidth, senderHeight, 4);
+	ndiBuffer[1].allocate(senderWidth, senderHeight, 4);
+
 	// Create a new sender
-	ndiSender.CreateSender(senderName, ofGetWidth(), ofGetHeight());
+	ndiSender.CreateSender(senderName, senderWidth, senderHeight);
 	cout << "Created NDI sender [" << senderName << "] (" << senderWidth << "x" << senderHeight << ")" << endl;
 
 	// Optionally set NDI asynchronous sending instead of clocked at 60fps
@@ -100,21 +107,20 @@ void ofApp::draw() {
 	// Draw the fbo result fitted to the display window
 	ndiFbo.draw(0, 0, ofGetWidth(), ofGetHeight());
 
-	// Extract pixels from the fbo
-
 	// For asynchronous sending, alternate between buffers because one buffer is being
 	// filled in while the second is "in flight" and being processed by the API.
 	if (ndiSender.GetAsync())
 		idx = (idx + 1) % 2;
 
-	ndiFbo.readToPixels(ndiBuffer[idx]);
+	// Extract pixels from the fbo.
+	// NDI uses BGRA format for the video frame buffer.
+	// Read into the buffer as BGRA using OpenGL
+	ndiFbo.bind();
+	glReadPixels(0, 0, ndiFbo.getWidth(), ndiFbo.getHeight(), GL_BGRA_EXT, GL_UNSIGNED_BYTE, ndiBuffer[idx].getPixels());
+	ndiFbo.unbind();
 
-	//
 	// Send the pixel buffer to NDI
-	//
-	// NDI uses BGRA format and the conversion is performed by SendImage.
-	// The image can also be flipped if necessary.
-	if (ndiSender.SendImage(ndiBuffer[idx].getPixels(), senderWidth, senderHeight, true)) {
+	if (ndiSender.SendImage(ndiBuffer[idx].getPixels(), senderWidth, senderHeight)) {
 
         // Show what it is sending
 		char str[256];
