@@ -11,7 +11,7 @@
 
 	http://www.spout.zeal.co
 
-	BGRA > RGBA swap Shader by Harvey Buchan
+	With help from Harvey Buchan
 
 	https://github.com/Harvey3141
 
@@ -34,6 +34,9 @@
 	14.10.16 - Included received frame rate
 	03.11.16 - Receive into image pixels directly
 			 - Add a sender selection dialog
+	05.11.16 - Note - dialog is Windows only
+			   the ofxNDIdialog class is used separately
+			   and can be omitted along with resources
 
 */
 #include "ofApp.h"
@@ -58,8 +61,7 @@ void ofApp::setup() {
 	// Create an intial receiving image
 	ndiImage.allocate(ofGetWidth(), ofGetHeight(), OF_IMAGE_COLOR_ALPHA);
 
-	// For received frame fps calculations
-	// which are independent of the rendering rate
+	// For received frame fps calculations - independent of the rendering rate
 	startTime = lastTime = frameTime = 0;
 	fps = frameRate = 1; // starting value
 
@@ -79,7 +81,7 @@ void ofApp::draw() {
 	unsigned int height = 0;
 	bool bResult = false;
 
-	// Update the NDI sender list every draw cycle to find new senders
+	// Update the NDI sender list to find new senders
 	// There is no delay if no new senders are found
 	nSenders = ndiReceiver.FindSenders();
 	
@@ -87,12 +89,14 @@ void ofApp::draw() {
 
 		// Has the user changed the sender index ?
 		if(ndiReceiver.SenderSelected()) {
-			// A new receiver is created from the selected sender index.
+			// Release the current receiver.
+			// A new one is then created from the selected sender index.
 			ndiReceiver.ReleaseReceiver();
 			bNDIreceiver = false;
 		}
 
 		// Create a new receiver if one does not exist.
+		// We don't know the sender dimensions until a frame is received.
 		if(!bNDIreceiver) {
 
 			bNDIreceiver = ndiReceiver.CreateReceiver();
@@ -100,17 +104,11 @@ void ofApp::draw() {
 			// A sender is created from an index into a list of sender names.
 			// The current user selected index is saved in the NDIreceiver class
 			// and is used to create the receiver unless you specify a particular index.
-			//		ndireceiver->CreateReceiver(index);
 			// The name of the sender can be retrieved if you need it.
+			// If you specified a particular sender index, use that index to retrieve it's name.
 			// In this application we use it to display the sender name.
 			//
 			ndiReceiver.GetSenderName(senderName);
-			//
-			// If you specified a particular sender index, use that index to retrieve it's name.
-			//		ndireceiver->GetSenderName(SenderName, index);
-			//
-			// We don't know the sender dimensions until a frame is received
-			//
 			if(bNDIreceiver)
 				cout << "Created NDI receiver for " << senderName << endl;
 
@@ -156,9 +154,12 @@ void ofApp::draw() {
 			}
 		}
 
+		//
+		// Draw the current image.
+		//
 		// If receiveimage fails, the connection could be down so keep waiting for it to come back up.
 		// Or the frame rate of the NDI sender can be less than the receiver draw cycle.
-		// Draw the current image.
+		//
 		if(bNDIreceiver) ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 
 		// Show fps etc.
