@@ -30,8 +30,8 @@
 				- used optimised assembler memcpy in FlipBuffer - 4-5 fps increase at 2560x1440
 				  FlipBuffer should be avoided if a GPU texture copy/invert is possible
 	10.10.16	- updated SSE2 memcpy with intrinsics for 64bit compatibility
-	12.10.16	- Inlcuded a bgra conversion option for SendImage
-
+	12.10.16	- Included a bgra conversion option for SendImage
+	05.11.16	- Added SetClockVideo
 */
 #include "ofxNDIsender.h"
 
@@ -41,13 +41,13 @@ ofxNDIsender::ofxNDIsender()
 	p_frame = NULL;
 	m_frame_rate_N = 60000; // 60 fps default
 	m_frame_rate_D = 1000;
-	// frame_rate_N = 30000; // 29.97 fps
-	// frame_rate_D = 1001;
-	m_frame_rate_D = 1000;	
+	// m_frame_rate_N = 30000; // 29.97 fps
+	// m_frame_rate_D = 1001;
 	m_horizontal_aspect = 1; // source aspect ratio by default
 	m_vertical_aspect = 1;
 	m_picture_aspect_ratio = 16.0f/9.0f;
-	m_bProgressive = TRUE;
+	m_bProgressive = TRUE; // progressive default
+	m_bClockVideo = TRUE; // clock video default
 	bAsync = false;
 	bNDIinitialized = false;
 
@@ -66,7 +66,7 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 	// Create an NDI source that is clocked to the video.
 	NDI_send_create_desc.p_ndi_name = (const char *)sendername;
 	NDI_send_create_desc.p_groups = NULL;
-	NDI_send_create_desc.clock_video = TRUE;
+	NDI_send_create_desc.clock_video = m_bClockVideo;
 	NDI_send_create_desc.clock_audio = FALSE;
 
 	// Calulate aspect ratio
@@ -191,6 +191,18 @@ bool ofxNDIsender::GetProgressive()
 		return false;
 }
 
+void ofxNDIsender::SetClockVideo(bool bClocked)
+{
+	m_bClockVideo = bClocked;
+}
+
+bool ofxNDIsender::GetClockVideo()
+{
+	if(m_bClockVideo)
+		return true;
+	else
+		return false;
+}
 
 // Set asynchronous sending mode
 void ofxNDIsender::SetAsync(bool bActive)

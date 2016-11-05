@@ -61,6 +61,9 @@ public:
 	void SetProgressive(bool bProgressive = true);
 	bool GetProgressive();
 
+	void SetClockVideo(bool bClocked = true);
+	bool GetClockVideo();
+
 	void SetAsync(bool bActive = true);
 	bool GetAsync();
 
@@ -77,6 +80,7 @@ private :
 	DWORD m_vertical_aspect; // Aspect vertical ratio
 	float m_picture_aspect_ratio; // Aspect ratio
 	BOOL m_bProgressive; // Progressive output flag
+	BOOL m_bClockVideo; // Clock video flag
 	bool bAsync; // NDI asynchronous sender
 	bool bNDIinitialized; // NDI initialized
 

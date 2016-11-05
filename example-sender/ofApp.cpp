@@ -32,6 +32,7 @@
 	03.11.16 - corrected CreateSender dimensions
 			 - initialize pixel buffers
 			 - BGRA conversion by OpenGL during glReadPixels
+	05.11.16 - Move SetAsync option before CreateSender
 
 */
 #include "ofApp.h"
@@ -56,14 +57,14 @@ void ofApp::setup(){
 	// Initialize pixel buffers
 	ndiBuffer[0].allocate(senderWidth, senderHeight, 4);
 	ndiBuffer[1].allocate(senderWidth, senderHeight, 4);
+	idx = 0; // index used for buffer swapping
+
+	// Optionally set NDI asynchronous sending instead of clocked at 60fps
+	ndiSender.SetAsync(false); // change to true for async
 
 	// Create a new sender
 	ndiSender.CreateSender(senderName, senderWidth, senderHeight);
 	cout << "Created NDI sender [" << senderName << "] (" << senderWidth << "x" << senderHeight << ")" << endl;
-
-	// Optionally set NDI asynchronous sending instead of clocked at 60fps
-	ndiSender.SetAsync(false); // change to true for async
-	idx = 0; // index used for buffer swapping
 
 	// 3D drawing setup for the demo graphics
 	glEnable(GL_DEPTH_TEST);                           // enable depth comparisons and update the depth buffer
