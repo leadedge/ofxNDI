@@ -24,7 +24,9 @@ Copy the image from "ofxNDI/example-sender/bin/data" to the application "bin/dat
 To set NDI asynchronous sending instead of clocked at 60fps, change ndiSender->SetAsync to true.
 
 ## Example receiver
-Press 's' for a listing NDI senders. Press '0' to 'x' to select a sender
+Press 's' for a listing NDI senders. Press '0' to 'x' to select a sender. 
+RH click to activate a sender selection dialog.
+(The dialog class and resources are Windows only and can be omitted if necessary).
 
 ## Credits
 ofxNDI with help from [Harvey Buchan](https://github.com/Harvey3141).
