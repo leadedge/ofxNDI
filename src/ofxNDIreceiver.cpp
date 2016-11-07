@@ -40,7 +40,7 @@
 			     . use only an index rather than return a name as well
 				 . do not change the current user selected index
 			   Changed GetSenderName to use an optional sender index
-	16.10.16 - Key listing and selection of sender
+	07.11.16 - Added CPU support check
 
 */
 #include "ofxNDIreceiver.h"
@@ -59,11 +59,14 @@ ofxNDIreceiver::ofxNDIreceiver()
 	m_Height = 0;
 	senderIndex = 0;
 
-	bNDIinitialized = NDIlib_initialize();
-	if(!bNDIinitialized) {
-		// Cannot run NDI. Most likely because the CPU is not sufficient (see SDK documentation).
-		// you can check this directly with a call to NDIlib_is_supported_CPU()
-		MessageBoxA(NULL, "Cannot run NDI", "NDIreceiver", MB_OK);
+	if(!NDIlib_is_supported_CPU() ) {
+		MessageBoxA(NULL, "CPU does not support NDI\nNDILib requires SSE4.1", "NDIreceiver", MB_OK);
+	}
+	else {
+		bNDIinitialized = NDIlib_initialize();
+		if(!bNDIinitialized) {
+			MessageBoxA(NULL, "Cannot run NDI\NDILib initialization failed", "NDIreceiver", MB_OK);
+		}
 	}
 
 }

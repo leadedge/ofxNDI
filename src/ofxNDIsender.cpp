@@ -32,6 +32,8 @@
 	10.10.16	- updated SSE2 memcpy with intrinsics for 64bit compatibility
 	12.10.16	- Included a bgra conversion option for SendImage
 	05.11.16	- Added SetClockVideo
+	07.11.16	- Added CPU support check
+
 */
 #include "ofxNDIsender.h"
 
@@ -51,11 +53,14 @@ ofxNDIsender::ofxNDIsender()
 	bAsync = false;
 	bNDIinitialized = false;
 
-	bNDIinitialized = NDIlib_initialize();
-	if(!bNDIinitialized) {
-		// Cannot run NDI. Most likely because the CPU is not sufficient (see SDK documentation).
-		// you can check this directly with a call to NDIlib_is_supported_CPU()
-		MessageBoxA(NULL, "Cannot run NDI", "NDIsender", MB_OK);
+	if(!NDIlib_is_supported_CPU() ) {
+		MessageBoxA(NULL, "CPU does not support NDI\nNDILib requires SSE4.1", "NDIsender", MB_OK);
+	}
+	else {
+		bNDIinitialized = NDIlib_initialize();
+		if(!bNDIinitialized) {
+			MessageBoxA(NULL, "Cannot run NDI\NDILib initialization failed", "NDIsender", MB_OK);
+		}
 	}
 }
 
