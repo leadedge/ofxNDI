@@ -30,12 +30,20 @@
 #include "ofMain.h"
 #include "ofxNDI.h" // NDI classes
 
+// BGRA definition should be in glew.h
+// but define it here just in case it is not
+#ifndef GL_BGRA_EXT
+#define GL_BGRA_EXT 0x80E1
+#endif
+
+
 class ofApp : public ofBaseApp {
 	public:
 
 		void setup();
 		void update();
 		void draw();
+		void exit();
 
 		void keyPressed(int key);
 		void keyReleased(int key);
@@ -56,5 +64,11 @@ class ofApp : public ofBaseApp {
 		int idx;                   // Index used for async buffer swapping
 		ofImage textureImage;      // Texture image for the 3D cube graphics
 		float rotX, rotY;          // Cube rotation increment
+
+		GLuint ndiPbo[2];
+		int PboIndex;
+		int NextPboIndex;
+		bool bUsePBO;
+		bool ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);
 
 };
