@@ -65,7 +65,7 @@ ofxNDIreceiver::ofxNDIreceiver()
 	else {
 		bNDIinitialized = NDIlib_initialize();
 		if(!bNDIinitialized) {
-			MessageBoxA(NULL, "Cannot run NDI\NDILib initialization failed", "NDIreceiver", MB_OK);
+			MessageBoxA(NULL, "Cannot run NDI\nNDILib initialization failed", "NDIreceiver", MB_OK);
 		}
 	}
 

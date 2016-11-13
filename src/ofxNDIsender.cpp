@@ -33,6 +33,8 @@
 	12.10.16	- Included a bgra conversion option for SendImage
 	05.11.16	- Added SetClockVideo
 	07.11.16	- Added CPU support check
+	12.11.16	- Fix MessageBox \N to \nN
+	13.11.16	- Do not clock the video for async sending
 
 */
 #include "ofxNDIsender.h"
@@ -59,7 +61,7 @@ ofxNDIsender::ofxNDIsender()
 	else {
 		bNDIinitialized = NDIlib_initialize();
 		if(!bNDIinitialized) {
-			MessageBoxA(NULL, "Cannot run NDI\NDILib initialization failed", "NDIsender", MB_OK);
+			MessageBoxA(NULL, "Cannot run NDI\nNDILib initialization failed", "NDIsender", MB_OK);
 		}
 	}
 }
@@ -69,6 +71,7 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 {
 
 	// Create an NDI source that is clocked to the video.
+	// unless async sendeing has been selected.
 	NDI_send_create_desc.p_ndi_name = (const char *)sendername;
 	NDI_send_create_desc.p_groups = NULL;
 	NDI_send_create_desc.clock_video = m_bClockVideo;
@@ -213,6 +216,10 @@ bool ofxNDIsender::GetClockVideo()
 void ofxNDIsender::SetAsync(bool bActive)
 {
 	bAsync = bActive;
+	if(bAsync)
+		m_bClockVideo = false; // Do not clock the video for async sending
+	else
+		m_bClockVideo = true;
 }
 
 
