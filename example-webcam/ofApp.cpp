@@ -98,8 +98,8 @@ void ofApp::draw() {
 
 	vidGrabber.draw(0, 0, ofGetWidth(), ofGetHeight());
 
-	// Send the rgba pixel buffer to NDI
-	if (ndiSender.SendImage(ndiBuffer[idx].getPixels(), camWidth, camHeight)) {
+	// Send the rgba pixel buffer to NDI and convert to bgra
+	if (ndiSender.SendImage(ndiBuffer[idx].getPixels(), camWidth, camHeight, true)) {
         // Show the sender name and fps
 		char str[256];
         sprintf(str, "Sending as : [%s] (%dx%d)", senderName, camWidth, camHeight);
