@@ -67,6 +67,13 @@ public:
 	void SetAsync(bool bActive = true);
 	bool GetAsync();
 
+	// Audio
+	void SetAudio(bool bAudio = true);
+	void SetAudioSampleRate(DWORD sampleRate = 48000); // 48000 = 48kHz
+	void SetAudioChannels(DWORD nChannels = 1); // 2 for stereo
+	void SetAudioSamples(DWORD nSamples = 1602); // There can be up to 1602 samples at 29.97 fps
+	void SetAudioTimecode(LONGLONG timecode = NDIlib_send_timecode_synthesize); // The timecode of this frame in 100ns intervals or synthesised
+	void SetAudioData(FLOAT *data = NULL); // Audio data
 
 private :
 
@@ -83,6 +90,15 @@ private :
 	BOOL m_bClockVideo; // Clock video flag
 	bool bAsync; // NDI asynchronous sender
 	bool bNDIinitialized; // NDI initialized
+
+	// Audio
+	bool bNDIaudio;
+	NDIlib_audio_frame_t audio_frame;
+	DWORD m_AudioSampleRate;
+	DWORD m_AudioChannels;
+	DWORD m_AudioSamples;
+	LONGLONG m_AudioTimecode;
+	FLOAT *m_AudioData;
 
 };
 

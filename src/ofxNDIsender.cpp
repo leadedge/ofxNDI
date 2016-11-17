@@ -35,6 +35,7 @@
 	07.11.16	- Added CPU support check
 	12.11.16	- Fix MessageBox \N to \nN
 	13.11.16	- Do not clock the video for async sending
+	15.11.16	- add audio support
 
 */
 #include "ofxNDIsender.h"
@@ -55,8 +56,17 @@ ofxNDIsender::ofxNDIsender()
 	bAsync = false;
 	bNDIinitialized = false;
 
+	// Audio
+	bNDIaudio = false; // No audio default
+	m_AudioSampleRate = 48000; // 48kHz
+	m_AudioChannels = 1; // Default mono
+	m_AudioSamples = 1602; // There can be up to 1602 samples, can be changed on the fly
+	m_AudioTimecode = NDIlib_send_timecode_synthesize; // Timecode (synthesized for us !)
+	m_AudioData = NULL; // Audio buffer
+
 	if(!NDIlib_is_supported_CPU() ) {
 		MessageBoxA(NULL, "CPU does not support NDI\nNDILib requires SSE4.1", "NDIsender", MB_OK);
+		bNDIinitialized = false;
 	}
 	else {
 		bNDIinitialized = NDIlib_initialize();
@@ -71,7 +81,7 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 {
 
 	// Create an NDI source that is clocked to the video.
-	// unless async sendeing has been selected.
+	// unless async sending has been selected.
 	NDI_send_create_desc.p_ndi_name = (const char *)sendername;
 	NDI_send_create_desc.p_groups = NULL;
 	NDI_send_create_desc.clock_video = m_bClockVideo;
@@ -128,6 +138,17 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 		video_frame.timecode = NDIlib_send_timecode_synthesize; // 0LL; // Let the API fill in the timecodes for us.
 		video_frame.p_data = NULL;
 		video_frame.line_stride_in_bytes = width*4; // The stride of a line BGRA
+
+		if(bNDIaudio) {
+			// Create an audio buffer
+			audio_frame.sample_rate = m_AudioSampleRate;
+			audio_frame.no_channels = m_AudioChannels;
+			audio_frame.no_samples  = m_AudioSamples;
+			audio_frame.timecode    = m_AudioTimecode;
+			audio_frame.p_data      = m_AudioData;
+			// mono/stereo inter channel stride
+			audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(FLOAT);
+		}
 
 		return true;
 	}
@@ -229,6 +250,46 @@ bool ofxNDIsender::GetAsync()
 	return bAsync;
 }
 
+//
+// Audio
+//
+void ofxNDIsender::SetAudio(bool bAudio)
+{
+	bNDIaudio = bAudio;
+}
+
+void ofxNDIsender::SetAudioSampleRate(DWORD sampleRate)
+{
+	m_AudioSampleRate = sampleRate;
+	audio_frame.sample_rate = sampleRate;
+}
+
+void ofxNDIsender::SetAudioChannels(DWORD nChannels)
+{
+	m_AudioChannels = nChannels;
+	audio_frame.no_channels = nChannels;
+	audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(FLOAT);
+}
+
+void ofxNDIsender::SetAudioSamples(DWORD nSamples)
+{
+	m_AudioSamples = nSamples;
+	audio_frame.no_samples  = nSamples;
+	audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(FLOAT);
+}
+
+void ofxNDIsender::SetAudioTimecode(LONGLONG timecode)
+{
+	m_AudioTimecode = timecode;
+	audio_frame.timecode = timecode;
+}
+
+void ofxNDIsender::SetAudioData(FLOAT *data)
+{
+	m_AudioData = data;
+	audio_frame.p_data = data;
+}
+
 
 bool ofxNDIsender::SendImage(unsigned char * pixels, unsigned int width, unsigned int height,
 							 bool bSwapRB, bool bInvert)
@@ -259,6 +320,14 @@ bool ofxNDIsender::SendImage(unsigned char * pixels, unsigned int width, unsigne
 			// No bgra conversion or invert, so use the pointer directly
 			video_frame.p_data = (BYTE *)pixels;
 		}
+
+		// Submit the audio buffer first.
+		// Refer to the NDI SDK example where for 48000 sample rate
+		// and 29.97 fps, an alternating sample number is used.
+		// Do this in the application using SetAudioSamples(nSamples);
+		// General reference : http://jacklinstudios.com/docs/post-primer.html
+		if(bNDIaudio && audio_frame.p_data != NULL)
+			NDIlib_send_send_audio(pNDI_send, &audio_frame);
 
 		if(bAsync) {
 			// Submit the frame asynchronously. This means that this call will return immediately and the 
