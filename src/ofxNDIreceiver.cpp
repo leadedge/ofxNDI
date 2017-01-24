@@ -260,38 +260,44 @@ bool ofxNDIreceiver::GetSenderName(char *sendername, int userindex)
 
 bool ofxNDIreceiver::CreateReceiver(int userindex)
 {
-	if(!bNDIinitialized) return false;
+	// Default to BGRA if no format color format is specified
+	return CreateReceiver(NDIlib_recv_color_format_e_BGRX_BGRA,userindex);
+}
 
-	int index = userindex; 
+bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int userindex)
+{
+	if (!bNDIinitialized) return false;
 
-	if(!pNDI_recv) {
+	int index = userindex;
+
+	if (!pNDI_recv) {
 
 		// The continued check in FindSenders is for a network change and
 		// p_sources is returned NULL, so we need to find all the sources
 		// again to get a pointer to the selected sender.
 		// Give it a timeout in case of connection trouble.
-		if(pNDI_find) {
+		if (pNDI_find) {
 			dwStartTime = timeGetTime();
 			do {
 				p_sources = NDIlib_find_get_sources(pNDI_find, &no_sources, 0);
 				dwElapsedTime = timeGetTime() - dwStartTime;
-			} while(no_sources == 0 && dwElapsedTime < 4000); 
+			} while (no_sources == 0 && dwElapsedTime < 4000);
 		}
 		// TODO - reset sender name vector?
-		
-		if(p_sources && no_sources > 0) {
+
+		if (p_sources && no_sources > 0) {
 
 			// If no index has been specified, use the currently set index
-			if(userindex < 0) 
+			if (userindex < 0)
 				index = senderIndex;
 
 			// We tell it that we prefer BGRA
 			// TODO : does "prefer" mean we might get YUV as well ?
 			// NDIlib_recv_create_t NDI_recv_create_desc = { p_sources[senderIndex], FALSE };
 			// 16-06-16 - SDK change
-			NDIlib_recv_create_t NDI_recv_create_desc = { 
+			NDIlib_recv_create_t NDI_recv_create_desc = {
 				p_sources[index],
-				NDIlib_recv_color_format_BGRA_BGRA,
+				colorFormat,
 				NDIlib_recv_bandwidth_highest, // LJ DEBUG ? Allow fielded video
 				TRUE };
 
@@ -300,7 +306,7 @@ bool ofxNDIreceiver::CreateReceiver(int userindex)
 			if (!pNDI_recv) {
 				return false;
 			}
-			
+
 			// on_program = TRUE, on_preview = FALSE
 			const NDIlib_tally_t tally_state = { TRUE, FALSE };
 			NDIlib_recv_set_tally(pNDI_recv, &tally_state);

@@ -49,6 +49,7 @@ public:
     ~ofxNDIreceiver();
 
 	bool CreateReceiver(int index = -1);
+	bool CreateReceiver(NDIlib_recv_color_format_e colorFormat, int index = -1);
 	void ReleaseReceiver();
 	bool ReceiveImage(unsigned char *pixels, 
 					  unsigned int &width, unsigned int &height, 
@@ -69,7 +70,8 @@ public:
 private:
 
 	const NDIlib_source_t* p_sources;
-	DWORD no_sources;
+	//DWORD no_sources; 
+	uint32_t no_sources;
 	NDIlib_send_create_t NDI_send_create_desc;
 	NDIlib_find_instance_t pNDI_find;
 	NDIlib_recv_instance_t pNDI_recv; 

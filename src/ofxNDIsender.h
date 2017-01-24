@@ -46,6 +46,7 @@ public:
     ~ofxNDIsender();
 
 	bool CreateSender(const char *sendername, unsigned int width, unsigned int height);
+	bool CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat);
 	bool UpdateSender(unsigned int width, unsigned int height);
 	void ReleaseSender();
 
