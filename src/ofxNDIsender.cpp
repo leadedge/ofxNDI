@@ -76,10 +76,14 @@ ofxNDIsender::ofxNDIsender()
 	}
 }
 
-
 bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsigned int height)
 {
+	return CreateSender(sendername, width, height, NDIlib_FourCC_type_BGRA);
+}
 
+
+bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
+{
 	// Create an NDI source that is clocked to the video.
 	// unless async sending has been selected.
 	NDI_send_create_desc.p_ndi_name = (const char *)sendername;
@@ -129,11 +133,14 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 
 		video_frame.xres = width;
 		video_frame.yres = height;
-		video_frame.FourCC = NDIlib_FourCC_type_BGRA;
+		video_frame.FourCC = colorFormat;
 		video_frame.frame_rate_N = m_frame_rate_N; // clock the frame (default 60fps)
 		video_frame.frame_rate_D = m_frame_rate_D;
 		video_frame.picture_aspect_ratio = m_picture_aspect_ratio; // default source (width/height)
-		video_frame.is_progressive = m_bProgressive; // progressive of interlaced (default progressive)
+		// 24-1-17 SDK Change to NDI v2
+		//video_frame.is_progressive = m_bProgressive; // progressive of interlaced (default progressive)
+		if (m_bProgressive) video_frame.frame_format_type = NDIlib_frame_format_type_progressive;
+		else video_frame.frame_format_type = NDIlib_frame_format_type_interleaved;
 		// The timecode of this frame in 100ns intervals
 		video_frame.timecode = NDIlib_send_timecode_synthesize; // 0LL; // Let the API fill in the timecodes for us.
 		video_frame.p_data = NULL;
