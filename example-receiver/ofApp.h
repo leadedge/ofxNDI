@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016 Lynn Jarvis.
+	Copyright (C) 2016-2017 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -31,6 +31,17 @@
 #include "ofxNDI.h" // NDI classes
 
 #include "ofxNDIdialog.h" // for the sender dialog
+//
+// Also if you want to use the sender selection dialog,
+// include in your project from the ofxNDI addon source files :
+//     ofxNDIdialog.h
+//     ofxNDIdialog.cpp
+//     resource.h
+//     resource.rc 
+// If this conflicts with existing resources, you will need to include
+// the code for the dialog within your own resource files and change
+// identifiers as necessary.
+//
 
 class ofApp : public ofBaseApp {
 
@@ -39,7 +50,6 @@ class ofApp : public ofBaseApp {
 		void setup();
 		void update();
 		void draw();
-		void exit();
 
 		void keyPressed(int key);
 		void keyReleased(int key);

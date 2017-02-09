@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016 Lynn Jarvis.
+	Copyright (C) 2016-2017 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -29,6 +29,9 @@
 	=========================================================================
 
 	13.11.16 - sender example using a webcam
+	09.02.17 - Updated to ofxNDI with Version 2 NDI SDK
+			 - Added changes by Harvey Buchan to optionally
+			   specify RGBA with Version 2 NDI SDK
 
 */
 #include "ofApp.h"
@@ -70,7 +73,8 @@ void ofApp::setup(){
 	idx = 0; // index used for buffer swapping
 
 	// Create a new sender
-	ndiSender.CreateSender(senderName, camWidth, camHeight);
+	// Specify RGBA format here otherwise the default is BGRA
+	ndiSender.CreateSender(senderName, camWidth, camHeight, NDIlib_FourCC_type_RGBA);
 	cout << "Created NDI sender [" << senderName << "] (" << camWidth << "x" << camHeight << ")" << endl;
 
 }
@@ -98,8 +102,10 @@ void ofApp::draw() {
 
 	vidGrabber.draw(0, 0, ofGetWidth(), ofGetHeight());
 
-	// Send the rgba pixel buffer to NDI and convert to bgra
-	if (ndiSender.SendImage(ndiBuffer[idx].getPixels(), camWidth, camHeight, true)) {
+	// Send the rgba pixel buffer to NDI
+	// If you did not set the sender pixel format to rgba in CreateSender
+	// you can convert to bgra within SendImage (specify true for bSwapRB)
+	if (ndiSender.SendImage(ndiBuffer[idx].getPixels(), camWidth, camHeight)) {
         // Show the sender name and fps
 		char str[256];
         sprintf(str, "Sending as : [%s] (%dx%d)", senderName, camWidth, camHeight);

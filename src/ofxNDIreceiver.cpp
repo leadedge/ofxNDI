@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016 Lynn Jarvis.
+	Copyright (C) 2016-2017 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -41,9 +41,21 @@
 				 . do not change the current user selected index
 			   Changed GetSenderName to use an optional sender index
 	07.11.16 - Added CPU support check
+	09.02.17 - include changes by Harvey Buchan for NDI SDK version 2
+			 - Added Metadata
+			 - Added option to specify low bandwidth NDI receiving mode
+			 - Removed bSwapRB option from ReceiveImage - now done internally
+			 - Replacement function for deprecated NDIlib_find_get_sources
 
 */
 #include "ofxNDIreceiver.h"
+
+// Version 2
+static std::atomic<bool> exit_loop(false);
+static void sigint_handler(int)
+{	
+	exit_loop = true;
+}
 
 
 ofxNDIreceiver::ofxNDIreceiver()
@@ -58,6 +70,7 @@ ofxNDIreceiver::ofxNDIreceiver()
 	m_Width = 0;
 	m_Height = 0;
 	senderIndex = 0;
+	m_bandWidth = NDIlib_recv_bandwidth_highest;
 
 	if(!NDIlib_is_supported_CPU() ) {
 		MessageBoxA(NULL, "CPU does not support NDI\nNDILib requires SSE4.1", "NDIreceiver", MB_OK);
@@ -66,6 +79,11 @@ ofxNDIreceiver::ofxNDIreceiver()
 		bNDIinitialized = NDIlib_initialize();
 		if(!bNDIinitialized) {
 			MessageBoxA(NULL, "Cannot run NDI\nNDILib initialization failed", "NDIreceiver", MB_OK);
+		}
+		else {
+			// Version 2
+			// Catch interrupt so that we can shut down gracefully
+			signal(SIGINT, sigint_handler);
 		}
 	}
 
@@ -87,8 +105,10 @@ void ofxNDIreceiver::CreateFinder()
 	if(!bNDIinitialized) return;
 
 	if(pNDI_find) NDIlib_find_destroy(pNDI_find);
-	const NDIlib_find_create_t NDI_find_create_desc = { TRUE, NULL };
-	pNDI_find = NDIlib_find_create(&NDI_find_create_desc);
+	// const NDIlib_find_create_t NDI_find_create_desc = { TRUE, NULL };
+	const NDIlib_find_create_t NDI_find_create_desc = { TRUE, NULL, NULL }; // Version 2
+	// pNDI_find = NDIlib_find_create(&NDI_find_create_desc);
+	pNDI_find = NDIlib_find_create2(&NDI_find_create_desc);
 	p_sources = NULL;
 	no_sources = 0;
 	nsenders = 0;
@@ -108,27 +128,60 @@ void ofxNDIreceiver::ReleaseFinder()
 
 }
 
+//
+// Version 2
+//
+// Replacement for deprecated NDIlib_find_get_sources
+//
+const NDIlib_source_t* ofxNDIreceiver::FindGetSources(NDIlib_find_instance_t p_instance, 
+													  uint32_t* p_no_sources,
+													  uint32_t timeout_in_ms)
+{
+	if(!p_instance)
+		return NULL;
+
+	// If no timeout specified, return the sources that exist right now
+	// For a tiemout, wait for that timeout and return the sources that exist then
+	// If that fails, return NULL
+	if ((!timeout_in_ms) || (NDIlib_find_wait_for_sources(p_instance, timeout_in_ms))) {
+		// Recover the current set of sources (i.e. the ones that exist right this second)
+		return NDIlib_find_get_current_sources(p_instance, p_no_sources);
+	}
+
+	return NULL;
+}
+
 
 int ofxNDIreceiver::FindSenders()
 {
 	std::string name;
 
-	if(!bNDIinitialized) return 0;
+	if(!bNDIinitialized) {
+		printf("NDI not initialized\n");
+		return 0;
+	}
 
 	// If a finder was created, use it to find senders on the network
 	if(pNDI_find) {
+		//
+		// This may be called for every frame so has to be fast.
+		//
 		// Specify a delay so that p_sources is returned only for a network change.
 		// If there was no network change, p_sources is NULL and no_sources = 0 
 		// and can't be used for other functions so the sender names as well as 
 		// the sender count need to be saved locally.
-		p_sources = NDIlib_find_get_sources(pNDI_find, &no_sources, 1);
+		// Version 2
+		// p_sources = NDIlib_find_get_sources(pNDI_find, &no_sources, 1);
+		p_sources = FindGetSources(pNDI_find, &no_sources, 1);
 		if(p_sources && no_sources > 0) {
+			printf("no_sources = %d\n", no_sources);
 			NDIsenders.clear();
 			nsenders = 0;
 			if(p_sources && no_sources > 0) {
 				for(int i = 0; i < (int)no_sources; i++) {
 					// The sender name should be valid in the list but check anyway to avoid a crash
 					if(p_sources[i].p_ndi_name && p_sources[i].p_ndi_name[0]) {
+						printf("Sender %d [%s]\n", i, p_sources[i].p_ndi_name);
 						name = p_sources[i].p_ndi_name;
 						NDIsenders.push_back(name);
 						nsenders++;
@@ -146,14 +199,12 @@ int ofxNDIreceiver::FindSenders()
 
 
 // Refresh sender list with the current network snapshot
-int ofxNDIreceiver::RefreshSenders(DWORD dwTimeout)
+// int ofxNDIreceiver::RefreshSenders(DWORD dwTimeout)
+int ofxNDIreceiver::RefreshSenders(uint32_t timeout)
 {
 	std::string name;
 
 	if(!bNDIinitialized) return 0;
-
-	dwStartTime = timeGetTime();
-	dwElapsedTime = 0;
 
 	// Release the current finder
 	if(pNDI_find) ReleaseFinder();
@@ -165,11 +216,17 @@ int ofxNDIreceiver::RefreshSenders(DWORD dwTimeout)
 		// Clear the current local list
 		NDIsenders.clear();
 		nsenders = 0;
+
+		// Version 2 ?? test
+		// p_sources = FindGetSources(pNDI_find, &no_sources, timeout);
+
 		dwStartTime = timeGetTime();
+		dwElapsedTime = 0;
 		do {
-			p_sources = NDIlib_find_get_sources(pNDI_find, &no_sources, 0);
+			p_sources = NDIlib_find_get_current_sources(pNDI_find, &no_sources);
 			dwElapsedTime = timeGetTime() - dwStartTime;
-		} while(no_sources == 0 && dwElapsedTime < dwTimeout); 
+		} while(no_sources == 0 && (uint32_t)dwElapsedTime < timeout);
+
 
 		if(p_sources && no_sources > 0) {
 			NDIsenders.clear();
@@ -256,51 +313,105 @@ bool ofxNDIreceiver::GetSenderName(char *sendername, int userindex)
 	return false;
 }
 
+//
+// TODO : not working
+//
+// Bandwidth
+//
+// NDIlib_recv_bandwidth_lowest will provide a medium quality stream that takes almost no bandwidth,
+// this is normally of about 640 pixels in size on it is longest side and is a progressive video stream.
+// NDIlib_recv_bandwidth_highest will result in the same stream that is being sent from the up-stream source
+//
+void ofxNDIreceiver::SetLowBandwidth(bool bLow)
+{
+	if(bLow) {
+		// printf("Set low bandwidth\n");
+		m_bandWidth = NDIlib_recv_bandwidth_lowest; // Low bandwidth receive option
+	}
+	else {
+		// printf("Set High bandwidth\n");
+		m_bandWidth = NDIlib_recv_bandwidth_highest;
+	}
 
 
+}
+
+
+//
+// Metadata
+//
+bool ofxNDIreceiver::IsMetadata()
+{
+	return m_bMetadata;
+}
+
+std::string ofxNDIreceiver::GetMetadataString()
+{
+	return m_metadataString;
+}
+
+
+// HB for RGBA
 bool ofxNDIreceiver::CreateReceiver(int userindex)
 {
-	if(!bNDIinitialized) return false;
+	// Default to BGRA if no format color format is specified
+	return CreateReceiver(NDIlib_recv_color_format_e_BGRX_BGRA,userindex);
+}
 
-	int index = userindex; 
+bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int userindex)
+{
+	if (!bNDIinitialized) return false;
 
-	if(!pNDI_recv) {
+	int index = userindex;
+
+	if (!pNDI_recv) {
 
 		// The continued check in FindSenders is for a network change and
 		// p_sources is returned NULL, so we need to find all the sources
 		// again to get a pointer to the selected sender.
 		// Give it a timeout in case of connection trouble.
-		if(pNDI_find) {
+
+		// Does not work
+		// p_sources = FindGetSources(pNDI_find, &no_sources, 4000);
+		// Does not work
+		// if(NDIlib_find_wait_for_sources(pNDI_find, 4000))
+			// p_sources = NDIlib_find_get_current_sources(pNDI_find, &no_sources);
+
+		if (pNDI_find) {
 			dwStartTime = timeGetTime();
 			do {
-				p_sources = NDIlib_find_get_sources(pNDI_find, &no_sources, 0);
+				// p_sources = NDIlib_find_get_sources(pNDI_find, &no_sources, 0);
+				p_sources = NDIlib_find_get_current_sources(pNDI_find, &no_sources);
 				dwElapsedTime = timeGetTime() - dwStartTime;
-			} while(no_sources == 0 && dwElapsedTime < 4000); 
+			} while (no_sources == 0 && dwElapsedTime < 4000);
 		}
+
 		// TODO - reset sender name vector?
-		
-		if(p_sources && no_sources > 0) {
+
+		if (p_sources && no_sources > 0) {
 
 			// If no index has been specified, use the currently set index
-			if(userindex < 0) 
+			if (userindex < 0)
 				index = senderIndex;
 
 			// We tell it that we prefer BGRA
 			// TODO : does "prefer" mean we might get YUV as well ?
 			// NDIlib_recv_create_t NDI_recv_create_desc = { p_sources[senderIndex], FALSE };
 			// 16-06-16 - SDK change
-			NDIlib_recv_create_t NDI_recv_create_desc = { 
+			NDIlib_recv_create_t NDI_recv_create_desc = {
 				p_sources[index],
-				NDIlib_recv_color_format_BGRA_BGRA,
-				NDIlib_recv_bandwidth_highest, // LJ DEBUG ? Allow fielded video
+				colorFormat,
+				m_bandWidth, // Changed by SetLowBandwidth, default NDIlib_recv_bandwidth_highest
 				TRUE };
 
 			// Create the receiver
-			pNDI_recv = NDIlib_recv_create(&NDI_recv_create_desc);
+			// Deprecated version sets bandwidth to highest and allow fields to true.
+			// pNDI_recv = NDIlib_recv_create(&NDI_recv_create_desc);
+			pNDI_recv = NDIlib_recv_create2(&NDI_recv_create_desc);
 			if (!pNDI_recv) {
 				return false;
 			}
-			
+
 			// on_program = TRUE, on_preview = FALSE
 			const NDIlib_tally_t tally_state = { TRUE, FALSE };
 			NDIlib_recv_set_tally(pNDI_recv, &tally_state);
@@ -331,17 +442,31 @@ void ofxNDIreceiver::ReleaseReceiver()
 
 bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels, 
 								  unsigned int &width, unsigned int &height, 
-								  bool bSwapRB, bool bInvert)
+								  bool bInvert)
 {
 	NDIlib_frame_type_e NDI_frame_type;
+	NDIlib_metadata_frame_t metadata_frame;
 
 	if(pNDI_recv) {
 
-		NDI_frame_type = NDIlib_recv_capture(pNDI_recv, &video_frame, NULL, NULL, 0); // 16);
+		// NDI_frame_type = NDIlib_recv_capture(pNDI_recv, &video_frame, NULL, NULL, 0); // 16);
+		NDI_frame_type = NDIlib_recv_capture(pNDI_recv, &video_frame, NULL, &metadata_frame, 0); 
 
 		// Is the connection lost or no data received ?
 		if(NDI_frame_type == NDIlib_frame_type_error || NDI_frame_type == NDIlib_frame_type_none) {
 			return false;
+		}
+
+		// Metadata
+		if(NDI_frame_type == NDIlib_frame_type_metadata) {
+			// printf("ofxNDIreceiver::ReceiveImage - Received Metadata\n%s\n", metadata_frame.p_data);
+			m_bMetadata = true;
+			m_metadataString = metadata_frame.p_data;
+		}
+		else {
+			// printf("ofxNDIreceiver::ReceiveImage - No metadata\n");
+			m_bMetadata = false;
+			m_metadataString.empty();
 		}
 
 		if(video_frame.p_data && NDI_frame_type == NDIlib_frame_type_video)	{
@@ -358,11 +483,38 @@ bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels,
 			// Otherwise sizes are current - copy the received frame data to the local buffer
 			if(video_frame.p_data && pixels) {
 
+				/*
 				// Preferred type is bgra, so YUV may never be received anyway
 				if(video_frame.FourCC == NDIlib_FourCC_type_UYVY)
 					ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
 				else
 					ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, bSwapRB, bInvert);
+				*/
+				// Preferred type is bgra
+				switch(video_frame.FourCC) {
+
+					// NDIlib_FourCC_type_UYVA not supported
+					// Alpha copied as received
+
+					case NDIlib_FourCC_type_UYVY: // YCbCr color space
+						ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
+						break;
+
+					case NDIlib_FourCC_type_RGBA: // RGBA
+					case NDIlib_FourCC_type_RGBX: // RGBX
+						// printf("RGBA\n");
+						ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, false, bInvert);
+						break;
+
+					case NDIlib_FourCC_type_BGRA: // BGRA
+					case NDIlib_FourCC_type_BGRX: // BGRX
+					default: // BGRA
+						// printf("BGRA\n");
+						ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, true, bInvert);
+						break;
+
+				} // end switch received format
+
 				
 				// Buffers captured must be freed
 				NDIlib_recv_free_video(pNDI_recv, &video_frame);

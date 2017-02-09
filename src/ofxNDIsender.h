@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016 Lynn Jarvis.
+	Copyright (C) 2016-2017 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -25,6 +25,9 @@
 	=========================================================================
 
 	16.10.16 - common buffer copy utilities
+	09.02.17 - Changes for NDI SDK Version 2
+			 - include changes by Harvey Buchan
+			 - include metadata
 
 */
 #pragma once
@@ -33,10 +36,17 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include <string>
 #include <intrin.h> // for _movsd
 #include <emmintrin.h> // for SSE2
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
+
+// Version 2 NDI
+#include <csignal>
+#include <cstddef>
+#include <cstdio>
+#include <atomic>
 
 class ofxNDIsender {
 
@@ -46,6 +56,7 @@ public:
     ~ofxNDIsender();
 
 	bool CreateSender(const char *sendername, unsigned int width, unsigned int height);
+	bool CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat);
 	bool UpdateSender(unsigned int width, unsigned int height);
 	void ReleaseSender();
 
@@ -75,6 +86,10 @@ public:
 	void SetAudioTimecode(LONGLONG timecode = NDIlib_send_timecode_synthesize); // The timecode of this frame in 100ns intervals or synthesised
 	void SetAudioData(FLOAT *data = NULL); // Audio data
 
+	// Metadata
+	void SetMetadata(bool bMetadata = true);
+	void SetMetadataString(std::string datastring);
+
 private :
 
 	NDIlib_send_create_t NDI_send_create_desc;
@@ -86,8 +101,8 @@ private :
 	DWORD m_horizontal_aspect; // Aspect horizontal ratio
 	DWORD m_vertical_aspect; // Aspect vertical ratio
 	float m_picture_aspect_ratio; // Aspect ratio
-	BOOL m_bProgressive; // Progressive output flag
-	BOOL m_bClockVideo; // Clock video flag
+	bool m_bProgressive; // Progressive output flag
+	bool m_bClockVideo; // Clock video flag
 	bool bAsync; // NDI asynchronous sender
 	bool bNDIinitialized; // NDI initialized
 

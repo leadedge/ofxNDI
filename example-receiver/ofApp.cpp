@@ -7,7 +7,7 @@
 
 	http://NDI.NewTek.com
 	
-	Copyright (C) 2016 Lynn Jarvis.
+	Copyright (C) 2016-2017 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -35,8 +35,11 @@
 	03.11.16 - Receive into image pixels directly
 			 - Add a sender selection dialog
 	05.11.16 - Note - dialog is Windows only
-			   the ofxNDIdialog class is used separately
+			   the ofxNDIdialog class is used separately by the application
 			   and can be omitted along with resources
+	09.02.17 - Updated to ofxNDI with Version 2 NDI SDK
+			 - Added changes by Harvey Buchan to optionally
+			   specify preferred pixel format in CreateReceiver
 
 */
 #include "ofApp.h"
@@ -99,15 +102,24 @@ void ofApp::draw() {
 		// We don't know the sender dimensions until a frame is received.
 		if(!bNDIreceiver) {
 
-			bNDIreceiver = ndiReceiver.CreateReceiver();
+			// The receiver will detect which format a sender is using and convert
+			// the pixel buffer to BGRA for return. However, we can specify here
+			// that RGBA is the preferred format.
+			bNDIreceiver = ndiReceiver.CreateReceiver(NDIlib_recv_color_format_e_RGBX_RGBA);
+			// bNDIreceiver = ndiReceiver.CreateReceiver(); // default is BRRA
+			
 			//
-			// A sender is created from an index into a list of sender names.
+			// A receiver is created from an index into a list of sender names.
 			// The current user selected index is saved in the NDIreceiver class
 			// and is used to create the receiver unless you specify a particular index.
-			// The name of the sender can be retrieved if you need it.
-			// If you specified a particular sender index, use that index to retrieve it's name.
+			//
+			// The name of the sender can also be retrieved if you need it.
+			// If you specified a particular sender index to create the receiver
+			// use that index to retrieve it's name.
+			//
 			// In this application we use it to display the sender name.
 			//
+
 			ndiReceiver.GetSenderName(senderName);
 			if(bNDIreceiver)
 				cout << "Created NDI receiver for " << senderName << endl;
@@ -122,9 +134,10 @@ void ofApp::draw() {
 	// Receive an image from the NDI sender
 	if(bNDIreceiver) {
 
-		// NDI uses BGRA format, so the received buffer is converted to rgba by ReceiveImage.
+		// If the NDI sender uses BGRA format, the received buffer is converted to rgba by ReceiveImage.
 		// Optionally you can flip the image if necessary.
-		if(ndiReceiver.ReceiveImage(ndiImage.getPixels(), width, height, true)) {  // receive as bgra
+		
+		if(ndiReceiver.ReceiveImage(ndiImage.getPixels(), width, height, false)) {  // receives as rgba
 
 			ndiImage.update();
 
@@ -165,7 +178,7 @@ void ofApp::draw() {
 		// Show fps etc.
 		if(nSenders > 0) {
 			if(bNDIreceiver) {
-				sprintf_s(str, 256, "Receiving from : [%s] (%dx%d) - fps %2.0f", senderName, senderWidth, senderHeight, fps);
+				sprintf_s(str, 256, "[%s] (%dx%d) - fps %2.0f", senderName, senderWidth, senderHeight, fps);
 				ofDrawBitmapString(str, 20, 30);
 			}
 
@@ -212,12 +225,6 @@ void ofApp::keyPressed(int key) {
 		// "SenderSelected" will then return true in Draw() to update the receiver
 		ndiReceiver.SetSenderIndex(index);
 	}
-}
-
-
-//--------------------------------------------------------------
-void ofApp::exit() {
-
 }
 
 //--------------------------------------------------------------

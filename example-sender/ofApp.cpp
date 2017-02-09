@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016 Lynn Jarvis.
+	Copyright (C) 2016-2017 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -33,6 +33,9 @@
 			 - initialize pixel buffers
 			 - BGRA conversion by OpenGL during glReadPixels
 	07.11.16 - Included PBO for data read
+	09.02.17 - Updated to ofxNDI with Version 2 NDI SDK
+			 - Added changes by Harvey Buchan to optionally
+			   specify RGBA with Version 2 NDI SDK
 
 
 */
@@ -63,7 +66,9 @@ void ofApp::setup(){
 	ndiSender.SetAsync(false); // change to true for async
 
 	// Create a new sender
-	ndiSender.CreateSender(senderName, senderWidth, senderHeight);
+
+	// Specify RGBA format here
+	ndiSender.CreateSender(senderName, senderWidth, senderHeight, NDIlib_FourCC_type_RGBA);
 	cout << "Created NDI sender [" << senderName << "] (" << senderWidth << "x" << senderHeight << ")" << endl;
 	idx = 0; // index used for buffer swapping
 
@@ -127,8 +132,6 @@ void ofApp::draw() {
 		idx = (idx + 1) % 2;
 
 	// Extract pixels from the fbo.
-	// NDI uses BGRA format for the video frame buffer.
-	// Read fbo into the ofPixels buffer as BGRA using OpenGL
 	if(bUsePBO) {
 		// Read fbo using two pbos
 		ReadFboPixels(ndiFbo, senderWidth, senderHeight, ndiBuffer[idx].getPixels());
@@ -136,11 +139,13 @@ void ofApp::draw() {
 	else {
 		// Read fbo directly
 		ndiFbo.bind();
-		glReadPixels(0, 0, senderWidth, senderHeight, GL_BGRA_EXT, GL_UNSIGNED_BYTE, ndiBuffer[idx].getPixels());
+		glReadPixels(0, 0, senderWidth, senderHeight, GL_RGBA, GL_UNSIGNED_BYTE, ndiBuffer[idx].getPixels());
 		ndiFbo.unbind();
 	}
 
-	// Send the ofPixels buffer to NDI
+	// Send the RGBA ofPixels buffer to NDI
+	// If you did not set the sender pixel format to RGBA in CreateSender
+	// you can convert to bgra within SendImage (specify true for bSwapRB)
 	if (ndiSender.SendImage(ndiBuffer[idx].getPixels(), senderWidth, senderHeight)) {
 		// Show what it is sending
 		char str[256];
@@ -175,7 +180,9 @@ bool ofApp::ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, un
 	glBindBuffer (GL_PIXEL_PACK_BUFFER, ndiPbo[PboIndex]);
 
 	// Read pixels from framebuffer to the current PBO - glReadPixels() should return immediately.
-	glReadPixels(0, 0, width, height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, (GLvoid *)0);
+	//glReadPixels(0, 0, width, height, GL_BGRA_EXT GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
+	// Send RGBA
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
 
 	// Map the previous PBO to process its data by CPU
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, ndiPbo[NextPboIndex]);
