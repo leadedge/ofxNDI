@@ -37,7 +37,10 @@
 	13.11.16	- Do not clock the video for async sending
 	15.11.16	- add audio support
 	09.02.17	- include changes by Harvey Buchan for NDI SDK version 2
+				  (RGBA sender option)
 				- Added Metadata
+	17.02.17	- Added MetaData functions
+				- Added GetNDIversion - NDIlib_version
 
 */
 #include "ofxNDIsender.h"
@@ -312,6 +315,25 @@ void ofxNDIsender::SetAudioData(FLOAT *data)
 	audio_frame.p_data = data;
 }
 
+//
+// Metadata
+//
+void ofxNDIsender::SetMetadata(bool bMetadata)
+{
+	m_bMetadata = bMetadata;
+}
+
+void ofxNDIsender::SetMetadataString(std::string datastring)
+{
+	m_metadataString = datastring;
+}
+
+
+// Get NDI dll version number
+std::string ofxNDIsender::GetNDIversion()
+{
+	return NDIlib_version();
+}
 
 bool ofxNDIsender::SendImage(unsigned char * pixels, unsigned int width, unsigned int height,
 							 bool bSwapRB, bool bInvert)
@@ -350,6 +372,15 @@ bool ofxNDIsender::SendImage(unsigned char * pixels, unsigned int width, unsigne
 		// General reference : http://jacklinstudios.com/docs/post-primer.html
 		if(bNDIaudio && audio_frame.p_data != NULL)
 			NDIlib_send_send_audio(pNDI_send, &audio_frame);
+
+		// Metadata
+		if(m_bMetadata && !m_metadataString.empty()) {
+			metadata_frame.length = (DWORD)m_metadataString.size();
+			metadata_frame.timecode = NDIlib_send_timecode_synthesize;
+			metadata_frame.p_data = (CHAR *)m_metadataString.c_str(); // XML message format
+			NDIlib_send_send_metadata(pNDI_send, &metadata_frame);
+			// printf("Metadata\n%s\n", m_metadataString.c_str());
+		}
 
 		if(bAsync) {
 			// Submit the frame asynchronously. This means that this call will return immediately and the 

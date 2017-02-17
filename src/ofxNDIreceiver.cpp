@@ -46,6 +46,7 @@
 			 - Added option to specify low bandwidth NDI receiving mode
 			 - Removed bSwapRB option from ReceiveImage - now done internally
 			 - Replacement function for deprecated NDIlib_find_get_sources
+	17.02.17 - Added GetNDIversion - NDIlib_version
 
 */
 #include "ofxNDIreceiver.h"
@@ -97,6 +98,16 @@ ofxNDIreceiver::~ofxNDIreceiver()
 	if(bNDIinitialized)	NDIlib_destroy();
 	
 }
+
+
+// Get NDI dll version number
+std::string ofxNDIreceiver::GetNDIversion()
+{
+	return NDIlib_version();
+}
+
+
+
 
 
 // Create a finder to look for a sources on the network
@@ -174,14 +185,14 @@ int ofxNDIreceiver::FindSenders()
 		// p_sources = NDIlib_find_get_sources(pNDI_find, &no_sources, 1);
 		p_sources = FindGetSources(pNDI_find, &no_sources, 1);
 		if(p_sources && no_sources > 0) {
-			printf("no_sources = %d\n", no_sources);
+			// printf("no_sources = %d\n", no_sources);
 			NDIsenders.clear();
 			nsenders = 0;
 			if(p_sources && no_sources > 0) {
 				for(int i = 0; i < (int)no_sources; i++) {
 					// The sender name should be valid in the list but check anyway to avoid a crash
 					if(p_sources[i].p_ndi_name && p_sources[i].p_ndi_name[0]) {
-						printf("Sender %d [%s]\n", i, p_sources[i].p_ndi_name);
+						// printf("Sender %d [%s]\n", i, p_sources[i].p_ndi_name);
 						name = p_sources[i].p_ndi_name;
 						NDIsenders.push_back(name);
 						nsenders++;
@@ -355,7 +366,7 @@ std::string ofxNDIreceiver::GetMetadataString()
 bool ofxNDIreceiver::CreateReceiver(int userindex)
 {
 	// Default to BGRA if no format color format is specified
-	return CreateReceiver(NDIlib_recv_color_format_e_BGRX_BGRA,userindex);
+	return CreateReceiver(NDIlib_recv_color_format_e_BGRX_BGRA, userindex);
 }
 
 bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int userindex)

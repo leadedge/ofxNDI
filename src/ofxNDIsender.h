@@ -28,6 +28,7 @@
 	09.02.17 - Changes for NDI SDK Version 2
 			 - include changes by Harvey Buchan
 			 - include metadata
+	17.02.17 - GetNDIversion - NDIlib_version
 
 */
 #pragma once
@@ -90,6 +91,9 @@ public:
 	void SetMetadata(bool bMetadata = true);
 	void SetMetadataString(std::string datastring);
 
+	// Utility
+	std::string GetNDIversion();
+
 private :
 
 	NDIlib_send_create_t NDI_send_create_desc;
@@ -114,6 +118,12 @@ private :
 	DWORD m_AudioSamples;
 	LONGLONG m_AudioTimecode;
 	FLOAT *m_AudioData;
+
+	// Metadata
+	bool m_bMetadata;
+	NDIlib_metadata_frame_t metadata_frame; // The frame that will be sent
+	std::string m_metadataString; // XML message format string NULL terminated - application provided
+
 
 };
 

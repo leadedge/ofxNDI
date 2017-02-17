@@ -52,8 +52,8 @@ void ofApp::setup(){
 
 	// Set the dimensions of the sender output here
 	// This is independent of the size of the display window
-   senderWidth  = 1920; // HD - PBO 150fps / 120fps Async/Sync unclocked
-   senderHeight = 1080; //      FBO  80fps /  75fps Async/Sync unclocked
+	senderWidth  = 1920; // HD - PBO 150fps / 120fps Async/Sync unclocked
+	senderHeight = 1080; //      FBO  80fps /  75fps Async/Sync unclocked
 
 	// Create an fbo for collection of data
 	ndiFbo.allocate(senderWidth, senderHeight, GL_RGBA);

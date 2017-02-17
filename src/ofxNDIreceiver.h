@@ -33,6 +33,7 @@
 			 - include changes by Harvey Buchan
 				CreateReceiver - include colour format option
 			 - SetLowBandWidth, Metadata
+	17.02.17 - GetNDIversion - NDIlib_version
 
 
 */
@@ -90,6 +91,9 @@ public:
 	// Metadata
 	bool IsMetadata();
 	std::string GetMetadataString();
+
+	// Utility
+	std::string GetNDIversion();
 
 private:
 
