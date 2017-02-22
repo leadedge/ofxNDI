@@ -41,6 +41,7 @@
 				- Added Metadata
 	17.02.17	- Added MetaData functions
 				- Added GetNDIversion - NDIlib_version
+	22.02.17	- corrected DWORD cast to int in NDI_connection_type
 
 */
 #include "ofxNDIsender.h"
@@ -136,7 +137,7 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 		
 		const NDIlib_metadata_frame_t NDI_connection_type = {
 			// The length
-			(DWORD)::strlen(p_connection_string),
+			(int)::strlen(p_connection_string),
 			// Timecode (synthesized for us !)
 			NDIlib_send_timecode_synthesize,
 			// The string
