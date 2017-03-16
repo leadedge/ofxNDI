@@ -34,6 +34,7 @@
 #include <windows.h>
 #include <intrin.h> // for _movsd
 #include <emmintrin.h> // for SSE2
+#include <stdio.h> // for print debugging
 
 namespace ofxNDIutils {
 

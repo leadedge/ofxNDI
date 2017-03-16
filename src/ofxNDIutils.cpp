@@ -25,6 +25,7 @@
 	=========================================================================
 
 	16.10.16 - Create file
+	16.03.17 - corrected CopyImage __movsd to pass the number of double words
 
 */
 #include "ofxNDIutils.h"
@@ -200,7 +201,7 @@ namespace ofxNDIutils {
 				memcpy_sse2((void *)dest, (void *)source, height*stride);
 			}
 			else if((stride % 4) == 0) { // 4 byte aligned
-				__movsd((unsigned long *)dest, (unsigned long const *)source, height*stride);
+				__movsd((unsigned long *)dest, (unsigned long const *)source, height*stride/4);
 			}
 			else {
 				memcpy((void *)dest, (void *)source, height*stride);
