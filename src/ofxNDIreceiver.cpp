@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2017 Lynn Jarvis.
+	Copyright (C) 2016-2018 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -47,16 +47,13 @@
 			 - Removed bSwapRB option from ReceiveImage - now done internally
 			 - Replacement function for deprecated NDIlib_find_get_sources
 	17.02.17 - Added GetNDIversion - NDIlib_version
+	22.02.17 - cleanup
+	31.03.18 - Update to NDI SDK Version 3 - search on "Vers 3"
+	           - change functions to _v2
+			   - change variable types
 
 */
 #include "ofxNDIreceiver.h"
-
-// Version 2
-static std::atomic<bool> exit_loop(false);
-static void sigint_handler(int)
-{	
-	exit_loop = true;
-}
 
 
 ofxNDIreceiver::ofxNDIreceiver()
@@ -81,11 +78,7 @@ ofxNDIreceiver::ofxNDIreceiver()
 		if(!bNDIinitialized) {
 			MessageBoxA(NULL, "Cannot run NDI\nNDILib initialization failed", "NDIreceiver", MB_OK);
 		}
-		else {
-			// Version 2
-			// Catch interrupt so that we can shut down gracefully
-			signal(SIGINT, sigint_handler);
-		}
+
 	}
 
 }
@@ -116,10 +109,10 @@ void ofxNDIreceiver::CreateFinder()
 	if(!bNDIinitialized) return;
 
 	if(pNDI_find) NDIlib_find_destroy(pNDI_find);
-	// const NDIlib_find_create_t NDI_find_create_desc = { TRUE, NULL };
 	const NDIlib_find_create_t NDI_find_create_desc = { TRUE, NULL, NULL }; // Version 2
-	// pNDI_find = NDIlib_find_create(&NDI_find_create_desc);
-	pNDI_find = NDIlib_find_create2(&NDI_find_create_desc);
+	// pNDI_find = NDIlib_find_create2(&NDI_find_create_desc);
+	// Vers 3
+	pNDI_find = NDIlib_find_create_v2(&NDI_find_create_desc);
 	p_sources = NULL;
 	no_sources = 0;
 	nsenders = 0;
@@ -228,9 +221,6 @@ int ofxNDIreceiver::RefreshSenders(uint32_t timeout)
 		NDIsenders.clear();
 		nsenders = 0;
 
-		// Version 2 ?? test
-		// p_sources = FindGetSources(pNDI_find, &no_sources, timeout);
-
 		dwStartTime = timeGetTime();
 		dwElapsedTime = 0;
 		do {
@@ -325,8 +315,6 @@ bool ofxNDIreceiver::GetSenderName(char *sendername, int userindex)
 }
 
 //
-// TODO : not working
-//
 // Bandwidth
 //
 // NDIlib_recv_bandwidth_lowest will provide a medium quality stream that takes almost no bandwidth,
@@ -336,14 +324,11 @@ bool ofxNDIreceiver::GetSenderName(char *sendername, int userindex)
 void ofxNDIreceiver::SetLowBandwidth(bool bLow)
 {
 	if(bLow) {
-		// printf("Set low bandwidth\n");
 		m_bandWidth = NDIlib_recv_bandwidth_lowest; // Low bandwidth receive option
 	}
 	else {
-		// printf("Set High bandwidth\n");
 		m_bandWidth = NDIlib_recv_bandwidth_highest;
 	}
-
 
 }
 
@@ -382,16 +367,9 @@ bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int
 		// again to get a pointer to the selected sender.
 		// Give it a timeout in case of connection trouble.
 
-		// Does not work
-		// p_sources = FindGetSources(pNDI_find, &no_sources, 4000);
-		// Does not work
-		// if(NDIlib_find_wait_for_sources(pNDI_find, 4000))
-			// p_sources = NDIlib_find_get_current_sources(pNDI_find, &no_sources);
-
 		if (pNDI_find) {
 			dwStartTime = timeGetTime();
 			do {
-				// p_sources = NDIlib_find_get_sources(pNDI_find, &no_sources, 0);
 				p_sources = NDIlib_find_get_current_sources(pNDI_find, &no_sources);
 				dwElapsedTime = timeGetTime() - dwStartTime;
 			} while (no_sources == 0 && dwElapsedTime < 4000);
@@ -405,10 +383,7 @@ bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int
 			if (userindex < 0)
 				index = senderIndex;
 
-			// We tell it that we prefer BGRA
-			// TODO : does "prefer" mean we might get YUV as well ?
-			// NDIlib_recv_create_t NDI_recv_create_desc = { p_sources[senderIndex], FALSE };
-			// 16-06-16 - SDK change
+			// We tell it that we prefer the passed format
 			NDIlib_recv_create_t NDI_recv_create_desc = {
 				p_sources[index],
 				colorFormat,
@@ -417,8 +392,9 @@ bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int
 
 			// Create the receiver
 			// Deprecated version sets bandwidth to highest and allow fields to true.
-			// pNDI_recv = NDIlib_recv_create(&NDI_recv_create_desc);
-			pNDI_recv = NDIlib_recv_create2(&NDI_recv_create_desc);
+			// pNDI_recv = NDIlib_recv_create2(&NDI_recv_create_desc);
+			// Vers 3
+			pNDI_recv = NDIlib_recv_create_v2(&NDI_recv_create_desc);
 			if (!pNDI_recv) {
 				return false;
 			}
@@ -460,48 +436,52 @@ bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels,
 
 	if(pNDI_recv) {
 
-		// NDI_frame_type = NDIlib_recv_capture(pNDI_recv, &video_frame, NULL, NULL, 0); // 16);
-		NDI_frame_type = NDIlib_recv_capture(pNDI_recv, &video_frame, NULL, &metadata_frame, 0); 
+		// NDI_frame_type = NDIlib_recv_capture(pNDI_recv, &video_frame, NULL, &metadata_frame, 0); 
+		// Vers 3
+		NDI_frame_type = NDIlib_recv_capture_v2(pNDI_recv, &video_frame, NULL, &metadata_frame, 0);
 
 		// Is the connection lost or no data received ?
 		if(NDI_frame_type == NDIlib_frame_type_error || NDI_frame_type == NDIlib_frame_type_none) {
+			// printf("Error : NDI_frame_type = %d [%x]\n", NDI_frame_type, NDI_frame_type);
 			return false;
 		}
 
 		// Metadata
 		if(NDI_frame_type == NDIlib_frame_type_metadata) {
-			// printf("ofxNDIreceiver::ReceiveImage - Received Metadata\n%s\n", metadata_frame.p_data);
-			m_bMetadata = true;
-			m_metadataString = metadata_frame.p_data;
+			// if(metadata_frame.p_data) printf("ofxNDIreceiver::ReceiveImage - Received Metadata\n%s\n", metadata_frame.p_data);
+			// else	printf("ofxNDIreceiver::ReceiveImage - Received NULL Metadata\n");
+			// Vers 3
+			if (metadata_frame.p_data) {
+				m_bMetadata = true;
+				m_metadataString = metadata_frame.p_data;
+			}
 		}
 		else {
-			// printf("ofxNDIreceiver::ReceiveImage - No metadata\n");
 			m_bMetadata = false;
-			m_metadataString.empty();
+			// Vers 3
+			if(!m_metadataString.empty())
+				m_metadataString.clear();
 		}
 
 		if(video_frame.p_data && NDI_frame_type == NDIlib_frame_type_video)	{
-			if(m_Width != video_frame.xres || m_Height != video_frame.yres) {
-				m_Width  = video_frame.xres;
-				m_Height = video_frame.yres;
+
+			if(m_Width != (unsigned int)video_frame.xres || m_Height != (unsigned int)video_frame.yres) {
+
+				m_Width  = (unsigned int)video_frame.xres;
+				m_Height = (unsigned int)video_frame.yres;
+
 				// Update the caller dimensions and return received OK
 				// for the app to handle changed dimensions
-				width = m_Width;
+				width  = m_Width;
 				height = m_Height;
+
 				return true;
 			}
 
 			// Otherwise sizes are current - copy the received frame data to the local buffer
-			if(video_frame.p_data && pixels) {
-
-				/*
-				// Preferred type is bgra, so YUV may never be received anyway
-				if(video_frame.FourCC == NDIlib_FourCC_type_UYVY)
-					ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
-				else
-					ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, bSwapRB, bInvert);
-				*/
-				// Preferred type is bgra
+			if(video_frame.p_data && (uint8_t*)pixels) {
+				
+				// Video frame type
 				switch(video_frame.FourCC) {
 
 					// NDIlib_FourCC_type_UYVA not supported
@@ -513,31 +493,34 @@ bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels,
 
 					case NDIlib_FourCC_type_RGBA: // RGBA
 					case NDIlib_FourCC_type_RGBX: // RGBX
-						// printf("RGBA\n");
 						ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, false, bInvert);
 						break;
 
 					case NDIlib_FourCC_type_BGRA: // BGRA
 					case NDIlib_FourCC_type_BGRX: // BGRX
 					default: // BGRA
-						// printf("BGRA\n");
 						ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, true, bInvert);
 						break;
 
 				} // end switch received format
-
 				
 				// Buffers captured must be freed
-				NDIlib_recv_free_video(pNDI_recv, &video_frame);
+				// NDIlib_recv_free_video(pNDI_recv, &video_frame);
+				// Vers 3
+				NDIlib_recv_free_video_v2(pNDI_recv, &video_frame);
+
 
 				// The caller always checks the received dimensions
-				width = m_Width;
+				width  = m_Width;
 				height = m_Height;
 
 				return true;
 
 			} // endif video frame data
-			return true;
+			
+			// Vers 3
+			// return true;
+			return false;
 
 		} // endif NDIlib_frame_type_video
 	} // endif pNDI_recv

@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2017 Lynn Jarvis.
+	Copyright (C) 2016-2018 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -34,15 +34,14 @@
 #include <windows.h>
 #include <intrin.h> // for _movsd
 #include <emmintrin.h> // for SSE2
-#include <stdio.h> // for print debugging
 
 namespace ofxNDIutils {
 
 	void CopyImage(const unsigned char *source, unsigned char *dest, 
 				   unsigned int width, unsigned int height, unsigned int stride,
 				   bool bSwapRB = false, bool bInvert = false);
-	void memcpy_sse2(void* dst, void* src, size_t Size);
-	void rgba_bgra_sse2(void *source, void *dest, unsigned int width, unsigned int height, bool bInvert = false);
+	void memcpy_sse2(void* dst, const void* src, size_t Size);
+	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert = false);
 	void FlipBuffer(const unsigned char *src, unsigned char *dst, unsigned int width, unsigned int height);
 	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride);
 

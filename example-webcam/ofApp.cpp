@@ -1,11 +1,10 @@
 /*
 	OpenFrameworks NDI webcam sender example
 	using the NewTek NDI SDK to send the frames via network
-	Advanced example using a shader for RGBA-BGRA conversion
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2017 Lynn Jarvis.
+	Copyright (C) 2016-2018 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -32,6 +31,10 @@
 	09.02.17 - Updated to ofxNDI with Version 2 NDI SDK
 			 - Added changes by Harvey Buchan to optionally
 			   specify RGBA with Version 2 NDI SDK
+	22.02.17 - Update to Openframeworks 0.9.8
+	01.04.18 - Change to ofxNDI for NDI SDK Version 3
+
+
 
 */
 #include "ofApp.h"
@@ -90,7 +93,7 @@ void ofApp::update() {
 		if (ndiSender.GetAsync())
 			idx = (idx + 1) % 2;
 
-		ndiBuffer[idx].setFromPixels(vidGrabber.getPixels(), camWidth, camHeight, OF_IMAGE_COLOR); // RGB from camera
+		ndiBuffer[idx].setFromPixels(vidGrabber.getPixelsRef().getPixels(), camWidth, camHeight, OF_IMAGE_COLOR); // RGB from camera
 		ndiBuffer[idx].setImageType(OF_IMAGE_COLOR_ALPHA); // RGBA for NDI
 
 	}

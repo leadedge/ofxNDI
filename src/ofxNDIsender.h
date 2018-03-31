@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2017 Lynn Jarvis.
+	Copyright (C) 2016-2018 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -29,6 +29,7 @@
 			 - include changes by Harvey Buchan
 			 - include metadata
 	17.02.17 - GetNDIversion - NDIlib_version
+	31.03.18 - Update to NDI SDK Version 3
 
 */
 #pragma once
@@ -61,13 +62,16 @@ public:
 	bool UpdateSender(unsigned int width, unsigned int height);
 	void ReleaseSender();
 
-	bool SendImage(unsigned char *image, unsigned int width, unsigned int height,
+	bool SendImage(const unsigned char *image, unsigned int width, unsigned int height,
 		           bool bSwapRB = false, bool bInvert=false);
 	
-	void SetFrameRate(DWORD framerate_N = 60000, DWORD framerate_D = 1000);
-	void GetFrameRate(DWORD &framerate_N, DWORD &framerate_D);
-
-	void SetAspectRatio(DWORD horizontal = 16, DWORD vertical = 9);
+	// Vers 3
+	// void SetFrameRate(DWORD framerate_N = 60000, DWORD framerate_D = 1000);
+	// void GetFrameRate(DWORD &framerate_N, DWORD &framerate_D);
+	// void SetAspectRatio(DWORD horizontal = 16, DWORD vertical = 9);
+	void SetFrameRate(int framerate_N = 60000, int framerate_D = 1000);
+	void GetFrameRate(int &framerate_N, int &framerate_D);
+	void SetAspectRatio(int horizontal = 16, int vertical = 9);
 	void GetAspectRatio(float &aspect);
 
 	void SetProgressive(bool bProgressive = true);
@@ -81,11 +85,18 @@ public:
 
 	// Audio
 	void SetAudio(bool bAudio = true);
-	void SetAudioSampleRate(DWORD sampleRate = 48000); // 48000 = 48kHz
-	void SetAudioChannels(DWORD nChannels = 1); // 2 for stereo
-	void SetAudioSamples(DWORD nSamples = 1602); // There can be up to 1602 samples at 29.97 fps
-	void SetAudioTimecode(LONGLONG timecode = NDIlib_send_timecode_synthesize); // The timecode of this frame in 100ns intervals or synthesised
-	void SetAudioData(FLOAT *data = NULL); // Audio data
+	// Vers 3
+	// void SetAudioSampleRate(DWORD sampleRate = 48000); // 48000 = 48kHz
+	// void SetAudioChannels(DWORD nChannels = 1); // 2 for stereo
+	// void SetAudioSamples(DWORD nSamples = 1602); // There can be up to 1602 samples at 29.97 fps
+	// void SetAudioTimecode(LONGLONG timecode = NDIlib_send_timecode_synthesize); // The timecode of this frame in 100ns intervals or synthesised
+	void SetAudioSampleRate(int sampleRate = 48000); // 48000 = 48kHz
+	void SetAudioChannels(int nChannels = 1); // 2 for stereo
+	void SetAudioSamples(int nSamples = 1602); // There can be up to 1602 samples at 29.97 fps
+	void SetAudioTimecode(int64_t timecode = NDIlib_send_timecode_synthesize); // The timecode of this frame in 100ns intervals or synthesised
+	// Vers 3
+	// void SetAudioData(FLOAT *data = NULL); // Audio data
+	void SetAudioData(float *data = NULL); // Audio data
 
 	// Metadata
 	void SetMetadata(bool bMetadata = true);
@@ -98,12 +109,20 @@ private :
 
 	NDIlib_send_create_t NDI_send_create_desc;
 	NDIlib_send_instance_t pNDI_send;
-	NDIlib_video_frame_t video_frame;
-	BYTE* p_frame;
-	DWORD m_frame_rate_N; // Frame rate numerator
-	DWORD m_frame_rate_D; // Frame rate denominator
-	DWORD m_horizontal_aspect; // Aspect horizontal ratio
-	DWORD m_vertical_aspect; // Aspect vertical ratio
+	// Vers 3
+	// NDIlib_video_frame_t video_frame;
+	NDIlib_video_frame_v2_t video_frame;
+	// Vers 3
+	// BYTE* p_frame;
+	// DWORD m_frame_rate_N; // Frame rate numerator
+	// DWORD m_frame_rate_D; // Frame rate denominator
+	// DWORD m_horizontal_aspect; // Aspect horizontal ratio
+	// DWORD m_vertical_aspect; // Aspect vertical ratio
+	uint8_t* p_frame;
+	int m_frame_rate_N; // Frame rate numerator
+	int m_frame_rate_D; // Frame rate denominator
+	int m_horizontal_aspect; // Aspect horizontal ratio
+	int m_vertical_aspect; // Aspect vertical ratio
 	float m_picture_aspect_ratio; // Aspect ratio
 	bool m_bProgressive; // Progressive output flag
 	bool m_bClockVideo; // Clock video flag
@@ -112,12 +131,20 @@ private :
 
 	// Audio
 	bool bNDIaudio;
-	NDIlib_audio_frame_t audio_frame;
-	DWORD m_AudioSampleRate;
-	DWORD m_AudioChannels;
-	DWORD m_AudioSamples;
-	LONGLONG m_AudioTimecode;
-	FLOAT *m_AudioData;
+	// Vers 3
+	// NDIlib_audio_frame_t audio_frame;
+	NDIlib_audio_frame_v2_t audio_frame;
+	// Vers 3
+	// DWORD m_AudioSampleRate;
+	// DWORD m_AudioChannels;
+	// DWORD m_AudioSamples;
+	// LONGLONG m_AudioTimecode;
+	// FLOAT *m_AudioData;
+	int m_AudioSampleRate;
+	int m_AudioChannels;
+	int m_AudioSamples;
+	int64_t m_AudioTimecode;
+	float *m_AudioData;
 
 	// Metadata
 	bool m_bMetadata;

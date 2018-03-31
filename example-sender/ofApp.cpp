@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2017 Lynn Jarvis.
+	Copyright (C) 2016-2018 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -36,7 +36,8 @@
 	09.02.17 - Updated to ofxNDI with Version 2 NDI SDK
 			 - Added changes by Harvey Buchan to optionally
 			   specify RGBA with Version 2 NDI SDK
-
+	22.02.17 - Updated to Openframeworks 0.9.8
+	01.04.17 - update for ofxNDI with NDI Version 3
 
 */
 #include "ofApp.h"
@@ -48,6 +49,13 @@ void ofApp::setup(){
 
 	strcpy(senderName, "Openframeworks NDI Sender"); // Set the sender name
 	ofSetWindowTitle(senderName); // show it on the title bar
+
+	#ifdef _WIN64
+	cout << "\nofxNDI example sender - 64 bit" << endl;
+	#else // _WIN64
+	cout << "\nofxNDI example sender - 32 bit" << endl;
+	#endif // _WIN64
+
 	cout << "NDI SDK copyright NewTek (http:\\NDI.NewTek.com)" << endl;
 
 	// Set the dimensions of the sender output here
@@ -213,7 +221,7 @@ void ofApp::exit() {
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
-
+	
 }
 
 //--------------------------------------------------------------

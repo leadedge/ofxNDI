@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2017 Lynn Jarvis.
+	Copyright (C) 2016-2018 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -30,19 +30,6 @@
 #include "ofMain.h"
 #include "ofxNDI.h" // NDI classes
 
-#include "ofxNDIdialog.h" // for the sender dialog
-//
-// Also if you want to use the sender selection dialog,
-// include in your project from the ofxNDI addon source files :
-//     ofxNDIdialog.h
-//     ofxNDIdialog.cpp
-//     resource.h
-//     resource.rc 
-// If this conflicts with existing resources, you will need to include
-// the code for the dialog within your own resource files and change
-// identifiers as necessary.
-//
-
 class ofApp : public ofBaseApp {
 
 	public:
@@ -64,8 +51,6 @@ class ofApp : public ofBaseApp {
 		void gotMessage(ofMessage msg);
 	
 		ofxNDIreceiver ndiReceiver; // NDI receiver object
-		ofxNDIdialog ndiDialog;     // for the sender dialog
-
 		ofImage ndiImage;           // Image used for pixel transfer and display
 		char senderName[256];	    // Sender name used by a receiver
 		int nSenders;
@@ -75,7 +60,5 @@ class ofApp : public ofBaseApp {
 
 		// For received frame fps calculations
 		double startTime, lastTime, frameTime, frameRate, fps;
-
-
 
 };

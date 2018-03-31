@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2017 Lynn Jarvis.
+	Copyright (C) 2016-2018 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -25,10 +25,13 @@
 	=========================================================================
 
 	16.10.16 - Create file
-	16.03.17 - corrected CopyImage __movsd to pass the number of double words
+	22.02.17 - Changed lower size limit for SSE copy to 640x480
+	30.03.18 - const source for memcpy_sse2 and rgba_bgra_sse2
 
 */
 #include "ofxNDIutils.h"
+
+
 
 namespace ofxNDIutils {
 
@@ -44,7 +47,7 @@ namespace ofxNDIutils {
 	//
 	// Approx 1.7 times speed of memcpy (0.84 msec per frame 1920x1080)
 	//
-	void memcpy_sse2(void* dst, void* src, size_t Size)
+	void memcpy_sse2(void* dst, const void* src, size_t Size)
 	{
 		char * pSrc = (char *)src;				  // Source buffer
 		char * pDst = (char *)dst;				  // Destination buffer
@@ -98,7 +101,7 @@ namespace ofxNDIutils {
 	//
 	// All instructions SSE2.
 	//
-	void rgba_bgra_sse2(void *source, void *dest, unsigned int width, unsigned int height, bool bInvert)
+	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert)
 	{
 		unsigned __int32 *src = NULL;
 		unsigned __int32 *dst = NULL;
@@ -168,7 +171,7 @@ namespace ofxNDIutils {
 		unsigned int line_t = (height - 1)*pitch;
 
 		for (unsigned int y = 0; y<height; y++) {
-			if (width < 320 || height < 240) // too small for assembler
+			if (width <= 640 || height <= 480) // too small for assembler
 				memcpy((void *)(To + line_t), (void *)(From + line_s), pitch);
 			else if ((pitch % 16) == 0) // use sse assembler function
 				memcpy_sse2((void *)(To + line_t), (void *)(From + line_s), pitch);
@@ -191,25 +194,26 @@ namespace ofxNDIutils {
 				   bool bSwapRB, bool bInvert)
 	{
 		if(bSwapRB) { // user requires bgra->rgba or rgba->bgra conversion from source to dest
-			rgba_bgra_sse2((void *)source, (void *)dest, width, height, bInvert);
+			rgba_bgra_sse2((const void *)source, (void *)dest, width, height, bInvert);
 		}
 		else {
 			if(bInvert) {
 				FlipBuffer(source, dest, width, height);
 			}
+			else if (width <= 640 || height <= 480) {
+				memcpy((void *)dest, (const void *)source, height*stride);
+			}
 			else if((stride % 16) == 0) { // 16 byte aligned
-				memcpy_sse2((void *)dest, (void *)source, height*stride);
+				memcpy_sse2((void *)dest, (const void *)source, height*stride);
 			}
 			else if((stride % 4) == 0) { // 4 byte aligned
-				__movsd((unsigned long *)dest, (unsigned long const *)source, height*stride/4);
+				__movsd((unsigned long *)dest, (const unsigned long *)source, height*stride);
 			}
 			else {
-				memcpy((void *)dest, (void *)source, height*stride);
+				memcpy((void *)dest, (const void *)source, height*stride);
 			}
 		}
 	} // end CopyImage
-
-
 
 
 	//

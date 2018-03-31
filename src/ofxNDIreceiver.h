@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2017 Lynn Jarvis.
+	Copyright (C) 2016-2018 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -34,6 +34,7 @@
 				CreateReceiver - include colour format option
 			 - SetLowBandWidth, Metadata
 	17.02.17 - GetNDIversion - NDIlib_version
+	31.03.18 - Update to NDI SDK Version 3
 
 
 */
@@ -51,12 +52,6 @@
 #pragma comment(lib, "Winmm.lib") // for timegettime
 #include "ofxNDIutils.h" // buffer copy utilities
 
-// Version 2 NDI
-#include <csignal>
-#include <cstddef>
-#include <cstdio>
-#include <atomic>
-
 class ofxNDIreceiver {
 
 public:
@@ -67,9 +62,6 @@ public:
 	bool CreateReceiver(int index = -1);
 	bool CreateReceiver(NDIlib_recv_color_format_e colorFormat, int index = -1);
 	void ReleaseReceiver();
-	// bool ReceiveImage(unsigned char *pixels, 
-	//				  unsigned int &width, unsigned int &height, 
-	//				  bool bSwapRB = false, bool bInvert = false);
 	bool ReceiveImage(unsigned char *pixels, 
 					  unsigned int &width, unsigned int &height, 
 					  bool bInvert = false);
@@ -78,6 +70,7 @@ public:
 	void ReleaseFinder();
 	int  FindSenders();
 	// int  RefreshSenders(DWORD dwTimeout);
+	// Vers 3
 	int  RefreshSenders(uint32_t timeout);
 
 	void SetSenderIndex(int index); // Set current sender index in the sender list
@@ -88,6 +81,7 @@ public:
 	bool SenderSelected(); // Has the user changed the sender index
 
 	void SetLowBandwidth(bool bLow = true);
+
 	// Metadata
 	bool IsMetadata();
 	std::string GetMetadataString();
@@ -102,7 +96,9 @@ private:
 	NDIlib_send_create_t NDI_send_create_desc;
 	NDIlib_find_instance_t pNDI_find;
 	NDIlib_recv_instance_t pNDI_recv; 
-	NDIlib_video_frame_t video_frame;
+	// NDIlib_video_frame_t video_frame;
+	// Vers 3
+	NDIlib_video_frame_v2_t video_frame;
 
 	unsigned int m_Width, m_Height;
 	std::vector<std::string> NDIsenders; // List of sender names
@@ -123,7 +119,6 @@ private:
 	const NDIlib_source_t* ofxNDIreceiver::FindGetSources(NDIlib_find_instance_t p_instance, 
 														  uint32_t* p_no_sources,
 														  uint32_t timeout_in_ms);
-
 
 };
 
