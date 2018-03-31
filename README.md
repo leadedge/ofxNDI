@@ -2,8 +2,8 @@
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
 ## Updates
-31.03.18 - Updated for NDI SDK Vers 3
-Search source for "Vers 3"
+31.03.18 - Updated for NDI SDK Vers 3.
+Search source for 'Vers 3'.
 Note changes to function argument variable types to match with Version 3.
 
 ## Setup
@@ -37,11 +37,7 @@ RH click to activate a sender selection dialog.
 ofxNDI with help from [Harvey Buchan](https://github.com/Harvey3141).
 
 ## Copyrights
-<<<<<<< HEAD
-ofxNDI - Copyright (C) 2016-2018 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
-=======
 ofxNDI - Copyright (C) 2016-2017 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
->>>>>>> origin/master
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser  General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details. 
