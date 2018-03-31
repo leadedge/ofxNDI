@@ -10,7 +10,7 @@ Note changes to function argument variable types to match with Version 3.
 
 For Windows
 
-1. Add files from "ofxNDI" to your Visual Studio project.
+1. Include the "ofxNDI" addon in your Visual Studio project.
 2. Copy .dll's from ofxNDI/libs to the application "bin" folder
 3. [Register with Newtek](http://pages.newtek.com/NDI-Developers.html) for the NDI SDK. Install the NewTek SDK and copy files as follows.
 	- Copy the files in  "../NewTek NDI SDK/Include" to "ofxNDI/include"
@@ -18,10 +18,10 @@ For Windows
 
 In your Visual Studio project properties :
 
-- Add "ofxNDI/src" to additional "C/C++/General/Additional Include Directories"
-- Add "ofxNDI/include" to additional "C/C++/General/Additional Include Directories"
-- Add "ofxNDI/libs/NDI/Libs/x86" to "Linker > Input > Additional Library Directories"
-- Add "Processing.NDI.Lib.x86.lib" to "Linker > Additional Dependencies"
+- Add "ofxNDI/src" to additional "C/C++ > General > Additional Include Directories"
+- Add "ofxNDI/include" to additional "C/C++ > General > Additional Include Directories"
+- Add "ofxNDI/libs/NDI/Libs/x86" to "Linker > General > Additional Library Directories"
+- Add "Processing.NDI.Lib.x86.lib" to "Linker > Input > Additional Dependencies"
 - Add "#include ofxNDI.h" to your source header file
 
 ## Example sender
@@ -37,7 +37,11 @@ RH click to activate a sender selection dialog.
 ofxNDI with help from [Harvey Buchan](https://github.com/Harvey3141).
 
 ## Copyrights
+<<<<<<< HEAD
 ofxNDI - Copyright (C) 2016-2018 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
+=======
+ofxNDI - Copyright (C) 2016-2017 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
+>>>>>>> origin/master
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser  General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details. 
