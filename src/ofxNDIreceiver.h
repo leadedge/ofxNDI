@@ -24,32 +24,37 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	=========================================================================
 
-	16.10.16 - common buffer copy utilities
-	09.02.17 - Changes for NDI SDK Version 2
-				ReceiveImage - remove swap RG flag - now done internally
-				RefreshSenders - uint32_t timeout instead of DWORD
-				Remove timer variables - timeouts done in new SDK functions
-				FindGetSources - replacement for deprecated NDIlib_find_get_sources
-			 - include changes by Harvey Buchan
-				CreateReceiver - include colour format option
-			 - SetLowBandWidth, Metadata
-	17.02.17 - GetNDIversion - NDIlib_version
-	31.03.18 - Update to NDI SDK Version 3
+	08.07.16 - Use ofxNDIreceive class
 
 
 */
+
 #pragma once
 #ifndef __ofxNDIreceiver__
 #define __ofxNDIreceiver__
 
+#include "ofMain.h"
+
+#if defined(_WIN32)
 #include <windows.h>
-#include <string>
-#include <vector>
 #include <intrin.h> // for _movsd
-#include <emmintrin.h> // for SSE2
 #include <gl\GL.h>
-#include "Processing.NDI.Lib.h" // NDI SDK
+#include <mmsystem.h> // for timegettime if ofMain is included
 #pragma comment(lib, "Winmm.lib") // for timegettime
+#endif
+
+#if defined(__APPLE__)
+#include <x86intrin.h> // for _movsd
+#include <sys/time.h>
+#endif
+
+#include <string>
+#include <iostream>
+#include <vector>
+#include <emmintrin.h> // for SSE2
+#include <iostream> // for cout
+#include "Processing.NDI.Lib.h" // NDI SDK
+#include "ofxNDIreceive.h" // Basic receiver functions
 #include "ofxNDIutils.h" // buffer copy utilities
 
 class ofxNDIreceiver {
@@ -57,71 +62,127 @@ class ofxNDIreceiver {
 public:
 
 	ofxNDIreceiver();
-    ~ofxNDIreceiver();
+	~ofxNDIreceiver();
 
+	// Create a receiver
+	// - index | index in the sender list to connect to
+	//   -1 - connect to the selected sender
+	//        if none selected connect to the first sender
 	bool CreateReceiver(int index = -1);
+
+	// Create a receiver with preferred colour format
+	// - colorFormat | the preferred format
+	// - index | index in the sender list to connect to
+	//   -1 - connect to the selected sender
+	//        if none selected connect to the first sender
 	bool CreateReceiver(NDIlib_recv_color_format_e colorFormat, int index = -1);
+
+	// Open the receiver to receive
+	bool OpenReceiver();
+
+	// Return whether a receiver has been created
+	bool ReceiverCreated();
+
+	// Close receiver and release resources
 	void ReleaseReceiver();
-	bool ReceiveImage(unsigned char *pixels, 
-					  unsigned int &width, unsigned int &height, 
-					  bool bInvert = false);
 
+	// Receive an fbo
+	// - fbo re-allocated for changed sender dimensions
+	bool ReceiveImage(ofFbo &fbo);
+
+	// Receive a texture
+	// - texture re-allocated for changed sender dimensions
+	bool ReceiveImage(ofTexture &texture);
+
+	// Receive an image
+	// - image re-allocated for changed sender dimensions
+	bool ReceiveImage(ofImage &image);
+
+	// Receive a pixel buffer
+	// - buffer re-allocated for changed sender dimensions
+	bool ReceiveImage(ofPixels &pixels);
+
+	// Receive image pixels to a char buffer
+	// - pixel | received pixel data
+	// - width | received image width
+	// - height | received image height
+	// - bInvert | flip the image
+	bool ReceiveImage(unsigned char *pixels,
+		unsigned int &width, unsigned int &height,
+		bool bInvert = false);
+
+	// Create an NDI finder to find existing senders
 	void CreateFinder();
+
+	// Release an NDI finder that has been created
 	void ReleaseFinder();
-	int  FindSenders();
-	// int  RefreshSenders(DWORD dwTimeout);
-	// Vers 3
-	int  RefreshSenders(uint32_t timeout);
 
-	void SetSenderIndex(int index); // Set current sender index in the sender list
-	int  GetSenderIndex(); // Get current index in the sender list
-	bool GetSenderIndex(char *sendername, int &index); // Get the index of a sender name
-	bool GetSenderName(char *sendername, int index = -1); // Get the name of a sender index
-	int  GetSenderCount(); // Number of senders
-	bool SenderSelected(); // Has the user changed the sender index
+	// Find all current NDI senders
+	int FindSenders();
 
+	// Find all current senders and refresh sender list
+	// If no timeout specified, return the sources that exist right now
+	// For a timeout, wait for that timeout and return the sources that exist then
+	// If that fails, return NULL
+	int RefreshSenders(uint32_t timeout);
+
+	// Set current sender index in the sender list
+	bool SetSenderIndex(int index);
+
+	// Current index in the sender list
+	int GetSenderIndex();
+
+	// The index of a sender name
+	bool GetSenderIndex(char *sendername, int &index);
+
+	// Name characters of a sender index
+	bool GetSenderName(char *sendername);
+	bool GetSenderName(char *sendername, int index);
+	bool GetSenderName(char *sendername, int maxsize, int index);
+
+	// Name string of a sender index
+	std::string GetSenderName(int index = -1);
+
+	// Current sender width
+	unsigned int GetSenderWidth();
+
+	// Current sender height
+	unsigned int GetSenderHeight();
+
+	// Number of senders
+	int GetSenderCount();
+
+	// Has the user changed the sender index
+	bool SenderSelected();
+
+	// Set NDI low banwidth option
 	void SetLowBandwidth(bool bLow = true);
 
-	// Metadata
+	// Return the received frame type
+	NDIlib_frame_type_e GetFrameType();
+
+	// Is the current frame MetaData ?
+	// Use when ReceiveImage fails
 	bool IsMetadata();
+
+	// The current MetaData string
 	std::string GetMetadataString();
 
-	// Utility
+	// The NDI SDK version number
 	std::string GetNDIversion();
 
-private:
+	// Received frame rate
+	double GetFps();
 
-	const NDIlib_source_t* p_sources;
-	uint32_t no_sources;
-	NDIlib_send_create_t NDI_send_create_desc;
-	NDIlib_find_instance_t pNDI_find;
-	NDIlib_recv_instance_t pNDI_recv; 
-	// NDIlib_video_frame_t video_frame;
-	// Vers 3
-	NDIlib_video_frame_v2_t video_frame;
+	// Basic receiver functions
+	ofxNDIreceive NDIreceiver;
 
-	unsigned int m_Width, m_Height;
-	std::vector<std::string> NDIsenders; // List of sender names
-	int nsenders;// Sender count
-	int senderIndex; // Current sender index
-	bool bNDIinitialized; // Is NDI initialized properly
-	bool bSenderSelected; // Sender index has been changed by the user
-	NDIlib_recv_bandwidth_e m_bandWidth; // Bandwidth receive option
-	
-	DWORD dwStartTime; // For timing delay
-	DWORD dwElapsedTime;
+private :
 
-	// Metadata
-	bool m_bMetadata;
-	std::string m_metadataString; // XML message format string NULL terminated
+	std::string SenderName;
 
-	// Replacement function for deprecated NDIlib_find_get_sources
-	const NDIlib_source_t* ofxNDIreceiver::FindGetSources(NDIlib_find_instance_t p_instance, 
-														  uint32_t* p_no_sources,
-														  uint32_t timeout_in_ms);
 
 };
 
 
 #endif
-

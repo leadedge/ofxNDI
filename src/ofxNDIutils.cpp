@@ -28,12 +28,39 @@
 	22.02.17 - Changed lower size limit for SSE copy to 640x480
 	30.03.18 - const source for memcpy_sse2 and rgba_bgra_sse2
 
+	Chages with update to 3.5
+	11.06.18 - __movsd for OSX (https://github.com/ThomasLengeling/ofxNDI)
+			- _rotl replacement for OSX
+
+
 */
 #include "ofxNDIutils.h"
 
+// _rotl replacement
+// Other solutions possible
+// https://stackoverflow.com/questions/776508/best-practices-for-circular-shift-rotate-operations-in-c
+#define BitsCount( val ) ( sizeof( val ) * CHAR_BIT )
+#define Shift( val, steps ) ( steps % BitsCount( val ) )
+#define ROL( val, steps ) ( ( val << Shift( val, steps ) ) | ( val >> ( BitsCount( val ) - Shift( val, steps ) ) ) )
+#define ROR( val, steps ) ( ( val >> Shift( val, steps ) ) | ( val << ( BitsCount( val )
 
 
 namespace ofxNDIutils {
+
+
+#if defined(__APPLE__)
+	static inline void *__movsd(void *d, const void *s, size_t n) {
+		asm volatile ("rep movsb"
+			: "=D" (d),
+			"=S" (s),
+			"=c" (n)
+			: "0" (d),
+			"1" (s),
+			"2" (n)
+			: "memory");
+		return d;
+	}
+#endif
 
 	//
 	// Fast memcpy
@@ -110,6 +137,7 @@ namespace ofxNDIutils {
 		unsigned int y = 0;
 		__m128i brMask = _mm_set1_epi32(0x00ff00ff); // argb
 
+		// std::cout << "rgba_bgra_sse2" << std::endl;
 	    for (y = 0; y < height; y++) {
 
   			// Start of buffer
@@ -134,7 +162,11 @@ namespace ofxNDIutils {
 				//        & 0x00ff00ff  : r g b . > . b . r
 				// rgbapix & 0xff00ff00 : a r g b > a . g .
 				// result of or			:           a b g r
+#if defined(__APPLE__)
+				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
+#else
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
+#endif
 			}
 
 			for (; x + 3 < width; x += 4) {
@@ -152,7 +184,11 @@ namespace ofxNDIutils {
 			// Perform leftover writes
 			for (; x < width; x++) {
 				rgbapix = src[x];
+#if defined(__APPLE__)
+				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
+#else
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
+#endif
 			}
 		}
 
@@ -193,6 +229,11 @@ namespace ofxNDIutils {
 				   unsigned int width, unsigned int height, unsigned int stride,
 				   bool bSwapRB, bool bInvert)
 	{
+
+		// printf("CopyImage(%x, %x, %d, %d, %d, (%d, %d)\n", source, dest, width, height, stride, bSwapRB, bInvert);
+		if (source == NULL || dest == NULL)
+			return;
+
 		if(bSwapRB) { // user requires bgra->rgba or rgba->bgra conversion from source to dest
 			rgba_bgra_sse2((const void *)source, (void *)dest, width, height, bInvert);
 		}
@@ -213,6 +254,7 @@ namespace ofxNDIutils {
 				memcpy((void *)dest, (const void *)source, height*stride);
 			}
 		}
+
 	} // end CopyImage
 
 
@@ -278,3 +320,4 @@ namespace ofxNDIutils {
 	}
 
 } // end YUV422_to_RGBA
+

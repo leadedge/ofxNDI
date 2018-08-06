@@ -25,15 +25,27 @@
 	=========================================================================
 
 	16.10.16 - Create file
+	11.06.18 - - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
+
 
 */
 #pragma once
 #ifndef __ofxNDI_
 #define __ofxNDI_
 
+#include <emmintrin.h> // for SSE2
+#include <iostream> // for cout
+
+// TODO : test includes for OSX
+#if defined(__APPLE__)
+#include <x86intrin.h> // for _movsd
+#include <stdlib.h>
+#include <cstdint>
+#include <string.h>
+#else
 #include <windows.h>
 #include <intrin.h> // for _movsd
-#include <emmintrin.h> // for SSE2
+#endif
 
 namespace ofxNDIutils {
 

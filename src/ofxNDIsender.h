@@ -24,135 +24,258 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	=========================================================================
 
-	16.10.16 - common buffer copy utilities
-	09.02.17 - Changes for NDI SDK Version 2
-			 - include changes by Harvey Buchan
-			 - include metadata
-	17.02.17 - GetNDIversion - NDIlib_version
-	31.03.18 - Update to NDI SDK Version 3
+	08.07.18 - Use ofxNDIsend class
 
 */
 #pragma once
 #ifndef __ofxNDIsender__
 #define __ofxNDIsender__
 
+#include "ofMain.h"
+
+#if defined(_WIN32)
 #include <windows.h>
+#include <intrin.h> // for _movsd
+#endif
+
+#if defined(__APPLE__)
+#include <x86intrin.h> // for _movsd
+#endif
+
 #include <stdio.h>
 #include <string>
-#include <intrin.h> // for _movsd
 #include <emmintrin.h> // for SSE2
+#include <iostream> // for cout
 #include "Processing.NDI.Lib.h" // NDI SDK
+#include "ofxNDIsend.h" // basic sender functions
+#include "ofxNDIshaders.h" // Openframeworks shader functions
 #include "ofxNDIutils.h" // buffer copy utilities
-
-// Version 2 NDI
-#include <csignal>
-#include <cstddef>
-#include <cstdio>
-#include <atomic>
 
 class ofxNDIsender {
 
 public:
 
 	ofxNDIsender();
-    ~ofxNDIsender();
+	~ofxNDIsender();
 
+	// Create an RGBA sender
+	// - sendername | name for the sender
+	// - width | sender image width
+	// - height | sender image height
 	bool CreateSender(const char *sendername, unsigned int width, unsigned int height);
+
+	// Create a sender of specified colour format
+	// Formats supported are RGBA, RGBX, BGRA, BGRX and UVYV
+	// - sendername | name for the sender
+	// - width | sender image width
+	// - height | sender image height
+	// - colorFormat | pixel format
 	bool CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat);
+
+	// Update sender dimensions
+	// - width | sender image width
+	// - height | sender image height
 	bool UpdateSender(unsigned int width, unsigned int height);
+
+	// Update sender dimensions and colour format
+	// - width | sender image width
+	// - height | sender image height
+	// - colorFormat | pixel format
+	bool UpdateSender(unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat);
+
+	// Close sender and release resources
 	void ReleaseSender();
 
+	// Return whether the sender has been created
+	bool SenderCreated();
+
+	// Return current sender width
+	unsigned int GetWidth();
+
+	// Return current sender height
+	unsigned int GetHeight();
+
+	// Return the NDI sender name
+	std::string GetSenderName();
+
+	// Send ofFbo
+	// - fbo | Openframeworks fbo to send
+	// - bInvert | flip the image - default false
+	bool SendImage(ofFbo fbo, bool bInvert = false);
+
+	// Send ofTexture
+	// - tex | Openframeworks texture to send
+	// - bInvert | flip the image - default false
+	bool SendImage(ofTexture tex, bool bInvert = false);
+
+	// Send ofImage
+	// - image | Openframeworks image to send
+	// - bInvert | flip the image - default false
+	// - image is converted to RGBA if not already
+	bool SendImage(ofImage img, bool bInvert = false);
+
+	// Send ofPixels
+	// - pix | Openframeworks pixel buffer to send
+	// - bInvert | flip the image - default false
+	// - buffer is converted to RGBA if not already
+	bool SendImage(ofPixels pix, bool bInvert = false);
+
+	// Send RGBA image pixels
+	// - image | pixel data
+	// - width | image width
+	// - height | image height
+	// - bSwapRB | swap red and blue components - default false
+	// - bInvert | flip the image - default false
 	bool SendImage(const unsigned char *image, unsigned int width, unsigned int height,
-		           bool bSwapRB = false, bool bInvert=false);
-	
-	// Vers 3
-	// void SetFrameRate(DWORD framerate_N = 60000, DWORD framerate_D = 1000);
-	// void GetFrameRate(DWORD &framerate_N, DWORD &framerate_D);
-	// void SetAspectRatio(DWORD horizontal = 16, DWORD vertical = 9);
-	void SetFrameRate(int framerate_N = 60000, int framerate_D = 1000);
+		bool bSwapRB = false, bool bInvert = false);
+
+
+	// Set frame rate whole number
+	// - framerate - frames per second
+	// Initialized 60fps
+	void SetFrameRate(int framerate);
+
+	// Set frame rate decimal number
+	// - framerate - frames per second
+	// Initialized 60fps
+	void SetFrameRate(double framerate);
+
+	// Set frame rate numerator and denominator
+	// - framerate_N | numerator
+	// - framerate_D | denominator
+	// Initialized 60fps
+	void SetFrameRate(int framerate_N, int framerate_D);
+
+	// Return current fps
+	double GetFps();
+
+	// Get current frame rate numerator and denominator
+	// - framerate_N | numerator
+	// - framerate_D | denominator
 	void GetFrameRate(int &framerate_N, int &framerate_D);
+
+	// Set aspect ratio
+	// - horizontal | horizontal proportion
+	// - vertical | vertical proportion
+	// Initialized 1:1 to use the image source aspect ratio
 	void SetAspectRatio(int horizontal = 16, int vertical = 9);
+
+	// Get current aspect ratio
+	// - aspect | ratio of horizontal and vertical proportions
 	void GetAspectRatio(float &aspect);
 
+	// Set progressive mode
+	// Refer to NDI documentation
+	// Initialized true
 	void SetProgressive(bool bProgressive = true);
+
+	// Get whether progressive
 	bool GetProgressive();
 
+	// Set clocked 
+	// Refer to NDI documentation
+	// (do not clock the video for async sending)
+	// Initialized true
 	void SetClockVideo(bool bClocked = true);
+
+	// Get whether clocked
 	bool GetClockVideo();
 
+	// Set asynchronous sending mode
+	// (disables clocked video)
+	// Initialized false
 	void SetAsync(bool bActive = true);
+
+	// Get whether async sending mode
 	bool GetAsync();
 
-	// Audio
+	// Set asynchronous readback of pixels from FBO or texture
+	void SetReadback(bool bReadback = true);
+
+	// Get current readback mode
+	bool GetReadback();
+
+	// Set to send Audio
+	// Initialized false
 	void SetAudio(bool bAudio = true);
-	// Vers 3
-	// void SetAudioSampleRate(DWORD sampleRate = 48000); // 48000 = 48kHz
-	// void SetAudioChannels(DWORD nChannels = 1); // 2 for stereo
-	// void SetAudioSamples(DWORD nSamples = 1602); // There can be up to 1602 samples at 29.97 fps
-	// void SetAudioTimecode(LONGLONG timecode = NDIlib_send_timecode_synthesize); // The timecode of this frame in 100ns intervals or synthesised
+
+	// Set audio sample rate
+	// - sampleRate | rate in hz
+	// Initialized 48000 (48khz)
 	void SetAudioSampleRate(int sampleRate = 48000); // 48000 = 48kHz
-	void SetAudioChannels(int nChannels = 1); // 2 for stereo
-	void SetAudioSamples(int nSamples = 1602); // There can be up to 1602 samples at 29.97 fps
-	void SetAudioTimecode(int64_t timecode = NDIlib_send_timecode_synthesize); // The timecode of this frame in 100ns intervals or synthesised
-	// Vers 3
-	// void SetAudioData(FLOAT *data = NULL); // Audio data
+
+	// Set number of audio channels
+	// - nChannels | 1 for mono, 2 for stereo
+	// Initialized mono
+	void SetAudioChannels(int nChannels = 1);
+
+	// Set number of audio samples
+	// There can be up to 1602 samples at 29.97 fps
+	// Initialized 1602
+	void SetAudioSamples(int nSamples = 1602);
+
+	// Set audio timecode
+	// - timecode | the timecode of this frame in 100ns intervals or synthesised
+	// Initialized synthesised
+	void SetAudioTimecode(int64_t timecode = NDIlib_send_timecode_synthesize);
+
+	// Set audio data
+	// - data | data to send (float)
 	void SetAudioData(float *data = NULL); // Audio data
 
-	// Metadata
+	// Set to send metadata
+	// Initialized false
 	void SetMetadata(bool bMetadata = true);
+
+	// Set metadata
+	// - datastring | XML message format string NULL terminated
 	void SetMetadataString(std::string datastring);
 
-	// Utility
+	// Get the current NDI SDK version
 	std::string GetNDIversion();
+	
+private:
 
-private :
+	ofxNDIsend NDIsender; // Basic sender functions
+	bool m_bReadback; // Asynchronous readback of pixels from FBO using two PBOs
+	NDIlib_FourCC_type_e m_ColorFormat; // Color format to send
+	ofPixels ndiBuffer[2]; // Two pixel buffers for async sending
+	int m_idx; // Index used for async buffer swapping
+	GLuint ndiPbo[2]; // PBOs used for asynchronous read-back from fbo
+	int PboIndex; // Index used for asynchronous read-back from fbo
+	int NextPboIndex;
+	std::string m_SenderName; // current sender name
 
-	NDIlib_send_create_t NDI_send_create_desc;
-	NDIlib_send_instance_t pNDI_send;
-	// Vers 3
-	// NDIlib_video_frame_t video_frame;
-	NDIlib_video_frame_v2_t video_frame;
-	// Vers 3
-	// BYTE* p_frame;
-	// DWORD m_frame_rate_N; // Frame rate numerator
-	// DWORD m_frame_rate_D; // Frame rate denominator
-	// DWORD m_horizontal_aspect; // Aspect horizontal ratio
-	// DWORD m_vertical_aspect; // Aspect vertical ratio
-	uint8_t* p_frame;
-	int m_frame_rate_N; // Frame rate numerator
-	int m_frame_rate_D; // Frame rate denominator
-	int m_horizontal_aspect; // Aspect horizontal ratio
-	int m_vertical_aspect; // Aspect vertical ratio
-	float m_picture_aspect_ratio; // Aspect ratio
-	bool m_bProgressive; // Progressive output flag
-	bool m_bClockVideo; // Clock video flag
-	bool bAsync; // NDI asynchronous sender
-	bool bNDIinitialized; // NDI initialized
+	// RGBA to YUV and RGBA to BGRA conversion
+	ofxNDIshaders yuvshaders;
+	ofFbo ndiFbo; // Utility Fbo
+	ofTexture ndiTexture; // utility texture
 
-	// Audio
-	bool bNDIaudio;
-	// Vers 3
-	// NDIlib_audio_frame_t audio_frame;
-	NDIlib_audio_frame_v2_t audio_frame;
-	// Vers 3
-	// DWORD m_AudioSampleRate;
-	// DWORD m_AudioChannels;
-	// DWORD m_AudioSamples;
-	// LONGLONG m_AudioTimecode;
-	// FLOAT *m_AudioData;
-	int m_AudioSampleRate;
-	int m_AudioChannels;
-	int m_AudioSamples;
-	int64_t m_AudioTimecode;
-	float *m_AudioData;
+	// Convert fbo texture from RGBA to YUV
+	void ColorConvert(ofFbo fbo);
 
-	// Metadata
-	bool m_bMetadata;
-	NDIlib_metadata_frame_t metadata_frame; // The frame that will be sent
-	std::string m_metadataString; // XML message format string NULL terminated - application provided
+	// Convert texture from RGBA to YUV
+	void ColorConvert(ofTexture tex);
+
+	// Convert fbo texture RGBA <> BGRA
+	void ColorSwap(ofFbo fbo);
+
+	// Convert texture RGBA <> BGRA
+	void ColorSwap(ofTexture tex);
+
+	// Read pixels from fbo to buffer
+	void ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);
+
+	// Read pixels from texture to buffer
+	void ReadPixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data);
+
+	// Asynchronous fbo pixel readback
+	bool ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);
+
+	// Asynchronous texture pixel readback
+	bool ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data);
 
 
 };
-
 
 #endif

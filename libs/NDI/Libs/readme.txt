@@ -1,2 +1,2 @@
-﻿Copy the files in "../NewTek NDI SDK/Libs" to "ofxNDI/libs/NDI/Libs"
+﻿Copy the files in "../NewTek NDI SDK/Lib" to "ofxNDI/libs/NDI/Libs"
 

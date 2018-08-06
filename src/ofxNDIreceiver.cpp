@@ -24,33 +24,29 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	=========================================================================
 
-	20.06.16 - Added RefreshSenders for Max receiver
-			 - Added GetSenderIndex(char *sendername, int &index)
-	01.07.16 - Added UNREFERENCED_PARAMETER as required
-	02.07.16 - Minor changes to RefreshSenders for NDIwebcam
-	07.07.16 - Duplicate of global video_frame in ReceiveImage removed
-			   Rebuild with VS2015
-	25.07.16 - Timeout removed for NDIlib_recv_capture
-	10.10.16 - Updated SSE2 memcpy with intrinsics for 64bit compatibility
-			   (NDI applications require minimum SSE3)
-			   Added "rgba_bgra_sse2" for rgba <> bgra conversion
-			   and bSwapRB and bInvert options to RecieveImage and CopyImage
-			   Removed ReceiveTexture - not working
-	11.10.16 - Changed CreateReceiver
-			     . use only an index rather than return a name as well
-				 . do not change the current user selected index
-			   Changed GetSenderName to use an optional sender index
-	07.11.16 - Added CPU support check
-	09.02.17 - include changes by Harvey Buchan for NDI SDK version 2
-			 - Added Metadata
-			 - Added option to specify low bandwidth NDI receiving mode
-			 - Removed bSwapRB option from ReceiveImage - now done internally
-			 - Replacement function for deprecated NDIlib_find_get_sources
-	17.02.17 - Added GetNDIversion - NDIlib_version
-	22.02.17 - cleanup
-	31.03.18 - Update to NDI SDK Version 3 - search on "Vers 3"
-	           - change functions to _v2
-			   - change variable types
+	08.07.16 - Uses ofxNDIreceive class
+	11.07.18 - Add ReceiveImage for a texture
+			 - Change to always create an RGBA receiver.
+			   Allow the SDK to do the conversion from other formats. 
+			   Openframeworks is RGBA so any other format would need
+			   to be converted in any case. 
+	16.07.18 - Add GetFrameType
+	06.08.18 - Add receive to ofFbo
+			 - Check for receiver creation in ReceiveImage to unsigned char array
+
+	New functions and changes for 3.5 update:
+
+			bool ReceiverCreated()
+			bool ReceiveImage(ofFbo &fbo)
+			bool ReceiveImage(ofTexture &texture)
+			bool ReceiveImage(ofImage &image)
+			bool ReceiveImage(ofPixels &pixels)
+			NDIlib_frame_type_e GetFrameType()
+			bool GetSenderName(char *sendername, int maxsize, int index = -1)
+			std::string GetSenderName(int index = -1)
+			unsigned int GetSenderWidth()
+			unsigned int GetSenderHeight()
+			double GetFps()
 
 */
 #include "ofxNDIreceiver.h"
@@ -58,260 +54,356 @@
 
 ofxNDIreceiver::ofxNDIreceiver()
 {
-	pNDI_find = NULL;
-	pNDI_recv = NULL;
-	p_sources = NULL;
-	no_sources = 0;
-	bNDIinitialized = false;
-	bSenderSelected = false;
-	nsenders = 0;
-	m_Width = 0;
-	m_Height = 0;
-	senderIndex = 0;
-	m_bandWidth = NDIlib_recv_bandwidth_highest;
-
-	if(!NDIlib_is_supported_CPU() ) {
-		MessageBoxA(NULL, "CPU does not support NDI\nNDILib requires SSE4.1", "NDIreceiver", MB_OK);
-	}
-	else {
-		bNDIinitialized = NDIlib_initialize();
-		if(!bNDIinitialized) {
-			MessageBoxA(NULL, "Cannot run NDI\nNDILib initialization failed", "NDIreceiver", MB_OK);
-		}
-
-	}
 
 }
-
 
 ofxNDIreceiver::~ofxNDIreceiver()
 {
-	if(pNDI_recv) NDIlib_recv_destroy(pNDI_recv);
-	if(pNDI_find) NDIlib_find_destroy(pNDI_find);
-	if(bNDIinitialized)	NDIlib_destroy();
 	
 }
 
-
-// Get NDI dll version number
-std::string ofxNDIreceiver::GetNDIversion()
+// Create a receiver
+bool ofxNDIreceiver::CreateReceiver(int userindex)
 {
-	return NDIlib_version();
+	return NDIreceiver.CreateReceiver(userindex);
+}
+
+// Create a receiver with preferred colour format
+bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e color_format, int userindex)
+{
+	return NDIreceiver.CreateReceiver(color_format, userindex);
+
+}
+
+// Open the receiver to receive
+bool ofxNDIreceiver::OpenReceiver()
+{
+	// Update the NDI sender list to find new senders
+	// There is no delay if no new senders are found
+	NDIreceiver.FindSenders();
+	// Check the sender count
+	int nSenders = GetSenderCount();
+	if (nSenders > 0) {
+
+		// Has the user changed the sender index ?
+		if (NDIreceiver.SenderSelected()) {
+			// Retain the last sender in case of network delay
+			// Wait for the network to come back up or for the
+			// user to select another sender when it does
+			if (nSenders == 1)
+				return false;
+			// Release the current receiver.
+			// A new one is then created from the selected sender index.
+			NDIreceiver.ReleaseReceiver();
+			return false;
+		}
+
+		// Receiver already created
+		if (NDIreceiver.ReceiverCreated())
+			return true;
+
+		// Create a new receiver if one does not exist.
+		// A receiver is created from an index into a list of sender names.
+		// The current user selected index is saved in the NDIreceiver class
+		// and is used to create the receiver unless you specify a particular index.
+		return NDIreceiver.CreateReceiver();
+
+	}
+
+	// No senders
+	return false;
+
+}
+
+// Return whether the receiver has been created
+bool ofxNDIreceiver::ReceiverCreated()
+{
+	return NDIreceiver.ReceiverCreated();
+}
+
+// Close receiver and release resources
+void ofxNDIreceiver::ReleaseReceiver()
+{
+	NDIreceiver.ReleaseReceiver();
+}
+
+// Receive an fbo
+// Fbo re-allocated to changed sender dimensions
+// For false return, check for metadata using IsMetadata()
+bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
+{
+	if (!fbo.isAllocated())
+		return false;
+
+	// Check for receiver creation
+	if (!OpenReceiver())
+		return false;
+
+	unsigned int width = (unsigned int)fbo.getWidth();
+	unsigned int height = (unsigned int)fbo.getHeight();
+
+	// Receive a pixel image first
+	if (NDIreceiver.ReceiveImage(width, height)) {
+
+		// Get the video frame buffer pointer
+		unsigned char *videoData = NDIreceiver.GetVideoData();
+		if (!videoData) {
+			printf("ReceiveTexture : No video data\n");
+			return false;
+		}
+
+		// Check for changed sender dimensions
+		// to re-allocate the receiving texture
+		if (width != (unsigned int)fbo.getWidth() || height != (unsigned int)fbo.getHeight())
+			fbo.allocate(width, height, GL_RGBA);
+
+		// Get the NDI frame pixel data into the fbo texture
+		fbo.getTexture().loadData((const unsigned char *)videoData, width, height, GL_RGBA);
+
+		// Free the NDI video buffer
+		NDIreceiver.FreeVideoData();
+
+		return true;
+	}
+
+	return false;
+
 }
 
 
+// Receive a texture
+// Texture re-allocated to changed sender dimensions
+// For false return, check for metadata using IsMetadata()
+bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
+{
+	if (!texture.isAllocated())
+		return false;
 
+	// Check for receiver creation
+	if (!OpenReceiver())
+		return false;
 
+	unsigned int width = (unsigned int)texture.getWidth();
+	unsigned int height = (unsigned int)texture.getHeight();
+
+	// Receive a pixel image first
+	if (NDIreceiver.ReceiveImage(width, height)) {
+
+		// Get the video frame buffer pointer
+		unsigned char *videoData = NDIreceiver.GetVideoData();
+		if (!videoData) {
+			printf("ReceiveTexture : No video data\n");
+			return false;
+		}
+
+		// Check for changed sender dimensions
+		// to re-allocate the receiving texture
+		if (width != (unsigned int)texture.getWidth() || height != (unsigned int)texture.getHeight())
+			texture.allocate(width, height, GL_RGBA);
+
+		// Get the NDI frame pixel data into the texture
+		texture.loadData((const unsigned char *)videoData, width, height, GL_RGBA);
+
+		// Free the NDI video buffer
+		NDIreceiver.FreeVideoData();
+
+		return true;
+	}
+
+	return false;
+
+}
+
+// Receive an image
+// Image re-allocated to changed sender dimensions
+// For false return, check for metadata using IsMetadata()
+bool ofxNDIreceiver::ReceiveImage(ofImage &image)
+{
+	if (!image.isAllocated())
+		return false;
+
+	// Check for receiver creation
+	if (!OpenReceiver())
+		return false;
+
+	unsigned int width = (unsigned int)image.getWidth();
+	unsigned int height = (unsigned int)image.getHeight();
+
+	// Receive a pixel image first
+	if (NDIreceiver.ReceiveImage(width, height)) {
+
+		// Get the video frame buffer pointer
+		unsigned char *videoData = NDIreceiver.GetVideoData();
+		if (!videoData)
+			return false;
+
+		// Check for changed sender dimensions
+		// to re-allocate the receiving image
+		if (width != (unsigned int)image.getWidth() || height != (unsigned int)image.getHeight())
+			image.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
+
+		// Get the NDI frame pixel data into the image texture
+		image.getTexture().loadData((const unsigned char *)videoData, width, height, GL_RGBA);
+
+		// Free the NDI video buffer
+		NDIreceiver.FreeVideoData();
+
+		return true;
+	}
+
+	return false;
+
+}
+
+// Receive a pixel buffer
+// Buffer re-allocated with changed sender dimensions
+// For false return, check for metadata using IsMetadata()
+bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
+{
+	if (!buffer.isAllocated())
+		return false;
+
+	// Check for receiver creation
+	if (!OpenReceiver())
+		return false;
+
+	unsigned int width = (unsigned int)buffer.getWidth();
+	unsigned int height = (unsigned int)buffer.getHeight();
+
+	// Receive a pixel image first
+	if (NDIreceiver.ReceiveImage(width, height)) {
+
+		// Get the video frame buffer pointer
+		unsigned char *videoData = NDIreceiver.GetVideoData();
+		if (!videoData)
+			return false;
+
+		// Check for changed sender dimensions
+		// to re-allocate the receiving image
+		if (width != (unsigned int)buffer.getWidth() || height != (unsigned int)buffer.getHeight())
+			buffer.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
+
+		// Get the NDI frame pixel data into the pixel buffer
+		buffer.setFromExternalPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
+
+		// Free the NDI video buffer
+		NDIreceiver.FreeVideoData();
+
+		return true;
+	}
+
+	return false;
+
+}
+
+// Receive image pixels to a char buffer
+// Retained for compatibility with previous version of ofxNDI
+// Return sender width and height
+// Test width and height for change with true return
+// For false return, check for metadata using IsMetadata()
+bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels,
+	unsigned int &width, unsigned int &height, bool bInvert)
+{
+
+	if (!pixels)
+		return false;
+
+	// Check for receiver creation
+	if (!OpenReceiver())
+		return false;
+
+	return NDIreceiver.ReceiveImage(pixels, width, height, bInvert);
+}
 
 // Create a finder to look for a sources on the network
 void ofxNDIreceiver::CreateFinder()
 {
-	if(!bNDIinitialized) return;
-
-	if(pNDI_find) NDIlib_find_destroy(pNDI_find);
-	const NDIlib_find_create_t NDI_find_create_desc = { TRUE, NULL, NULL }; // Version 2
-	// pNDI_find = NDIlib_find_create2(&NDI_find_create_desc);
-	// Vers 3
-	pNDI_find = NDIlib_find_create_v2(&NDI_find_create_desc);
-	p_sources = NULL;
-	no_sources = 0;
-	nsenders = 0;
-
+	NDIreceiver.CreateFinder();
 }
-
 
 // Release the current finder
 void ofxNDIreceiver::ReleaseFinder()
 {
-	if(!bNDIinitialized) return;
-
-	if(pNDI_find) NDIlib_find_destroy(pNDI_find);
-	pNDI_find = NULL;
-	p_sources = NULL;
-	no_sources = 0;
-
+	NDIreceiver.ReleaseFinder();
 }
 
-//
-// Version 2
-//
-// Replacement for deprecated NDIlib_find_get_sources
-//
-const NDIlib_source_t* ofxNDIreceiver::FindGetSources(NDIlib_find_instance_t p_instance, 
-													  uint32_t* p_no_sources,
-													  uint32_t timeout_in_ms)
-{
-	if(!p_instance)
-		return NULL;
-
-	// If no timeout specified, return the sources that exist right now
-	// For a tiemout, wait for that timeout and return the sources that exist then
-	// If that fails, return NULL
-	if ((!timeout_in_ms) || (NDIlib_find_wait_for_sources(p_instance, timeout_in_ms))) {
-		// Recover the current set of sources (i.e. the ones that exist right this second)
-		return NDIlib_find_get_current_sources(p_instance, p_no_sources);
-	}
-
-	return NULL;
-}
-
-
+// Find all current NDI senders
 int ofxNDIreceiver::FindSenders()
 {
-	std::string name;
-
-	if(!bNDIinitialized) {
-		printf("NDI not initialized\n");
-		return 0;
-	}
-
-	// If a finder was created, use it to find senders on the network
-	if(pNDI_find) {
-		//
-		// This may be called for every frame so has to be fast.
-		//
-		// Specify a delay so that p_sources is returned only for a network change.
-		// If there was no network change, p_sources is NULL and no_sources = 0 
-		// and can't be used for other functions so the sender names as well as 
-		// the sender count need to be saved locally.
-		// Version 2
-		// p_sources = NDIlib_find_get_sources(pNDI_find, &no_sources, 1);
-		p_sources = FindGetSources(pNDI_find, &no_sources, 1);
-		if(p_sources && no_sources > 0) {
-			// printf("no_sources = %d\n", no_sources);
-			NDIsenders.clear();
-			nsenders = 0;
-			if(p_sources && no_sources > 0) {
-				for(int i = 0; i < (int)no_sources; i++) {
-					// The sender name should be valid in the list but check anyway to avoid a crash
-					if(p_sources[i].p_ndi_name && p_sources[i].p_ndi_name[0]) {
-						// printf("Sender %d [%s]\n", i, p_sources[i].p_ndi_name);
-						name = p_sources[i].p_ndi_name;
-						NDIsenders.push_back(name);
-						nsenders++;
-					}
-				}
-			}
-		}
-	}
-	else {
-		CreateFinder();
-	}
-
-	return nsenders;
+	return NDIreceiver.FindSenders();
 }
 
-
 // Refresh sender list with the current network snapshot
-// int ofxNDIreceiver::RefreshSenders(DWORD dwTimeout)
 int ofxNDIreceiver::RefreshSenders(uint32_t timeout)
 {
-	std::string name;
-
-	if(!bNDIinitialized) return 0;
-
-	// Release the current finder
-	if(pNDI_find) ReleaseFinder();
-	if(!pNDI_find) CreateFinder();
-
-	// If a finder was created, use it to find senders on the network
-	// Give it a timeout in case of connection trouble.
-	if(pNDI_find) {
-		// Clear the current local list
-		NDIsenders.clear();
-		nsenders = 0;
-
-		dwStartTime = timeGetTime();
-		dwElapsedTime = 0;
-		do {
-			p_sources = NDIlib_find_get_current_sources(pNDI_find, &no_sources);
-			dwElapsedTime = timeGetTime() - dwStartTime;
-		} while(no_sources == 0 && (uint32_t)dwElapsedTime < timeout);
-
-
-		if(p_sources && no_sources > 0) {
-			NDIsenders.clear();
-			nsenders = 0;
-			for(int i = 0; i < (int)no_sources; i++) {
-				// The sender name should be valid in the list but check anyway to avoid a crash
-				if(p_sources[i].p_ndi_name && p_sources[i].p_ndi_name[0]) {
-					name = p_sources[i].p_ndi_name;
-					NDIsenders.push_back(name);
-					nsenders++;
-				}
-			}
-			return nsenders;
-		}
-	}
-
-	return 0;
+	return NDIreceiver.RefreshSenders(timeout);
 }
 
 // Set the sender list index variable
-void ofxNDIreceiver::SetSenderIndex(int index)
+bool ofxNDIreceiver::SetSenderIndex(int index)
 {
-	if(!bNDIinitialized) return;
-
-	senderIndex = index;
-	if(senderIndex > nsenders) {
-		senderIndex = 0;
-	}
-	bSenderSelected = true; // Set to show the user has changed
-
+	return NDIreceiver.SetSenderIndex(index);
 }
 
 // Return the index of the current sender
 int ofxNDIreceiver::GetSenderIndex()
 {
-	return senderIndex;
+	return NDIreceiver.GetSenderIndex();
 }
-
 
 // Return the index of a sender name
 bool ofxNDIreceiver::GetSenderIndex(char *sendername, int &index)
 {
-	if(NDIsenders.size() > 0) {
-		for(int i=0; i<(int)NDIsenders.size(); i++)  {
-			if(strcmp(sendername, NDIsenders.at(i).c_str()) == 0) {
-				index = i;
-				return true;
-			}
-		}
-	}
-
-	return false;
+	return NDIreceiver.GetSenderIndex(sendername, index);
 }
 
 // Has the user changed the sender index ?
 bool ofxNDIreceiver::SenderSelected()
 {
-	bool bSelected = bSenderSelected;
-	bSenderSelected = false; // one off - the user has to select again
-
-	return bSelected;
+	return NDIreceiver.SenderSelected();
 }
 
+// Return the number of senders
 int ofxNDIreceiver::GetSenderCount()
 {
-	return (int)NDIsenders.size();
+	return NDIreceiver.GetSenderCount();
 }
 
-
-// Return a sender name for the requested index
-bool ofxNDIreceiver::GetSenderName(char *sendername, int userindex)
+// Return the name characters of a sender index
+// For back-compatibility only
+// Char functions replaced with string version
+bool ofxNDIreceiver::GetSenderName(char *sendername)
 {
-	int index = userindex; 
+	// Length of user name string is not known
+	int index = -1;
+	return GetSenderName(sendername, 128, index);
+}
 
-	// If no index has been specified, use the currently selected index
-	if(userindex < 0) 
-		index = senderIndex;
+bool ofxNDIreceiver::GetSenderName(char *sendername, int index)
+{
+	// Length of user name string is not known
+	return GetSenderName(sendername, 128, index);
+}
 
-	if(NDIsenders.size() > 0 && (unsigned int)index < NDIsenders.size() && !NDIsenders.empty()) {
-		strcpy_s(sendername, 256, NDIsenders.at(index).c_str());
-		return true;
-	}
+bool ofxNDIreceiver::GetSenderName(char *sendername, int maxsize, int userindex)
+{
+	return NDIreceiver.GetSenderName(sendername, maxsize, userindex);
+}
 
-	return false;
+// Return the name string of a sender index
+std::string ofxNDIreceiver::GetSenderName(int userindex)
+{
+	return NDIreceiver.GetSenderName(userindex);
+}
+
+// Return the current sender width
+unsigned int ofxNDIreceiver::GetSenderWidth() {
+	return NDIreceiver.GetSenderWidth();
+}
+
+// Return the current sender height
+unsigned int ofxNDIreceiver::GetSenderHeight() {
+	return NDIreceiver.GetSenderHeight();
 }
 
 //
@@ -323,207 +415,37 @@ bool ofxNDIreceiver::GetSenderName(char *sendername, int userindex)
 //
 void ofxNDIreceiver::SetLowBandwidth(bool bLow)
 {
-	if(bLow) {
-		m_bandWidth = NDIlib_recv_bandwidth_lowest; // Low bandwidth receive option
-	}
-	else {
-		m_bandWidth = NDIlib_recv_bandwidth_highest;
-	}
-
+	NDIreceiver.SetLowBandwidth(bLow);
 }
 
+// Return the received frame type
+NDIlib_frame_type_e ofxNDIreceiver::GetFrameType()
+{
+	return NDIreceiver.GetFrameType();
+}
 
-//
-// Metadata
-//
+// Is the current frame MetaData ?
 bool ofxNDIreceiver::IsMetadata()
 {
-	return m_bMetadata;
+	return NDIreceiver.IsMetadata();
 }
 
+// Return the current MetaData string
 std::string ofxNDIreceiver::GetMetadataString()
 {
-	return m_metadataString;
+	return NDIreceiver.GetMetadataString();
 }
 
-
-// HB for RGBA
-bool ofxNDIreceiver::CreateReceiver(int userindex)
+// Return the NDI dll version number
+std::string ofxNDIreceiver::GetNDIversion()
 {
-	// Default to BGRA if no format color format is specified
-	return CreateReceiver(NDIlib_recv_color_format_e_BGRX_BGRA, userindex);
+	return NDIreceiver.GetNDIversion();
 }
 
-bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int userindex)
+// Return the received frame rate
+double ofxNDIreceiver::GetFps()
 {
-	if (!bNDIinitialized) return false;
-
-	int index = userindex;
-
-	if (!pNDI_recv) {
-
-		// The continued check in FindSenders is for a network change and
-		// p_sources is returned NULL, so we need to find all the sources
-		// again to get a pointer to the selected sender.
-		// Give it a timeout in case of connection trouble.
-
-		if (pNDI_find) {
-			dwStartTime = timeGetTime();
-			do {
-				p_sources = NDIlib_find_get_current_sources(pNDI_find, &no_sources);
-				dwElapsedTime = timeGetTime() - dwStartTime;
-			} while (no_sources == 0 && dwElapsedTime < 4000);
-		}
-
-		// TODO - reset sender name vector?
-
-		if (p_sources && no_sources > 0) {
-
-			// If no index has been specified, use the currently set index
-			if (userindex < 0)
-				index = senderIndex;
-
-			// We tell it that we prefer the passed format
-			NDIlib_recv_create_t NDI_recv_create_desc = {
-				p_sources[index],
-				colorFormat,
-				m_bandWidth, // Changed by SetLowBandwidth, default NDIlib_recv_bandwidth_highest
-				TRUE };
-
-			// Create the receiver
-			// Deprecated version sets bandwidth to highest and allow fields to true.
-			// pNDI_recv = NDIlib_recv_create2(&NDI_recv_create_desc);
-			// Vers 3
-			pNDI_recv = NDIlib_recv_create_v2(&NDI_recv_create_desc);
-			if (!pNDI_recv) {
-				return false;
-			}
-
-			// on_program = TRUE, on_preview = FALSE
-			const NDIlib_tally_t tally_state = { TRUE, FALSE };
-			NDIlib_recv_set_tally(pNDI_recv, &tally_state);
-
-			return true;
-
-		}
-	} // end create receiver
-
-	return false;
+	return NDIreceiver.GetFps();
 }
 
 
-
-void ofxNDIreceiver::ReleaseReceiver()
-{
-	if(!bNDIinitialized) return;
-
-	if(pNDI_recv) NDIlib_recv_destroy(pNDI_recv);
-	m_Width = 0;
-	m_Height = 0;
-	pNDI_recv = NULL;
-	bSenderSelected = false;
-
-}
-
-
-
-bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels, 
-								  unsigned int &width, unsigned int &height, 
-								  bool bInvert)
-{
-	NDIlib_frame_type_e NDI_frame_type;
-	NDIlib_metadata_frame_t metadata_frame;
-
-	if(pNDI_recv) {
-
-		// NDI_frame_type = NDIlib_recv_capture(pNDI_recv, &video_frame, NULL, &metadata_frame, 0); 
-		// Vers 3
-		NDI_frame_type = NDIlib_recv_capture_v2(pNDI_recv, &video_frame, NULL, &metadata_frame, 0);
-
-		// Is the connection lost or no data received ?
-		if(NDI_frame_type == NDIlib_frame_type_error || NDI_frame_type == NDIlib_frame_type_none) {
-			// printf("Error : NDI_frame_type = %d [%x]\n", NDI_frame_type, NDI_frame_type);
-			return false;
-		}
-
-		// Metadata
-		if(NDI_frame_type == NDIlib_frame_type_metadata) {
-			// if(metadata_frame.p_data) printf("ofxNDIreceiver::ReceiveImage - Received Metadata\n%s\n", metadata_frame.p_data);
-			// else	printf("ofxNDIreceiver::ReceiveImage - Received NULL Metadata\n");
-			// Vers 3
-			if (metadata_frame.p_data) {
-				m_bMetadata = true;
-				m_metadataString = metadata_frame.p_data;
-			}
-		}
-		else {
-			m_bMetadata = false;
-			// Vers 3
-			if(!m_metadataString.empty())
-				m_metadataString.clear();
-		}
-
-		if(video_frame.p_data && NDI_frame_type == NDIlib_frame_type_video)	{
-
-			if(m_Width != (unsigned int)video_frame.xres || m_Height != (unsigned int)video_frame.yres) {
-
-				m_Width  = (unsigned int)video_frame.xres;
-				m_Height = (unsigned int)video_frame.yres;
-
-				// Update the caller dimensions and return received OK
-				// for the app to handle changed dimensions
-				width  = m_Width;
-				height = m_Height;
-
-				return true;
-			}
-
-			// Otherwise sizes are current - copy the received frame data to the local buffer
-			if(video_frame.p_data && (uint8_t*)pixels) {
-				
-				// Video frame type
-				switch(video_frame.FourCC) {
-
-					// NDIlib_FourCC_type_UYVA not supported
-					// Alpha copied as received
-
-					case NDIlib_FourCC_type_UYVY: // YCbCr color space
-						ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
-						break;
-
-					case NDIlib_FourCC_type_RGBA: // RGBA
-					case NDIlib_FourCC_type_RGBX: // RGBX
-						ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, false, bInvert);
-						break;
-
-					case NDIlib_FourCC_type_BGRA: // BGRA
-					case NDIlib_FourCC_type_BGRX: // BGRX
-					default: // BGRA
-						ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, true, bInvert);
-						break;
-
-				} // end switch received format
-				
-				// Buffers captured must be freed
-				// NDIlib_recv_free_video(pNDI_recv, &video_frame);
-				// Vers 3
-				NDIlib_recv_free_video_v2(pNDI_recv, &video_frame);
-
-
-				// The caller always checks the received dimensions
-				width  = m_Width;
-				height = m_Height;
-
-				return true;
-
-			} // endif video frame data
-			
-			// Vers 3
-			// return true;
-			return false;
-
-		} // endif NDIlib_frame_type_video
-	} // endif pNDI_recv
-
-	return false;
-}

@@ -24,31 +24,12 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	=========================================================================
 
-	13-06-16	- removed internal buffer
-				- used in-place buffer flip function so that internal buffer is not needed
-	27.07.16	- restored FlipBuffer with additional temporary buffer
-				- used optimised assembler memcpy in FlipBuffer - 4-5 fps increase at 2560x1440
-				  FlipBuffer should be avoided if a GPU texture copy/invert is possible
-	10.10.16	- updated SSE2 memcpy with intrinsics for 64bit compatibility
-	12.10.16	- Included a bgra conversion option for SendImage
-	05.11.16	- Added SetClockVideo
-	07.11.16	- Added CPU support check
-	12.11.16	- Fix MessageBox \N to \nN
-	13.11.16	- Do not clock the video for async sending
-	15.11.16	- add audio support
-	09.02.17	- include changes by Harvey Buchan for NDI SDK version 2
-				  (RGBA sender option)
-				- Added Metadata
-	17.02.17	- Added MetaData functions
-				- Added GetNDIversion - NDIlib_version
-	22.02.17	- corrected DWORD cast to int in NDI_connection_type
-	// Changes for NDI Version 3
-	04.11.17	- const char for SendImage
-				- change functions to _v2
-				- change variable types
-	31.03.18	- Update to NDI SDK Version 3 - search on "Vers 3"
-				- change functions to _v2
-				- change variable types
+	08.07.18 - Uses ofxNDIsend class
+	09.07.18 - Send ofFbo, ofTexture, ofImage, ofPixels, char
+			   Shaders for fbo/texture colour format conversion
+	19.07.18 - ofDisableAlphaBlending before RGBA to YUV conversion
+	29.07.18 - Quit SendImage if fbo or texture is not RGBA
+	06.08.18 - Add GetSenderName()
 
 */
 #include "ofxNDIsender.h"
@@ -56,397 +37,597 @@
 
 ofxNDIsender::ofxNDIsender()
 {
-	pNDI_send = NULL;
-	p_frame = NULL;
-	m_frame_rate_N = 60000; // 60 fps default
-	m_frame_rate_D = 1000;
-	// m_frame_rate_N = 30000; // 29.97 fps
-	// m_frame_rate_D = 1001;
-	m_horizontal_aspect = 1; // source aspect ratio by default
-	m_vertical_aspect = 1;
-	m_picture_aspect_ratio = 16.0f/9.0f;
-	m_bProgressive = TRUE; // progressive default
-	m_bClockVideo = TRUE; // clock video default
-	bAsync = false;
-	bNDIinitialized = false;
-
-	// Audio
-	bNDIaudio = false; // No audio default
-	m_AudioSampleRate = 48000; // 48kHz
-	m_AudioChannels = 1; // Default mono
-	m_AudioSamples = 1602; // There can be up to 1602 samples, can be changed on the fly
-	m_AudioTimecode = NDIlib_send_timecode_synthesize; // Timecode (synthesized for us !)
-	m_AudioData = NULL; // Audio buffer
-
-	if(!NDIlib_is_supported_CPU() ) {
-		MessageBoxA(NULL, "CPU does not support NDI\nNDILib requires SSE4.1", "NDIsender", MB_OK);
-		bNDIinitialized = false;
-	}
-	else {
-		bNDIinitialized = NDIlib_initialize();
-		if(!bNDIinitialized) {
-			MessageBoxA(NULL, "Cannot run NDI\nNDILib initialization failed", "NDIsender", MB_OK);
-		}
-	}
-}
-
-// Create default BGRA sender
-bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsigned int height)
-{
-	return CreateSender(sendername, width, height, NDIlib_FourCC_type_BGRA);
-}
-
-// Allow for creating RGBA sender
-bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
-{
-	// Create an NDI source that is clocked to the video.
-	// unless async sending has been selected.
-	// Vers 3
-	// NDI_send_create_desc.p_ndi_name = (const char *)sendername;
-	NDI_send_create_desc.p_ndi_name = sendername;
-	NDI_send_create_desc.p_groups = NULL;
-	NDI_send_create_desc.clock_video = m_bClockVideo;
-	NDI_send_create_desc.clock_audio = false; // FALSE;
-
-	// Calulate aspect ratio
-	// Source (1:1)
-	// Normal 4:3
-	// Widescreen 16:9
-
-	// 1:1 means use the source aspect ratio
-	if(m_horizontal_aspect == 1 && m_vertical_aspect == 1) 
-		m_picture_aspect_ratio = (float)width/(float)height;
-	else
-		m_picture_aspect_ratio = (float)m_horizontal_aspect/(float)m_vertical_aspect;
-
-	// We create the NDI sender
-	pNDI_send = NDIlib_send_create(&NDI_send_create_desc);
-
-	if (pNDI_send) {
-
-		// Provide a meta-data registration that allows people to know what we are. Note that this is optional.
-		// Note that it is possible for senders to also register their preferred video formats.
-		char* p_connection_string = "<ndi_product long_name=\"Spout NDI sender\" "
-												 "             short_name=\"Spout NDI Sender\" "
-												 "             manufacturer=\"spout@zeal.co\" "
-												 "             version=\"1.000.000\" "
-												 "             session=\"default\" "
-												 "             model_name=\"none\" "
-												 "             serial=\"none\"/>";
-		
-		const NDIlib_metadata_frame_t NDI_connection_type = {
-			// The length
-			(int)::strlen(p_connection_string),
-			// Timecode (synthesized for us !)
-			NDIlib_send_timecode_synthesize,
-			// The string
-			p_connection_string
-		};
-
-		NDIlib_send_add_connection_metadata(pNDI_send, &NDI_connection_type);
-		
-		// We are going to create an non-interlaced frame at 60fps
-		if(p_frame) free((void *)p_frame);
-		p_frame = NULL; // invert  buffer
-
-		video_frame.xres = (int)width;
-		video_frame.yres = (int)height;
-		video_frame.FourCC = colorFormat;
-		video_frame.frame_rate_N = m_frame_rate_N; // clock the frame (default 60fps)
-		video_frame.frame_rate_D = m_frame_rate_D;
-		video_frame.picture_aspect_ratio = m_picture_aspect_ratio; // default source (width/height)
-		// 24-1-17 SDK Change to NDI v2
-		//video_frame.is_progressive = m_bProgressive; // progressive of interlaced (default progressive)
-		if (m_bProgressive) video_frame.frame_format_type = NDIlib_frame_format_type_progressive;
-		else video_frame.frame_format_type = NDIlib_frame_format_type_interleaved;
-		// The timecode of this frame in 100ns intervals
-		video_frame.timecode = NDIlib_send_timecode_synthesize; // 0LL; // Let the API fill in the timecodes for us.
-		video_frame.p_data = NULL;
-		video_frame.line_stride_in_bytes = (int)width*4; // The stride of a line BGRA
-
-		if(bNDIaudio) {
-			// Create an audio buffer
-			audio_frame.sample_rate = m_AudioSampleRate;
-			audio_frame.no_channels = m_AudioChannels;
-			audio_frame.no_samples  = m_AudioSamples;
-			audio_frame.timecode    = m_AudioTimecode;
-			audio_frame.p_data      = m_AudioData;
-			// mono/stereo inter channel stride
-			audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(FLOAT);
-		}
-
-		return true;
-	}
-
-	return false;
-}
-
-
-bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
-{
-	if(pNDI_send && bAsync) {
-		// Because one buffer is in flight we need to make sure that 
-		// there is no chance that we might free it before NDI is done with it. 
-		// You can ensure this either by sending another frame, or just by
-		// sending a frame with a NULL pointer.
-		// NDIlib_send_send_video_async(pNDI_send, NULL);
-		NDIlib_send_send_video_async_v2(pNDI_send, NULL);
-	}
-
-	// Free the local buffer, it is re-created in SendImage if invert is needed
-	if(p_frame) free((void *)p_frame);
-	p_frame = NULL;
-	video_frame.p_data = NULL;
-
-	// Reset video frame size
-	video_frame.xres = (int)width;
-	video_frame.yres = (int)height;
-	video_frame.line_stride_in_bytes = (int)width * 4;
-
-	return true;
-}
-
-
-// Vers 3
-// void ofxNDIsender::SetFrameRate(DWORD framerate_N, DWORD framerate_D)
-void ofxNDIsender::SetFrameRate(int framerate_N, int framerate_D)
-{
-	m_frame_rate_N = framerate_N;
-	m_frame_rate_D = framerate_D;
-	// Aspect ratio is calculated in CreateSender
-}
-
-// Vers 3
-// void ofxNDIsender::GetFrameRate(DWORD &framerate_N, DWORD &framerate_D)
-void ofxNDIsender::GetFrameRate(int &framerate_N, int &framerate_D)
-{
-	framerate_N = m_frame_rate_N;
-	framerate_D = m_frame_rate_D;
-}
-
-// Vers 3
-// void ofxNDIsender::SetAspectRatio(DWORD horizontal, DWORD vertical)
-void ofxNDIsender::SetAspectRatio(int horizontal, int vertical)
-{
-	m_horizontal_aspect = horizontal;
-	m_vertical_aspect = vertical;
-	// Calculate for return
-	m_picture_aspect_ratio = (float)horizontal/(float)vertical;
-}
-
-void ofxNDIsender::GetAspectRatio(float &aspect)
-{
-	aspect = m_picture_aspect_ratio;
-}
-
-void ofxNDIsender::SetProgressive(bool bProgressive)
-{
-	m_bProgressive = bProgressive;
-}
-
-bool ofxNDIsender::GetProgressive()
-{
-	if(m_bProgressive)
-		return true;
-	else
-		return false;
-}
-
-void ofxNDIsender::SetClockVideo(bool bClocked)
-{
-	m_bClockVideo = bClocked;
-}
-
-bool ofxNDIsender::GetClockVideo()
-{
-	if(m_bClockVideo)
-		return true;
-	else
-		return false;
-}
-
-// Set asynchronous sending mode
-void ofxNDIsender::SetAsync(bool bActive)
-{
-	bAsync = bActive;
-	if(bAsync)
-		m_bClockVideo = false; // Do not clock the video for async sending
-	else
-		m_bClockVideo = true;
-}
-
-
-// Get asynchronous sending mode
-bool ofxNDIsender::GetAsync()
-{
-	return bAsync;
-}
-
-//
-// Audio
-//
-void ofxNDIsender::SetAudio(bool bAudio)
-{
-	bNDIaudio = bAudio;
-}
-
-// Vers 3
-// void ofxNDIsender::SetAudioSampleRate(DWORD sampleRate)
-void ofxNDIsender::SetAudioSampleRate(int sampleRate)
-{
-	m_AudioSampleRate = sampleRate;
-	audio_frame.sample_rate = sampleRate;
-}
-
-// Vers 3
-// void ofxNDIsender::SetAudioChannels(DWORD nChannels)
-void ofxNDIsender::SetAudioChannels(int nChannels)
-{
-	m_AudioChannels = nChannels;
-	audio_frame.no_channels = nChannels;
-	audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(FLOAT);
-}
-
-// Vers 3
-// void ofxNDIsender::SetAudioSamples(DWORD nSamples)
-void ofxNDIsender::SetAudioSamples(int nSamples)
-{
-	m_AudioSamples = nSamples;
-	audio_frame.no_samples  = nSamples;
-	audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(FLOAT);
-}
-
-// Vers 3
-// void ofxNDIsender::SetAudioTimecode(LONGLONG timecode)
-void ofxNDIsender::SetAudioTimecode(int64_t timecode)
-{
-	m_AudioTimecode = timecode;
-	audio_frame.timecode = timecode;
-}
-
-// Vers 3
-// void ofxNDIsender::SetAudioData(FLOAT *data)
-void ofxNDIsender::SetAudioData(float *data)
-{
-	m_AudioData = data;
-	audio_frame.p_data = data;
-}
-
-//
-// Metadata
-//
-void ofxNDIsender::SetMetadata(bool bMetadata)
-{
-	m_bMetadata = bMetadata;
-}
-
-void ofxNDIsender::SetMetadataString(std::string datastring)
-{
-	m_metadataString = datastring;
-}
-
-
-// Get NDI dll version number
-std::string ofxNDIsender::GetNDIversion()
-{
-	return NDIlib_version();
-}
-
-bool ofxNDIsender::SendImage(const unsigned char * pixels, unsigned int width, unsigned int height,
-							 bool bSwapRB, bool bInvert)
-{
-	if(pixels && width > 0 && height > 0) {
-
-		// Allow for forgotten UpdateSender
-		if(video_frame.xres != (int)width || video_frame.yres != (int)height) {
-			video_frame.xres = (int)width;
-			video_frame.yres = (int)height;
-			video_frame.line_stride_in_bytes = width * 4;
-		}
-
-		if(bSwapRB || bInvert) {
-			// Local memory buffer is only needed for rgba to bgra or invert
-			if(!p_frame) {
-				// Vers 3
-				// p_frame = (BYTE*)malloc(width*height*4*sizeof(unsigned char));
-				p_frame = (uint8_t*)malloc(width*height * 4 * sizeof(unsigned char));
-				if(!p_frame) {
-					MessageBoxA(NULL, "Out of memory in SendImage\n", "NDIsender", MB_OK); 
-					return false;
-				}
-				// Vers 3
-				// video_frame.p_data = (BYTE *)p_frame;
-				video_frame.p_data = p_frame;
-				
-			}
-			ofxNDIutils::CopyImage((const unsigned char *)pixels, (unsigned char *)video_frame.p_data,
-									width, height, (unsigned int)video_frame.line_stride_in_bytes, bSwapRB, bInvert);
-		}
-		else {
-			// No bgra conversion or invert, so use the pointer directly
-			// video_frame.p_data = (BYTE *)pixels;
-			video_frame.p_data = (uint8_t*)pixels;
-
-		}
-
-		// Submit the audio buffer first.
-		// Refer to the NDI SDK example where for 48000 sample rate
-		// and 29.97 fps, an alternating sample number is used.
-		// Do this in the application using SetAudioSamples(nSamples);
-		// General reference : http://jacklinstudios.com/docs/post-primer.html
-		if(bNDIaudio && audio_frame.p_data != NULL)
-			NDIlib_send_send_audio_v2(pNDI_send, &audio_frame);
-			// NDIlib_send_send_audio(pNDI_send, &audio_frame);
-
-		// Metadata
-		if(m_bMetadata && !m_metadataString.empty()) {
-			// metadata_frame.length = (DWORD)m_metadataString.size();
-			metadata_frame.length = (int)m_metadataString.size();
-			metadata_frame.timecode = NDIlib_send_timecode_synthesize;
-			// metadata_frame.p_data = (CHAR *)m_metadataString.c_str(); // XML message format
-			metadata_frame.p_data = (char *)m_metadataString.c_str(); // XML message format
-			NDIlib_send_send_metadata(pNDI_send, &metadata_frame);
-			// printf("Metadata\n%s\n", m_metadataString.c_str());
-		}
-
-		if(bAsync) {
-			// Submit the frame asynchronously. This means that this call will return immediately and the 
-			// API will "own" the memory location until there is a synchronizing event. A synchronouzing event is 
-			// one of : NDIlib_send_send_video_async, NDIlib_send_send_video, NDIlib_send_destroy
-			// NDIlib_send_send_video_async(pNDI_send, &video_frame);
-			NDIlib_send_send_video_async_v2(pNDI_send, &video_frame);
-		}
-		else {
-			// Submit the frame. Note that this call will be clocked
-			// so that we end up submitting at exactly the predetermined fps.
-			// NDIlib_send_send_video(pNDI_send, &video_frame);
-			NDIlib_send_send_video_v2(pNDI_send, &video_frame);
-		}
-		return true;
-	}
-
-	return false;
-}
-
-
-void ofxNDIsender::ReleaseSender()
-{
-	// Destroy the NDI sender
-	if(pNDI_send) NDIlib_send_destroy(pNDI_send);
-
-	// Release the invert buffer
-	if(p_frame) free((void*)p_frame);
-
-	p_frame = NULL;
-	pNDI_send = NULL;
+	m_ColorFormat = NDIlib_FourCC_type_RGBA; // default rgba output format
+	m_bReadback = false; // Asynchronous fbo pixel data readback option
+	ndiPbo[0] = 0;
+	ndiPbo[1] = 0;
+	m_SenderName = "";
 
 }
 
 
 ofxNDIsender::~ofxNDIsender()
 {
-	// Release the library
-	NDIlib_destroy();
-	bNDIinitialized = false;
+
 }
 
+// Create an RGBA sender
+bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsigned int height)
+{
+	return CreateSender(sendername, width, height, NDIlib_FourCC_type_RGBA);
+}
+
+// Create a sender with of specified colour format
+bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
+{
+
+	// printf("ofxNDIsender::CreateSender %s, %dx%d\n", sendername, width, height);
+
+	// Initialize pixel buffers for sending
+	ndiBuffer[0].allocate(width, height, 4);
+	ndiBuffer[1].allocate(width, height, 4);
+	m_idx = 0;
+
+	// Initialize OpenGL pbos for asynchronous readback of fbo data
+	glGenBuffers(2, ndiPbo);
+	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[0]);
+	glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, width*height * 4, 0, GL_STREAM_READ);
+	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[1]);
+	glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, width*height * 4, 0, GL_STREAM_READ);
+	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+	PboIndex = NextPboIndex = 0; // index used for asynchronous fbo readback
+
+	// Allocate utility fbo
+	ndiFbo.allocate(width, height, GL_RGBA);
+
+	// Set user specified colour format
+	m_ColorFormat = colorFormat;
+
+	if (NDIsender.CreateSender(sendername, width, height, colorFormat)) {
+		m_SenderName = sendername;
+		return true;
+	}
+	else {
+		m_SenderName = "";
+		return false;
+	}
+}
+
+// Update sender dimensions with existing colour format
+bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
+{
+	return UpdateSender(width, height, m_ColorFormat);
+}
+
+// Update sender dimensions and colour format
+bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
+{
+	// Re-initialize pixel buffers
+	ndiBuffer[0].allocate(width, height, 4);
+	ndiBuffer[1].allocate(width, height, 4);
+	m_idx = 0;
+
+	// Delete and re-initialize OpenGL pbos
+	if (ndiPbo[0])	glDeleteBuffers(2, ndiPbo);
+	glGenBuffers(2, ndiPbo);
+	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[0]);
+	glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, width*height * 4, 0, GL_STREAM_READ);
+	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[1]);
+	glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, width*height * 4, 0, GL_STREAM_READ);
+	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+	PboIndex = NextPboIndex = 0; // reset index used for asynchronous fbo readback
+
+	// Re-initialize utility fbo
+	ndiFbo.allocate(width, height, GL_RGBA);
+
+	return NDIsender.UpdateSender(width, height);
+}
+
+// Close sender and release resources
+void ofxNDIsender::ReleaseSender()
+{
+	// Delete async sending buffers
+	if (ndiBuffer[0].isAllocated())	ndiBuffer[0].clear();
+	if (ndiBuffer[1].isAllocated())	ndiBuffer[1].clear();
+
+	// Delete fbo readback pbos
+	if (ndiPbo[0]) glDeleteBuffers(2, ndiPbo);
+
+	// Release utility fbo
+	if (ndiFbo.isAllocated()) ndiFbo.clear();
+
+	// Release sender
+	NDIsender.ReleaseSender();
+
+	m_SenderName = "";
+}
+
+// Return whether the sender has been created
+bool ofxNDIsender::SenderCreated()
+{
+	return NDIsender.SenderCreated();
+}
+
+// Return current sender width
+unsigned int ofxNDIsender::GetWidth()
+{
+	return NDIsender.GetWidth();
+}
+
+// Return current sender height
+unsigned int ofxNDIsender::GetHeight() 
+{
+	return NDIsender.GetHeight();
+}
+
+// Send ofFbo
+bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
+{
+	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
+		return false;
+
+	// Quit if the fbo is not RGBA
+	if (fbo.getTexture().getTextureData().glInternalFormat != GL_RGBA)
+		return false;
+
+	unsigned int width = (unsigned int)fbo.getWidth();
+	unsigned int height = (unsigned int)fbo.getHeight();
+
+
+	// Update the sender if the dimensions are changed
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
+		NDIsender.UpdateSender(width, height);
+
+	// For asynchronous NDI sending, alternate between buffers because
+	// one buffer is being filled in while the second is "in flight"
+	// and being processed by the API.
+	if (GetAsync())
+		m_idx = (m_idx + 1) % 2;
+
+	switch (m_ColorFormat) {
+	case NDIlib_FourCC_type_UYVY:
+		// case NDIlib_FourCC_type_UYVA: // Alpha out not supported yet
+		ofDisableAlphaBlending();
+		ColorConvert(fbo); // RGBA to YUV422
+		ReadPixels(ndiFbo, width, height, ndiBuffer[m_idx].getData());
+		break;
+	case NDIlib_FourCC_type_BGRA:
+	case NDIlib_FourCC_type_BGRX:
+		// RGBA to BGRA into the utilty fbo
+		ColorSwap(fbo);
+		// Get pixel data from the fbo
+		ReadPixels(ndiFbo, width, height, ndiBuffer[m_idx].getData());
+		break;
+	default:
+		// Default RGBA output
+		ReadPixels(fbo, width, height, ndiBuffer[m_idx].getData());
+		break;
+	}
+
+	// return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getPixels(), width, height, false, bInvert); // for < OF10
+	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
+
+}
+
+// Send ofTexture
+bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
+{
+	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated()) {
+		printf("Buffers not allocated\n");
+		return false;
+	}
+
+	// Quit if the texture is not RGBA
+	if (tex.getTextureData().glInternalFormat != GL_RGBA) {
+		printf("Texture is not RGBA (%x)\n", tex.getTextureData().glInternalFormat);
+		return false;
+	}
+
+	unsigned int width = (unsigned int)tex.getWidth();
+	unsigned int height = (unsigned int)tex.getHeight();
+
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
+		NDIsender.UpdateSender(width, height);
+
+	if (GetAsync())
+		m_idx = (m_idx + 1) % 2;
+
+	switch (m_ColorFormat) {
+	case NDIlib_FourCC_type_UYVY:
+		ofDisableAlphaBlending(); // Avoid alpha trails
+		ColorConvert(tex);
+		ReadPixels(ndiFbo, width, height, ndiBuffer[m_idx].getData());
+		break;
+	case NDIlib_FourCC_type_BGRA:
+	case NDIlib_FourCC_type_BGRX:
+		ColorSwap(tex);
+		ReadPixels(ndiFbo, width, height, ndiBuffer[m_idx].getData());
+		break;
+	default:
+		ReadPixels(tex, width, height, ndiBuffer[m_idx].getData());
+		break;
+	}
+
+	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
+
+}
+
+// Send ofImage
+bool ofxNDIsender::SendImage(ofImage img, bool bInvert)
+{
+	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
+		return false;
+
+	// RGBA only for images and pixels
+	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA)
+		img.setImageType(OF_IMAGE_COLOR_ALPHA);
+
+	return SendImage(img.getPixels().getData(),
+		(unsigned int)img.getWidth(), (unsigned int)img.getHeight(), false, bInvert);
+
+}
+
+// Send ofPixels
+bool ofxNDIsender::SendImage(ofPixels pix, bool bInvert)
+{
+	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated()) 
+		return false;
+
+	if (pix.getImageType() != OF_IMAGE_COLOR_ALPHA)
+		pix.setImageType(OF_IMAGE_COLOR_ALPHA);
+
+	return NDIsender.SendImage(pix.getData(),
+		(unsigned int)pix.getWidth(), (unsigned int)pix.getHeight(), false, bInvert);
+
+}
+
+// Send RGBA image pixels
+bool ofxNDIsender::SendImage(const unsigned char * pixels,
+	unsigned int width, unsigned int height,
+	bool bSwapRB, bool bInvert)
+{
+	// Update sender to match dimensions
+	// Data must be RGBA and the sender colour format has to match
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight() || m_ColorFormat != NDIlib_FourCC_type_RGBA) {
+		m_ColorFormat = NDIlib_FourCC_type_RGBA;
+		NDIsender.UpdateSender(width, height, NDIlib_FourCC_type_RGBA);
+	}
+	return NDIsender.SendImage(pixels, width, height, bSwapRB, bInvert);
+}
+
+// Set frame rate whole number
+void ofxNDIsender::SetFrameRate(int framerate)
+{
+	NDIsender.SetFrameRate(framerate*1000, 1000);
+}
+
+// Set frame rate decimal number
+void ofxNDIsender::SetFrameRate(double framerate)
+{
+	NDIsender.SetClockVideo();
+	NDIsender.SetFrameRate((int)(framerate*1000.0), 1000);
+}
+
+// Set frame rate numerator and denominator
+void ofxNDIsender::SetFrameRate(int framerate_N, int framerate_D)
+{
+	NDIsender.SetClockVideo();
+	NDIsender.SetFrameRate(framerate_N, framerate_D);
+}
+
+// Return current fps
+double ofxNDIsender::GetFps()
+{
+	int num = 0;
+	int den = 0;
+	double fps = 0.0;
+	NDIsender.GetFrameRate(num, den);
+	if (den > 0)
+		fps = (double)num / (double)den;
+	else
+		fps = 60.0; // default
+	return fps;
+}
+
+// Get current frame rate numerator and denominator
+void ofxNDIsender::GetFrameRate(int &framerate_N, int &framerate_D)
+{
+	NDIsender.GetFrameRate(framerate_N, framerate_D);
+}
+
+// Set aspect ratio
+void ofxNDIsender::SetAspectRatio(int horizontal, int vertical)
+{
+	NDIsender.SetAspectRatio(horizontal, vertical);
+}
+
+// Get current aspect ratio
+void ofxNDIsender::GetAspectRatio(float &aspect)
+{
+	NDIsender.GetAspectRatio(aspect);
+}
+
+// Set progressive mode
+void ofxNDIsender::SetProgressive(bool bProgressive)
+{
+	NDIsender.SetProgressive(bProgressive);
+}
+
+// Get whether progressive
+bool ofxNDIsender::GetProgressive()
+{
+	return NDIsender.GetProgressive();
+}
+
+// Set clocked 
+void ofxNDIsender::SetClockVideo(bool bClocked)
+{
+	NDIsender.SetClockVideo(bClocked);
+}
+
+// Get whether clocked
+bool ofxNDIsender::GetClockVideo()
+{
+	return NDIsender.GetClockVideo();
+}
+
+// Set asynchronous sending mode
+void ofxNDIsender::SetAsync(bool bActive)
+{
+	NDIsender.SetAsync(bActive);
+}
+
+// Get whether async sending mode
+bool ofxNDIsender::GetAsync()
+{
+	return NDIsender.GetAsync();
+}
+
+// Set asynchronous readback of pixels from FBO or texture
+void ofxNDIsender::SetReadback(bool bReadback)
+{
+	m_bReadback = bReadback;
+}
+
+// Get current readback mode
+bool ofxNDIsender::GetReadback()
+{
+	return m_bReadback;
+}
+
+// Get current sender name
+std::string ofxNDIsender::GetSenderName()
+{
+	return m_SenderName;
+}
+
+// Set to send Audio
+void ofxNDIsender::SetAudio(bool bAudio)
+{
+	NDIsender.SetAudio(bAudio);
+}
+
+// Set audio sample rate
+void ofxNDIsender::SetAudioSampleRate(int sampleRate)
+{
+	NDIsender.SetAudioSampleRate(sampleRate);
+}
+
+// Set number of audio channels
+void ofxNDIsender::SetAudioChannels(int nChannels)
+{
+	NDIsender.SetAudioChannels(nChannels);
+}
+
+// Set number of audio samples
+void ofxNDIsender::SetAudioSamples(int nSamples)
+{
+	NDIsender.SetAudioSamples(nSamples);
+}
+
+// Set audio timecode
+void ofxNDIsender::SetAudioTimecode(int64_t timecode)
+{
+	NDIsender.SetAudioTimecode(timecode);
+}
+
+// Set audio data
+void ofxNDIsender::SetAudioData(float *data)
+{
+	NDIsender.SetAudioData(data);
+}
+
+// Set to send metadata
+void ofxNDIsender::SetMetadata(bool bMetadata)
+{
+	NDIsender.SetMetadata(bMetadata);
+}
+
+// Set metadata
+void ofxNDIsender::SetMetadataString(std::string datastring)
+{
+	NDIsender.SetMetadataString(datastring);
+}
+
+// Get NDI dll version number
+std::string ofxNDIsender::GetNDIversion()
+{
+	return NDIsender.GetNDIversion();
+}
+
+//
+// =========== Private functions ===========
+//
+
+// Convert fbo texture from RGBA to UVYV
+void ofxNDIsender::ColorConvert(ofFbo fbo) {
+
+	ndiFbo.begin();
+	yuvshaders.rgba2yuvShader.begin();
+	fbo.getTexture().bind(1); // Source of RGBA pixels
+	yuvshaders.rgba2yuvShader.setUniformTexture("rgbatex", fbo.getTexture(), 1);
+	ndiFbo.draw(0, 0);
+	yuvshaders.rgba2yuvShader.end();
+	ndiFbo.end(); // result is in the utility fbo
+
+}
+
+// Convert texture from RGBA to UVYV
+void ofxNDIsender::ColorConvert(ofTexture texture) {
+
+	ndiFbo.begin();
+	yuvshaders.rgba2yuvShader.begin();
+	texture.bind(1);
+	yuvshaders.rgba2yuvShader.setUniformTexture("rgbatex", texture, 1);
+	ndiFbo.draw(0, 0);
+	yuvshaders.rgba2yuvShader.end();
+	ndiFbo.end();
+}
+
+// Convert fbo texture RGBA <> BGRA
+void ofxNDIsender::ColorSwap(ofFbo fbo) {
+
+	ndiFbo.begin();
+	fbo.getTexture().bind(0);
+	yuvshaders.rgba2bgra.begin();
+	yuvshaders.rgba2bgra.setUniformTexture("texInput", fbo.getTexture(), 0);
+	fbo.draw(0, 0); // Result goes to the ndiFbo texture
+	yuvshaders.rgba2bgra.end();
+	fbo.getTexture().unbind();
+	ndiFbo.end();
+
+}
+
+// Convert texture RGBA <> BGRA
+void ofxNDIsender::ColorSwap(ofTexture texture) {
+
+	ndiFbo.begin();
+	texture.bind(0);
+	yuvshaders.rgba2bgra.begin();
+	yuvshaders.rgba2bgra.setUniformTexture("texInput", texture, 0);
+	texture.draw(0, 0); // Result goes to the ndiFbo texture
+	yuvshaders.rgba2bgra.end();
+	texture.unbind();
+	ndiFbo.end();
+
+}
+
+// Read pixels from fbo to buffer
+void ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data)
+{
+	if (m_bReadback) // Asynchronous readback using two pbos
+		ReadFboPixels(fbo, width, height, ndiBuffer[m_idx].getData());
+	else // Read fbo directly
+		fbo.readToPixels(ndiBuffer[m_idx]);
+}
+
+// Read pixels from texture to buffer
+void ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data)
+{
+	if (m_bReadback)
+		ReadTexturePixels(tex, width, height, ndiBuffer[m_idx].getData());
+	else
+		tex.readToPixels(ndiBuffer[m_idx]);
+}
+
+//
+// Asynchronous fbo pixel Read-back
+//
+// adapted from : http://www.songho.ca/opengl/gl_pbo.html
+//
+bool ofxNDIsender::ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data)
+{
+	void *pboMemory;
+
+	if (ndiPbo[0] == 0 || ndiPbo[1] == 0)
+		return false;
+
+	PboIndex = (PboIndex + 1) % 2;
+	NextPboIndex = (PboIndex + 1) % 2;
+
+	// Bind the fbo passed in
+	fbo.bind();
+
+	// Set the target framebuffer to read
+	glReadBuffer(GL_FRONT);
+
+	// Bind the current PBO
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, ndiPbo[PboIndex]);
+
+	// Read pixels from framebuffer to the current PBO
+	// After a buffer is bound, glReadPixels() will pack(write) data into the Pixel Buffer Object.
+	// glReadPixels() should return immediately.
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
+
+	// Map the previous PBO to process its data by CPU
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, ndiPbo[NextPboIndex]);
+	pboMemory = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+	if (pboMemory) {
+		// Use SSE2 mempcy
+		ofxNDIutils::CopyImage((unsigned char *)pboMemory, data, width, height, width * 4);
+		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+	}
+	else {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		fbo.unbind();
+		return false;
+	}
+
+	// Back to conventional pixel operation
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	fbo.unbind();
+
+	return true;
+
+}
+
+// Asynchronous texture pixel Read-back via fbo
+bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data)
+{
+	void *pboMemory;
+
+	if (ndiPbo[0] == 0 || ndiPbo[1] == 0)
+		return false;
+
+	PboIndex = (PboIndex + 1) % 2;
+	NextPboIndex = (PboIndex + 1) % 2;
+
+	// The local fbo will be the same size as the sender texture
+	ndiFbo.bind();
+
+	// Attach the texture passed in
+	ndiFbo.attachTexture(tex, GL_RGBA, 0);
+
+	// Set the target framebuffer to read
+	glReadBuffer(GL_FRONT);
+
+	// Bind the current PBO
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, ndiPbo[PboIndex]);
+
+	// Read pixels from framebuffer to the current PBO
+	// After a buffer is bound, glReadPixels() will pack(write) data into the Pixel Buffer Object.
+	// glReadPixels() should return immediately.
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
+
+	// Map the previous PBO to process its data by CPU
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, ndiPbo[NextPboIndex]);
+	pboMemory = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+	if (pboMemory) {
+		// Use SSE2 mempcy
+		ofxNDIutils::CopyImage((unsigned char *)pboMemory, data, width, height, width * 4);
+		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+	}
+	else {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		ndiFbo.unbind();
+		return false;
+	}
+
+	ndiFbo.unbind();
+
+	// Back to conventional pixel operation
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+	return true;
+
+}
