@@ -2,7 +2,9 @@
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
 ## Updates
-06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.
+31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3".<br/>
+Note changes to function argument variable types to match with Version 3.<br/>
+06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.<br/>
 02.02.19 - Corrections and audio receive testing
 
 Significant changes have been made for this version. The original classes have been renamed :
@@ -14,7 +16,7 @@ The same functions remain, but with additions to support the new classes. For ex
 
 The new class files depend on Openframeworks and are much easier to use. There are now options to send and receive using ofFbo, ofTexture, ofPixels as well as an unsigned char pixel buffer. 
 
-If receiving to Openframeworks fbo, texture of pixels, it is no longer necessary to manage sender size change rom the application. Also it is no longer necessary to handle receiver creation. Simply use the receive functions alone.
+If receiving to Openframeworks fbo, texture of pixels, it is no longer necessary to manage sender size change from the application. Also it is no longer necessary to handle receiver creation. Simply use the receive functions alone.
 
 The sender includes pbo pixel buffer readback within the class itself, activated by SetReadback.
 
@@ -56,10 +58,6 @@ Refer to the header files for details.
 
 Examples have been updated to include all options available. For a simple, practical example, refer to the webcam sender. The examples assume Openframeworks 10 and are not compatible with previous versions.
 
-31.03.18 - Updated for NDI SDK Vers 3
-Search source for "Vers 3"
-Note changes to function argument variable types to match with Version 3.
-
 ## Setup
 
 For Windows
@@ -95,7 +93,7 @@ Refer to the example code for options available.
 ofxNDI with help from [Harvey Buchan](https://github.com/Harvey3141).
 
 ## Copyrights
-ofxNDI - Copyright (C) 2016-2018 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
+ofxNDI - Copyright (C) 2016-2019 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser  General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details. 
