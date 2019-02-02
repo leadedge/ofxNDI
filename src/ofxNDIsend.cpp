@@ -1,11 +1,12 @@
 /*
+
 	NDI sender
 
 	using the NDI SDK to send the frames via network
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2019 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -59,6 +60,11 @@
 	14.07.18	- Add Sender dimensions m_Width, m_Height and bSenderInitialized
 				- Add GetWidth and GetHeight
 				- Add SenderCreated
+	15.07.18	- Return false for CreateSender if zero width or height
+	11.08.18	- Change SetAudioData to const float
+	16.08.18	- Fix UpdateSender to include aspect ratio and no clock video for async mode
+	12.10.18	- Remove set async false from SetFrameRate
+	14.10.18	- Reset frame rate in UpdateSender
 
 
 */
@@ -86,7 +92,7 @@ ofxNDIsend::ofxNDIsend()
 	m_bAudio = false; // No audio default
 	m_AudioSampleRate = 48000; // 48kHz
 	m_AudioChannels = 1; // Default mono
-	m_AudioSamples = 1602; // There can be up to 1602 samples, can be changed on the fly
+	m_AudioSamples = 1602; // Default up to 1602 samples for NTSC 29.97, can be changed on the fly
 	m_AudioTimecode = NDIlib_send_timecode_synthesize; // Timecode (synthesized for us !)
 	m_AudioData = NULL; // Audio buffer
 
@@ -128,15 +134,18 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 {
 	// printf("ofxNDIsender::CreateSender(%s, %d, %d, (%d)\n", sendername, width, height, colorFormat);
 
+	if (width == 0 || height == 0)
+		return false;
+
 	// Create an NDI source that is clocked to the video.
 	// unless async sending has been selected.
 	NDI_send_create_desc.p_ndi_name = sendername;
 	NDI_send_create_desc.p_groups = NULL;
-	// Do not clock the video for async sending
 	if (m_bAsync)
-		NDI_send_create_desc.clock_video = false;
+		m_bClockVideo = false;
 	else
-		NDI_send_create_desc.clock_video = m_bClockVideo;
+		m_bClockVideo = true;
+	NDI_send_create_desc.clock_video = m_bClockVideo;
 	NDI_send_create_desc.clock_audio = false;
 
 	// Calulate aspect ratio
@@ -183,7 +192,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		video_frame.xres = (int)width;
 		video_frame.yres = (int)height;
 		video_frame.FourCC = colorFormat;
-		video_frame.frame_rate_N = m_frame_rate_N; // clock the frame (default 60fps)
+		video_frame.frame_rate_N = m_frame_rate_N; // (default 60fps)
 		video_frame.frame_rate_D = m_frame_rate_D;
 		video_frame.picture_aspect_ratio = m_picture_aspect_ratio; // default source (width/height)
 
@@ -203,7 +212,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		m_ColorFormat = colorFormat;
 
 		if(m_bAudio) {
-			// Create an audio buffer
+			// Describe the audio frame
 			m_audio_frame.sample_rate = m_AudioSampleRate;
 			m_audio_frame.no_channels = m_AudioChannels;
 			m_audio_frame.no_samples  = m_AudioSamples;
@@ -232,15 +241,19 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height, NDIlib_Fo
 		// Because one buffer is in flight we need to make sure that 
 		// there is no chance that we might free it before NDI is done with it. 
 		// You can ensure this either by sending another frame, or just by
-		// sending a frame with a NULL pointer.
-		// NDIlib_send_send_video_async(pNDI_send, NULL);
+		// sending a frame with a NULL pointer, which will wait for any 
+		// unscheduled asynchronous frames to be completed before returning.
 		NDIlib_send_send_video_async_v2(pNDI_send, NULL);
 	}
 
-	// Free the local buffer, it is re-created in SendImage if invert is needed
+	// Free the local invert buffer, it is re-created in SendImage if invert is needed
 	if(p_frame) free((void *)p_frame);
 	p_frame = NULL;
 	video_frame.p_data = NULL;
+
+	// Update the sender dimensions
+	m_Width  = width;
+	m_Height = height;
 
 	// Reset video frame size
 	video_frame.xres = (int)width;
@@ -248,9 +261,28 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height, NDIlib_Fo
 	video_frame.line_stride_in_bytes = (int)width * 4;
 	video_frame.FourCC = colorFormat;
 
-	// Update the sender dimensions
-	m_Width = width;
-	m_Height = height;
+	// Reset frame rate
+	video_frame.frame_rate_N = m_frame_rate_N;
+	video_frame.frame_rate_D = m_frame_rate_D;
+
+	// Re-calculate aspect ratio
+	if (m_horizontal_aspect == 1 && m_vertical_aspect == 1)
+		m_picture_aspect_ratio = (float)width / (float)height;
+	else
+		m_picture_aspect_ratio = (float)m_horizontal_aspect / (float)m_vertical_aspect;
+
+	video_frame.picture_aspect_ratio = m_picture_aspect_ratio;
+
+	if (m_bAudio) {
+		// Describe the audio frame
+		m_audio_frame.sample_rate = m_AudioSampleRate;
+		m_audio_frame.no_channels = m_AudioChannels;
+		m_audio_frame.no_samples = m_AudioSamples;
+		m_audio_frame.timecode = m_AudioTimecode;
+		m_audio_frame.p_data = m_AudioData;
+		// mono/stereo inter channel stride
+		m_audio_frame.channel_stride_in_bytes = (m_AudioChannels - 1)*m_AudioSamples * sizeof(FLOAT);
+	}
 
 	return true;
 }
@@ -261,9 +293,8 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
-	// printf("SendImage (%x, %d, %d, (%d, %d) )\n", pixels, width, height, bSwapRB, bInvert);
 
-	if (pixels && width > 0 && height > 0) {
+	if (pNDI_send && bSenderInitialized && pixels && width > 0 && height > 0) {
 
 		// Allow for forgotten UpdateSender
 		if (video_frame.xres != (int)width || video_frame.yres != (int)height) {
@@ -277,12 +308,11 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		}
 
 		if (bSwapRB || bInvert) {
-			// printf("bSwapRB = %d, bInvert = %d\n", bSwapRB, bInvert);
 			// Local memory buffer is only needed for rgba to bgra or invert
 			if (!p_frame) {
 				p_frame = (uint8_t*)malloc(width*height * 4 * sizeof(unsigned char));
 				if (!p_frame) {
-					std::cout << "Out of memory in SendImage" << std::endl;
+					printf("Out of memory in SendImage\n");
 					return false;
 				}
 				video_frame.p_data = p_frame;
@@ -300,8 +330,9 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		// and 29.97 fps, an alternating sample number is used.
 		// Do this in the application using SetAudioSamples(nSamples);
 		// General reference : http://jacklinstudios.com/docs/post-primer.html
-		if (m_bAudio && m_audio_frame.p_data != NULL)
+		if (m_bAudio && m_audio_frame.p_data != NULL) {
 			NDIlib_send_send_audio_v2(pNDI_send, &m_audio_frame);
+		}
 
 		// Metadata
 		if (m_bMetadata && !m_metadataString.empty()) {
@@ -309,20 +340,25 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 			metadata_frame.timecode = NDIlib_send_timecode_synthesize;
 			metadata_frame.p_data = (char *)m_metadataString.c_str(); // XML message format
 			NDIlib_send_send_metadata(pNDI_send, &metadata_frame);
-			// printf("Metadata\n%s\n", m_metadataString.c_str());
 		}
 
 		if (m_bAsync) {
-			// Submit the frame asynchronously. This means that this call will return immediately and the 
-			// API will "own" the memory location until there is a synchronizing event. A synchronouzing event is 
-			// one of : NDIlib_send_send_video_async, NDIlib_send_send_video, NDIlib_send_destroy
+			// Submit the frame asynchronously. This means that this call will return 
+			// immediately and the  API will "own" the memory location until there is
+			// a synchronizing event. A synchronouzing event is one of : 
+			// NDIlib_send_send_video_async, NDIlib_send_send_video, NDIlib_send_destroy.
+			// NDIlib_send_send_video_async_v2 will wait for the previous frame to finish before
+			// submitting the current one.
+			// printf("NDIlib_send_send_video_async_v2 %x, %x, %dx%d\n", pNDI_send, video_frame.p_data, video_frame.xres, video_frame.yres);
 			NDIlib_send_send_video_async_v2(pNDI_send, &video_frame);
 		}
 		else {
 			// Submit the frame. Note that this call will be clocked
 			// so that we end up submitting at exactly the predetermined fps.
+			// printf("NDIlib_send_send_video_v2 %x, %x, %dx%d\n", pNDI_send, video_frame.p_data, video_frame.xres, video_frame.yres);
 			NDIlib_send_send_video_v2(pNDI_send, &video_frame);
 		}
+
 		return true;
 	}
 
@@ -332,18 +368,23 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 // Close sender and release resources
 void ofxNDIsend::ReleaseSender()
 {
+	bSenderInitialized = false; // Do this now so no more frames are sent
+
 	// Destroy the NDI sender
-	if (pNDI_send) NDIlib_send_destroy(pNDI_send);
+	if (pNDI_send != NULL) {
+		NDIlib_send_destroy(pNDI_send);
+	}
 
 	// Release the invert buffer
-	if (p_frame) free((void*)p_frame);
+	if (p_frame) {
+		free((void*)p_frame);
+	}
 
 	p_frame = NULL;
 	pNDI_send = NULL;
 
 	// Reset sender dimensions
 	m_Width = m_Height = 0;
-	bSenderInitialized = false;
 
 }
 
@@ -377,8 +418,6 @@ void ofxNDIsend::SetFrameRate(int framerate)
 	// Keep scales compatible
 	m_frame_rate_N = framerate * 1000;
 	m_frame_rate_D = 1000;
-	// Async sending is now off
-	SetAsync(false);
 }
 
 // Set frame rate - frames per second decimal number
@@ -386,7 +425,6 @@ void ofxNDIsend::SetFrameRate(double framerate)
 {
 	m_frame_rate_N = int(framerate * 1000.0);
 	m_frame_rate_D = 1000;
-	SetAsync(false);
 }
 
 // Set frame rate - frames per second numerator and denominator
@@ -395,9 +433,7 @@ void ofxNDIsend::SetFrameRate(int framerate_N, int framerate_D)
 	if (framerate_D > 0) {
 		m_frame_rate_N = framerate_N;
 		m_frame_rate_D = framerate_D;
-		SetAsync(false);
 	}
-	// Aspect ratio is calculated in CreateSender
 }
 
 // Get current frame rate as numerator and denominator
@@ -412,8 +448,7 @@ void ofxNDIsend::SetAspectRatio(int horizontal, int vertical)
 {
 	m_horizontal_aspect = horizontal;
 	m_vertical_aspect = vertical;
-	// Calculate for return
-	m_picture_aspect_ratio = (float)horizontal/(float)vertical;
+	// Aspect ratio is re-calculated in CreateSender
 }
 
 // Get current aspect ratio
@@ -466,6 +501,12 @@ void ofxNDIsend::SetAudio(bool bAudio)
 	m_bAudio = bAudio;
 }
 
+// Get whether audio sending is set
+bool ofxNDIsend::GetAudio()
+{
+	return m_bAudio;
+}
+
 // Set audio sample rate
 void ofxNDIsend::SetAudioSampleRate(int sampleRate)
 {
@@ -482,6 +523,19 @@ void ofxNDIsend::SetAudioChannels(int nChannels)
 }
 
 // Set number of audio samples
+//
+// Note from Newtek documentation
+//
+// no_samples(DWORD)
+//
+// This is the number of audio samples in this buffer.
+// This can be any number and will be handled correctly by the NDI SDK.
+// However when sending audio and video together, bear in mind that many 
+// audio devices work better with audio buffers of the same approximate 
+// length as the video framerate. We encourage sending audio buffers that
+// are approximately half the length of the video frames, and that receiving
+// devices support buffer lengths as broadly as they reasonably can.
+//
 void ofxNDIsend::SetAudioSamples(int nSamples)
 {
 	m_AudioSamples = nSamples;
@@ -497,10 +551,10 @@ void ofxNDIsend::SetAudioTimecode(int64_t timecode)
 }
 
 // Set audio data
-void ofxNDIsend::SetAudioData(float *data)
+void ofxNDIsend::SetAudioData(const float *data)
 {
-	m_AudioData = data;
-	m_audio_frame.p_data = data;
+	m_AudioData = (float *)data;
+	m_audio_frame.p_data = (float *)data;
 }
 
 // Set to send metadata

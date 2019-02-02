@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2019 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -135,6 +135,11 @@ public:
 	// Return - number of senders
 	int FindSenders();
 
+	// Find all current NDI senders
+	// nSenders - number of senders
+	// Return - true for network change
+	bool FindSenders(int &nSenders);
+
 	// Refresh sender list with the current network snapshot
 	// No longer used
 	int RefreshSenders(uint32_t timeout = 0);
@@ -190,6 +195,17 @@ public:
 	// Return the current MetaData string
 	std::string GetMetadataString();
 
+	// Is the current frame Audio data ?
+	// Use when ReceiveImage fails
+	bool IsAudioFrame();
+
+	// Return current audio frame data
+	void GetAudioData(float * &output, int &samplerate, int &samples, int &nChannels);
+	// void GetAudioData(float * &output, int &bufferSize, int &nChannels);
+
+	// Free audio frame buffer
+	void FreeAudioData();
+
 	// The NDI SDK version number
 	std::string GetNDIversion();
 
@@ -208,7 +224,6 @@ private:
 	/// NDIlib_video_frame_t video_frame;
 	/// Vers 3
 	NDIlib_video_frame_v2_t video_frame;
-	/// NDIlib_video_frame_v2_t m_videoFrame; // local copy for external access
 	NDIlib_frame_type_e m_FrameType;
 
 	unsigned int m_Width, m_Height;
@@ -234,6 +249,13 @@ private:
 	// Metadata
 	bool m_bMetadata;
 	std::string m_metadataString; // XML message format string NULL terminated
+
+	// Audio frame received
+	bool m_bAudioFrame;
+	float * m_AudioData;
+	int m_nAudioSampleRate;
+	int m_nAudioSamples;
+	int m_nAudioChannels;
 
 	// Replacement function for deprecated NDIlib_find_get_sources
 	// If no timeout specified, return the sources that exist right now

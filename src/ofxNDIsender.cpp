@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2019 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -30,6 +30,9 @@
 	19.07.18 - ofDisableAlphaBlending before RGBA to YUV conversion
 	29.07.18 - Quit SendImage if fbo or texture is not RGBA
 	06.08.18 - Add GetSenderName()
+	11.08.18 - SendImage - add checks for allocation
+			 - Release sender and resources in destructor
+			 - Return false for CreateSender if zero width or height
 
 */
 #include "ofxNDIsender.h"
@@ -48,7 +51,8 @@ ofxNDIsender::ofxNDIsender()
 
 ofxNDIsender::~ofxNDIsender()
 {
-
+	// Release sender and resources
+	ReleaseSender();
 }
 
 // Create an RGBA sender
@@ -60,8 +64,10 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 // Create a sender with of specified colour format
 bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
 {
-
 	// printf("ofxNDIsender::CreateSender %s, %dx%d\n", sendername, width, height);
+
+	if (width == 0 || height == 0)
+		return false;
 
 	// Initialize pixel buffers for sending
 	ndiBuffer[0].allocate(width, height, 4);
@@ -163,6 +169,9 @@ unsigned int ofxNDIsender::GetHeight()
 // Send ofFbo
 bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 {
+	if (!fbo.isAllocated())
+		return false;
+
 	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
 		return false;
 
@@ -212,10 +221,11 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 // Send ofTexture
 bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 {
-	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated()) {
-		printf("Buffers not allocated\n");
+	if (!tex.isAllocated())
 		return false;
-	}
+
+	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
+		return false;
 
 	// Quit if the texture is not RGBA
 	if (tex.getTextureData().glInternalFormat != GL_RGBA) {
@@ -255,6 +265,9 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 // Send ofImage
 bool ofxNDIsender::SendImage(ofImage img, bool bInvert)
 {
+	if (!img.isAllocated())
+		return false;
+
 	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
 		return false;
 
@@ -270,7 +283,10 @@ bool ofxNDIsender::SendImage(ofImage img, bool bInvert)
 // Send ofPixels
 bool ofxNDIsender::SendImage(ofPixels pix, bool bInvert)
 {
-	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated()) 
+	if (!pix.isAllocated())
+		return false;
+
+	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
 		return false;
 
 	if (pix.getImageType() != OF_IMAGE_COLOR_ALPHA)
@@ -286,6 +302,9 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
+	if (!pixels)
+		return false;
+
 	// Update sender to match dimensions
 	// Data must be RGBA and the sender colour format has to match
 	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight() || m_ColorFormat != NDIlib_FourCC_type_RGBA) {

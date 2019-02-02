@@ -3,11 +3,12 @@ An Openframeworks addon to allow sending and receiving images over a network usi
 
 ## Updates
 06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.
+02.02.19 - Corrections and audio receive testing
 
 Significant changes have been made for this version. The original classes have been renamed :
 
-    ofxNDIsender > ofxNDIsender
-    ofxNDIreceiver > ofNDIreceive
+    ofxNDIsender > ofxNDIsend
+    ofxNDIreceiver > ofxNDIreceive
 
 The same functions remain, but with additions to support the new classes. For existing applications, you can still use them directly by simply renaming the class names, and including the header files specifically. The significance is that they are not dependent on Openframeworks, so can be used in other applications. 
 

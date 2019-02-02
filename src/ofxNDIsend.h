@@ -1,11 +1,12 @@
 /*
+
 	NDI sender
 
 	using the NDI SDK to send the frames via network
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2019 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -172,6 +173,9 @@ public:
 	// Initialized false
 	void SetAudio(bool bAudio = true);
 
+	// Get whether audio sending is set
+	bool GetAudio();
+
 	// Set audio sample rate
 	// - sampleRate | rate in hz
 	// Initialized 48000 (48khz)
@@ -194,7 +198,7 @@ public:
 
 	// Set audio data
 	// - data | data to send (float)
-	void SetAudioData(float *data = NULL); // Audio data
+	void SetAudioData(const float *data = NULL); // Audio data
 
 	// Set to send metadata
 	// Initialized false

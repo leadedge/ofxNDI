@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2019 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -88,6 +88,9 @@
 				unsigned int GetSenderHeight()
 				double GetFps()
 
+	11.08.18 - Add FindSenders overload to return true or false for network change
+	30.08.18 - audio receive testing (for Receive image pixels to a buffer)
+
 
 */
 #include "ofxNDIreceive.h"
@@ -108,6 +111,13 @@ ofxNDIreceive::ofxNDIreceive()
 	m_Height = 0;
 	senderIndex = 0;
 	senderName = "";
+
+	m_bMetadata = false;
+	m_bAudioFrame = false;
+	m_AudioData = NULL;
+	m_nAudioSampleRate = 44100;
+	m_nAudioSamples = 0;
+	m_nAudioChannels = 1; // mono default
 	
 	// For received frame fps calculations
 	frameTime = 0.0;
@@ -131,6 +141,7 @@ ofxNDIreceive::ofxNDIreceive()
 
 ofxNDIreceive::~ofxNDIreceive()
 {
+	FreeAudioData();
 	if(pNDI_recv) NDIlib_recv_destroy(pNDI_recv);
 	if(pNDI_find) NDIlib_find_destroy(pNDI_find);
 	if(bNDIinitialized)	NDIlib_destroy();
@@ -166,19 +177,33 @@ void ofxNDIreceive::ReleaseFinder()
 
 
 // Find all current NDI senders
+// Return number of senders
+// Replacement for original function
 int ofxNDIreceive::FindSenders()
+{
+	int nSenders = 0;
+	FindSenders(nSenders);
+	return (int)NDIsenders.size();
+}
+
+
+// Find all current NDI senders
+// nSenders - number of senders
+// Return true for network change
+bool ofxNDIreceive::FindSenders(int &nSenders)
 {
 	std::string name;
 	uint32_t nsources = 0; // New number of sources
 
-	if(!bNDIinitialized) {
+	if (!bNDIinitialized) {
 		printf("FindSenders : NDI not initialized\n");
-		return 0;
+		nSenders = 0;
+		return false;
 	}
 
 	// If a finder was created, use it to find senders on the network
 	if (pNDI_find) {
-		
+
 		//
 		// This may be called for every frame so has to be fast.
 		//
@@ -213,7 +238,8 @@ int ofxNDIreceive::FindSenders()
 					ReleaseReceiver();
 					senderName.clear();
 					senderIndex = 0;
-					return 0;
+					nSenders = 0;
+					return true; // return true because the last one just closed
 				}
 
 				// Reset the current sender index
@@ -225,9 +251,7 @@ int ofxNDIreceive::FindSenders()
 					}
 				}
 
-				// printf("ofxNDIreceive::FindSenders - new sender index = %d\n", senderIndex);
-
-				// Signal a new sender if it is not the same one
+				// Signal a new sender if it is not the same one as currently selected
 				// The calling application can then query this
 				if (senderName != NDIsenders.at(senderIndex)) {
 					// printf("ofxNDIreceive::FindSenders - new sender\n");
@@ -235,14 +259,24 @@ int ofxNDIreceive::FindSenders()
 				}
 
 			}
+
+			// Network change - return new number of senders
+			nSenders = (int)NDIsenders.size();
+			return true;
+
 		}
 	}
 	else {
 		CreateFinder();
 	}
 
-	return (int)NDIsenders.size();
+	// Always update the number of senders even for no network change
+	nSenders = (int)NDIsenders.size();
+
+	return false; // no network change
+
 }
+
 
 // Refresh NDI sender list with the current network snapshot
 // No longer used
@@ -468,6 +502,22 @@ std::string ofxNDIreceive::GetMetadataString()
 	return m_metadataString;
 }
 
+// Is the current frame Audio ?
+bool ofxNDIreceive::IsAudioFrame()
+{
+	return m_bAudioFrame;
+}
+
+// Return the current audio frame data
+void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, int &nChannels)
+{
+	output = m_AudioData;
+	samplerate = m_nAudioSampleRate;
+	samples = m_nAudioSamples;
+	nChannels = m_nAudioChannels;
+}
+
+
 // Create an RGBA receiver
 bool ofxNDIreceive::CreateReceiver(int userindex)
 {
@@ -591,21 +641,26 @@ void ofxNDIreceive::ReleaseReceiver()
 	bReceiverCreated = false;
 	bSenderSelected = false;
 	FreeVideoData();
+	FreeAudioData();
 
 }
 
+//
 // Receive RGBA image pixels to a buffer
+//
 bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
-								  unsigned int &width, unsigned int &height, bool bInvert)
+	unsigned int &width, unsigned int &height, bool bInvert)
 {
 	NDIlib_frame_type_e NDI_frame_type;
 	NDIlib_metadata_frame_t metadata_frame;
+	NDIlib_audio_frame_v2_t audio_frame;
 	m_FrameType = NDIlib_frame_type_none;
+	bool bRet = false;
 
 	if (pNDI_recv) {
 
-		NDI_frame_type = NDIlib_recv_capture_v2(pNDI_recv, &video_frame, NULL, &metadata_frame, 0);
-		
+		NDI_frame_type = NDIlib_recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+
 		// Is no data received or the connection lost ?
 		if (NDI_frame_type == NDIlib_frame_type_none)
 			return false;
@@ -618,90 +673,127 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 		// Set frame type for external access
 		m_FrameType = NDI_frame_type;
 
-		// Metadata
-		if (NDI_frame_type == NDIlib_frame_type_metadata) {
-			if (metadata_frame.p_data) {
-				m_bMetadata = true;
-				m_metadataString = metadata_frame.p_data;
-				// ReceiveImage will return false
-				// Use IsMetadata() to determine whether metadata has been received
-			}
-		}
-		else {
-			m_bMetadata = false;
-			if (!m_metadataString.empty())
-				m_metadataString.clear();
-		}
+		// printf("Frame type = %d\n", NDI_frame_type);
 
-		// TODO - receive Audio
+		// Clear existing metadata if any
+		if (!m_metadataString.empty())
+			m_metadataString.clear();
+		m_bMetadata = false;
 
-		if (video_frame.p_data && NDI_frame_type == NDIlib_frame_type_video) {
+		// Default is a video frame
+		// Retain any audio data that has been received
+		m_bAudioFrame = false;
 
-			if (m_Width != (unsigned int)video_frame.xres || m_Height != (unsigned int)video_frame.yres) {
+		switch (NDI_frame_type) {
 
-				m_Width = (unsigned int)video_frame.xres;
-				m_Height = (unsigned int)video_frame.yres;
+			case NDIlib_frame_type_metadata:
+				// printf("Metadata\n");
+				if (metadata_frame.p_data) {
+					m_bMetadata = true;
+					m_metadataString = metadata_frame.p_data;
+					// ReceiveImage will return false
+					// Use IsMetadata() to determine whether metadata has been received
+				}
+				break;
 
-				// Update the caller dimensions and return received OK
-				// for the app to handle changed dimensions
-				width = m_Width;
-				height = m_Height;
+			case NDIlib_frame_type_audio:
+				// printf("Audio\n");
+				if (audio_frame.p_data) {
+					// printf("Audio data received (%d samples).\n", audio_frame.no_samples);
+					// Copy the audio data to a local audio buffer
+					// Allocate only for sample size change
+					if (m_nAudioSamples       != audio_frame.no_samples
+						|| m_nAudioSampleRate != audio_frame.sample_rate
+						|| m_nAudioChannels   != audio_frame.no_channels) {
+							// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
+							if (m_AudioData) free((void *)m_AudioData);
+							m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
+					}
 
-				return true;
-			}
+					// printf("Audio data received data = %x, samples = %d\n", (unsigned int)audio_frame.p_data, audio_frame.no_samples);
+					m_nAudioChannels   = audio_frame.no_channels;
+					m_nAudioSamples    = audio_frame.no_samples;
+					m_nAudioSampleRate = audio_frame.sample_rate;
+					memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
+					NDIlib_recv_free_audio_v2(pNDI_recv, &audio_frame);
+					m_bAudioFrame = true;
+					// ReceiveImage will return false
+					// Use IsAudioFrame() to determine whether audio has been received
+					// and GetAudioData to retrieve the sample buffer
+				}
+				break;
 
-			// Otherwise sizes are current - copy the received frame data to the local buffer
-			if (video_frame.p_data && (uint8_t*)pixels) {
+			case NDIlib_frame_type_video:
+				if (video_frame.p_data) {
+					// printf("Video\n");
+					if (m_Width != (unsigned int)video_frame.xres || m_Height != (unsigned int)video_frame.yres) {
+						m_Width = (unsigned int)video_frame.xres;
+						m_Height = (unsigned int)video_frame.yres;
+						// Update the caller dimensions
+						width = m_Width;
+						height = m_Height;
+						// Return received OK for the app to handle changed dimensions
+						bRet = true;
+					}
+					// Otherwise sizes are current - copy the received frame data to the local buffer
+					else if (video_frame.p_data && (uint8_t*)pixels) {
 
-				// Video frame type
-				switch (video_frame.FourCC) {
+						// Video frame type
+						switch (video_frame.FourCC) {
 
-				// Note :
-				// The receiver is set up to prefer RGBA format
-				// so other formats should be converted to RGBA by the API
-				// and the conversion functions never used.
-				// They are here as a backup only.
-				
-				// NDIlib_FourCC_type_UYVA not supported
-				// Alpha copied as received
-				case NDIlib_FourCC_type_UYVY: // YCbCr color space
-					ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
-					break;
+							// Note :
+							// The receiver is set up to prefer RGBA format
+							// so other formats should be converted to RGBA by the API
+							// and the conversion functions never used.
+							// They are here as a backup only.
 
-				case NDIlib_FourCC_type_BGRA: // BGRA
-				case NDIlib_FourCC_type_BGRX: // BGRX
-					ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, true, bInvert);
-					break;
+							// NDIlib_FourCC_type_UYVA not supported
+							// Alpha copied as received
+							case NDIlib_FourCC_type_UYVY: // YCbCr color space
+								ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
+								break;
 
-				case NDIlib_FourCC_type_RGBA: // RGBA
-				case NDIlib_FourCC_type_RGBX: // RGBX
-				default: // RGBA
-					ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, false, bInvert);
-					break;
+							case NDIlib_FourCC_type_BGRA: // BGRA
+							case NDIlib_FourCC_type_BGRX: // BGRX
+								ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, true, bInvert);
+								break;
 
-				} // end switch received format
+							case NDIlib_FourCC_type_RGBA: // RGBA
+							case NDIlib_FourCC_type_RGBX: // RGBX
+							default: // RGBA
+								ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, false, bInvert);
+								break;
 
-				// Buffers captured must be freed
-				NDIlib_recv_free_video_v2(pNDI_recv, &video_frame);
+						} // end switch received format
 
-				// The caller always checks the received dimensions
-				width = m_Width;
-				height = m_Height;
+						// Buffers captured must be freed
+						NDIlib_recv_free_video_v2(pNDI_recv, &video_frame);
 
-				// Update received frame counter
-				UpdateFps();
+						// The caller always checks the received dimensions
+						width = m_Width;
+						height = m_Height;
 
-				return true;
+						// Update received frame counter
+						UpdateFps();
 
-			} // endif video frame data
+						// return true for successful video frame received
+						bRet = true;
 
-			return false;
+					} // endif video frame copy
+				} // end video frame type
+				break;
 
-		} // endif NDIlib_frame_type_video
+			default :
+				break;
+
+		} // end switch on received frame type
+
 	} // endif pNDI_recv
 
-	return false;
+	return bRet;
+
 }
+
 
 // Receive image pixels without a receiving buffer
 // The received video frame is held in ofxReceive class.
@@ -785,6 +877,18 @@ unsigned char *ofxNDIreceive::GetVideoData()
 void ofxNDIreceive::FreeVideoData()
 {
 	if (video_frame.p_data) NDIlib_recv_free_video_v2(pNDI_recv, &video_frame);
+}
+
+// Free local audio frame buffer
+void ofxNDIreceive::FreeAudioData()
+{
+	// Free audio data
+	if (m_AudioData)
+		free((void *)m_AudioData);
+	m_AudioData = NULL;
+	m_bAudioFrame = false;
+	m_nAudioSamples = 0;
+	m_nAudioChannels = 1;
 }
 
 // Get NDI dll version number
