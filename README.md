@@ -2,11 +2,11 @@
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
 ## Updates
-31.03.18 - Updated for NDI SDK Vers 3 - Search source for "Vers 3".
-Note changes to function argument variable types to match with Version 3.
-06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.
-02.02.19 - Corrections and audio receive testing
-06.08.18 - Updated NDI dlls and readme files for NDI Vers 3.8
+31.03.18 - Updated for NDI SDK Vers 3 - Search source for "Vers 3".\
+Note changes to function argument variable types to match with Version 3.\
+06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.\
+02.02.19 - Corrections and audio receive testing.\
+06.08.18 - Updated NDI dlls and readme files for NDI Vers 3.8.
 
 Significant changes have been made for this version. The original classes have been renamed :
 
