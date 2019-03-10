@@ -2,8 +2,14 @@
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
 ## Updates
+<<<<<<< HEAD
 31.03.18 - Updated for NDI SDK Vers 3 - Search source for "Vers 3" -Note changes to function argument variable types to match with Version 3.
 06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.
+=======
+31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3".<br/>
+Note changes to function argument variable types to match with Version 3.<br/>
+06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.<br/>
+>>>>>>> 0d241bfbddca1e37d49674449ed693acec6d539c
 02.02.19 - Corrections and audio receive testing
 06.08.18 - Updated NDI dlls and readme files for NDI Vers 3.8
 
@@ -16,7 +22,7 @@ The same functions remain, but with additions to support the new classes. For ex
 
 The new class files depend on Openframeworks and are much easier to use. There are now options to send and receive using ofFbo, ofTexture, ofPixels as well as an unsigned char pixel buffer. 
 
-If receiving to Openframeworks fbo, texture of pixels, it is no longer necessary to manage sender size change rom the application. Also it is no longer necessary to handle receiver creation. Simply use the receive functions alone.
+If receiving to Openframeworks fbo, texture of pixels, it is no longer necessary to manage sender size change from the application. Also it is no longer necessary to handle receiver creation. Simply use the receive functions alone.
 
 The sender includes pbo pixel buffer readback within the class itself, activated by SetReadback.
 
