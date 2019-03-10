@@ -2,13 +2,15 @@
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
 ## Updates
+31.03.18 - Updated for NDI SDK Vers 3 - Search source for "Vers 3" -Note changes to function argument variable types to match with Version 3.
 06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.
 02.02.19 - Corrections and audio receive testing
+06.08.18 - Updated NDI dlls and readme files for NDI Vers 3.8
 
 Significant changes have been made for this version. The original classes have been renamed :
 
     ofxNDIsender > ofxNDIsend
-    ofxNDIreceiver > ofNDIreceive
+    ofxNDIreceiver > ofxNDIreceive
 
 The same functions remain, but with additions to support the new classes. For existing applications, you can still use them directly by simply renaming the class names, and including the header files specifically. The significance is that they are not dependent on Openframeworks, so can be used in other applications. 
 
@@ -56,10 +58,6 @@ Refer to the header files for details.
 
 Examples have been updated to include all options available. For a simple, practical example, refer to the webcam sender. The examples assume Openframeworks 10 and are not compatible with previous versions.
 
-31.03.18 - Updated for NDI SDK Vers 3
-Search source for "Vers 3"
-Note changes to function argument variable types to match with Version 3.
-
 ## Setup
 
 For Windows
@@ -67,8 +65,8 @@ For Windows
 1. Add files from "ofxNDI" to your Visual Studio project.
 2. Copy .dll's from ofxNDI/libs to the application "bin" folder
 3. [Register with Newtek](http://pages.newtek.com/NDI-Developers.html) for the NDI SDK. Install the NewTek SDK and copy files as follows.
-	- Copy the files in  "../NewTek NDI 3.5 SDK/Include" to "ofxNDI/include"
-	- Copy the files in "../NewTek NDI 3.5 SDK/Lib" to "ofxNDI/libs/NDI/Libs"
+	- Copy the files in  "../NewTek NDI 3.8 SDK/Include" to "ofxNDI/include"
+	- Copy the files in "../NewTek NDI 3.8 SDK/Lib" to "ofxNDI/libs/NDI/Libs"
 
 In your Visual Studio project properties :
 
@@ -95,7 +93,7 @@ Refer to the example code for options available.
 ofxNDI with help from [Harvey Buchan](https://github.com/Harvey3141).
 
 ## Copyrights
-ofxNDI - Copyright (C) 2016-2018 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
+ofxNDI - Copyright (C) 2016-2019 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser  General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details. 
