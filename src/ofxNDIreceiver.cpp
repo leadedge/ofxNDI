@@ -48,6 +48,8 @@
 			unsigned int GetSenderHeight()
 			double GetFps()
 
+	24.03.19 - Add float GetSenderFps(), bool ReceiverConnected()
+
 */
 #include "ofxNDIreceiver.h"
 
@@ -119,6 +121,12 @@ bool ofxNDIreceiver::OpenReceiver()
 bool ofxNDIreceiver::ReceiverCreated()
 {
 	return NDIreceiver.ReceiverCreated();
+}
+
+// Return whether a receiver has connected to a sender
+bool ofxNDIreceiver::ReceiverConnected()
+{
+	return NDIreceiver.ReceiverConnected();
 }
 
 // Close receiver and release resources
@@ -406,6 +414,13 @@ unsigned int ofxNDIreceiver::GetSenderHeight() {
 	return NDIreceiver.GetSenderHeight();
 }
 
+// Return current sender frame rate
+float ofxNDIreceiver::GetSenderFps()
+{
+	return NDIreceiver.GetSenderFps();
+}
+
+
 //
 // Bandwidth
 //
@@ -418,7 +433,9 @@ void ofxNDIreceiver::SetLowBandwidth(bool bLow)
 	NDIreceiver.SetLowBandwidth(bLow);
 }
 
-// Return the received frame type
+// Return the received frame type. TODO.
+// Note that "allow_video_fields" is currently set false when
+// the receiver is created, so all video received will be progressive
 NDIlib_frame_type_e ofxNDIreceiver::GetFrameType()
 {
 	return NDIreceiver.GetFrameType();

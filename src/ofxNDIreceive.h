@@ -92,6 +92,9 @@ public:
 	// Return whether the receiver has been created
 	bool ReceiverCreated();
 
+	// Return whether a receiver has connected to a sender
+	bool ReceiverConnected();
+
 	// Close receiver and release resources
 	void ReleaseReceiver();
 
@@ -169,11 +172,14 @@ public:
 	// Return the name string of a sender index
 	std::string GetSenderName(int index = -1);
 
-	// Return current sender width
+	// Sender width
 	unsigned int GetSenderWidth();
 
-	// Return current sender height
+	// Sender height
 	unsigned int GetSenderHeight();
+
+	// Sender fps
+	float GetSenderFps();
 
 	// Return the number of senders
 	int GetSenderCount();
@@ -185,7 +191,7 @@ public:
 	// Refer to NDI documentation
 	void SetLowBandwidth(bool bLow = true);
 
-	// Return the received frame type
+	// Received frame type
 	NDIlib_frame_type_e GetFrameType();
 
 	// Is the current frame MetaData ?
@@ -201,7 +207,6 @@ public:
 
 	// Return current audio frame data
 	void GetAudioData(float * &output, int &samplerate, int &samples, int &nChannels);
-	// void GetAudioData(float * &output, int &bufferSize, int &nChannels);
 
 	// Free audio frame buffer
 	void FreeAudioData();
@@ -209,7 +214,7 @@ public:
 	// The NDI SDK version number
 	std::string GetNDIversion();
 
-	// The received frame rate
+	// Timed received frame rate
 	double GetFps();
 
 	// ====================================================================
@@ -232,7 +237,8 @@ private:
 	int senderIndex; // Current sender index
 	std::string senderName; // current sender name
 	bool bNDIinitialized; // Is NDI initialized properly
-	bool bReceiverCreated; // Is the receiver reated
+	bool bReceiverCreated; // Is the receiver created
+	bool bReceiverConnected; // Is the receiver connected and receiving frames
 	bool bSenderSelected; // Sender index has been changed by the user
 	NDIlib_recv_bandwidth_e m_bandWidth; // Bandwidth receive option
 

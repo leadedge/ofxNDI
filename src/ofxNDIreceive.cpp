@@ -90,6 +90,7 @@
 
 	11.08.18 - Add FindSenders overload to return true or false for network change
 	30.08.18 - audio receive testing (for Receive image pixels to a buffer)
+	24.03.19 - Add float GetSenderFps(), bool ReceiverConnected()
 
 
 */
@@ -104,6 +105,7 @@ ofxNDIreceive::ofxNDIreceive()
 	no_sources = 0;
 	bNDIinitialized = false;
 	bReceiverCreated = false;
+	bReceiverConnected = false;
 	bSenderSelected = false;
 	m_FrameType = NDIlib_frame_type_none;
 	nsenders = 0;
@@ -175,7 +177,6 @@ void ofxNDIreceive::ReleaseFinder()
 
 }
 
-
 // Find all current NDI senders
 // Return number of senders
 // Replacement for original function
@@ -185,7 +186,6 @@ int ofxNDIreceive::FindSenders()
 	FindSenders(nSenders);
 	return (int)NDIsenders.size();
 }
-
 
 // Find all current NDI senders
 // nSenders - number of senders
@@ -276,7 +276,6 @@ bool ofxNDIreceive::FindSenders(int &nSenders)
 	return false; // no network change
 
 }
-
 
 // Refresh NDI sender list with the current network snapshot
 // No longer used
@@ -411,7 +410,6 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 	return false;
 }
 
-
 // Get the index of a sender name string
 bool ofxNDIreceive::GetSenderIndex(std::string sendername, int &index)
 {
@@ -427,7 +425,6 @@ bool ofxNDIreceive::GetSenderIndex(std::string sendername, int &index)
 	}
 	return false;
 }
-
 
 // Get the name string of a sender index
 std::string ofxNDIreceive::GetSenderName(int userindex)
@@ -466,6 +463,19 @@ unsigned int ofxNDIreceive::GetSenderWidth()
 unsigned int ofxNDIreceive::GetSenderHeight()
 {
 	return m_Height;
+}
+
+// Return current sender fps
+float ofxNDIreceive::GetSenderFps()
+{
+	float senderfps = 0.0f;
+	// If video frame has been received
+	if (video_frame.p_data) {
+		// Retrieve the current sender fps
+		if (video_frame.frame_rate_D > 0)
+			senderfps = (float)video_frame.frame_rate_N / (float)video_frame.frame_rate_D;
+	}
+	return senderfps;
 }
 
 //
@@ -509,6 +519,7 @@ bool ofxNDIreceive::IsAudioFrame()
 }
 
 // Return the current audio frame data
+// output - the audio data pointer
 void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, int &nChannels)
 {
 	output = m_AudioData;
@@ -626,6 +637,12 @@ bool ofxNDIreceive::ReceiverCreated()
 	return bReceiverCreated;
 }
 
+// Return whether a receiver has connected to a sender
+bool ofxNDIreceive::ReceiverConnected()
+{
+	return bReceiverConnected;
+}
+
 // Close receiver and release resources
 void ofxNDIreceive::ReleaseReceiver()
 {
@@ -639,6 +656,7 @@ void ofxNDIreceive::ReleaseReceiver()
 	senderName.empty();
 	pNDI_recv = NULL;
 	bReceiverCreated = false;
+	bReceiverConnected = false;
 	bSenderSelected = false;
 	FreeVideoData();
 	FreeAudioData();
@@ -725,10 +743,14 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 			case NDIlib_frame_type_video:
 				if (video_frame.p_data) {
+
+					// The caller can check whether a frame has been received
+					bReceiverConnected = true;
+
 					// printf("Video\n");
 					if (m_Width != (unsigned int)video_frame.xres || m_Height != (unsigned int)video_frame.yres) {
-						m_Width = (unsigned int)video_frame.xres;
-						m_Height = (unsigned int)video_frame.yres;
+						m_Width = (unsigned int)video_frame.xres; // current width
+						m_Height = (unsigned int)video_frame.yres; // current height
 						// Update the caller dimensions
 						width = m_Width;
 						height = m_Height;
@@ -789,6 +811,10 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 		} // end switch on received frame type
 
 	} // endif pNDI_recv
+	else {
+		// No video data - no sender
+		bReceiverConnected = false;
+	}
 
 	return bRet;
 
@@ -810,8 +836,10 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		NDI_frame_type = NDIlib_recv_capture_v2(pNDI_recv, &video_frame, NULL, &metadata_frame, 0);
 
 		// Is no data received or the connection lost ?
-		if (NDI_frame_type == NDIlib_frame_type_none)
+		if (NDI_frame_type == NDIlib_frame_type_none) {
+			printf("ReceiveImage : NDI_frame_type_none\n");
 			return false;
+		}
 		
 		if (NDI_frame_type == NDIlib_frame_type_error) {
 			printf("ReceiveImage : NDI_frame_type_error\n");
@@ -855,6 +883,10 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 			return true;
 		} // endif NDIlib_frame_type_video
+		else {
+			// No video data - no sender
+			bReceiverConnected = false;
+		}
 
 	} // endif pNDI_recv
 
@@ -931,10 +963,7 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 // Received fps is independent of the application draw rate
 void ofxNDIreceive::UpdateFps() {
 
-	unsigned int width = 0;
-	unsigned int height = 0;
-
-	// Calculate received frame fps
+	// Calculate the actual received fps
 	lastTime = startTime;
 	startTime = GetCounter();
 	frameTime = (startTime - lastTime) / 1000.0; // in seconds

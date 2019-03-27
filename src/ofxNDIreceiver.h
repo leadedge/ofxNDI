@@ -83,6 +83,9 @@ public:
 	// Return whether a receiver has been created
 	bool ReceiverCreated();
 
+	// Return whether a receiver has connected to a sender
+	bool ReceiverConnected();
+
 	// Close receiver and release resources
 	void ReleaseReceiver();
 
@@ -143,11 +146,14 @@ public:
 	// Name string of a sender index
 	std::string GetSenderName(int index = -1);
 
-	// Current sender width
+	// Sender width
 	unsigned int GetSenderWidth();
 
-	// Current sender height
+	// Sender height
 	unsigned int GetSenderHeight();
+
+	// Sender frame rate
+	float GetSenderFps();
 
 	// Number of senders
 	int GetSenderCount();
@@ -158,7 +164,7 @@ public:
 	// Set NDI low banwidth option
 	void SetLowBandwidth(bool bLow = true);
 
-	// Return the received frame type
+	// Received frame type. TODO 
 	NDIlib_frame_type_e GetFrameType();
 
 	// Is the current frame MetaData ?
@@ -171,7 +177,7 @@ public:
 	// The NDI SDK version number
 	std::string GetNDIversion();
 
-	// Received frame rate
+	// Timed received frame rate
 	double GetFps();
 
 	// Basic receiver functions
