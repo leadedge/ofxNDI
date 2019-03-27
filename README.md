@@ -6,7 +6,17 @@ An Openframeworks addon to allow sending and receiving images over a network usi
 Note changes to function argument variable types to match with Version 3.\
 06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.\
 02.02.19 - Corrections and audio receive testing.\
-06.08.18 - Updated NDI dlls and readme files for NDI Vers 3.8.
+06.08.18 - Updated NDI dlls and readme files for NDI Vers 3.8\
+27.03.19 - Receiver updated\
+o Add float GetSenderFps(), bool ReceiverConnected()\
+o Update receiver example.\
+27.03.19 - Update ofxNDIsend\
+o Remove clock video change from sender for async mode\
+o Included NULL video frame send for async mode in ReleaseSender.
+o Removed un-necessary print statements.\
+o Clean up comments.
+
+
 
 Significant changes have been made for this version. The original classes have been renamed :
 
