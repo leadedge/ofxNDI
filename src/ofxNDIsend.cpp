@@ -60,12 +60,14 @@
 	14.07.18	- Add Sender dimensions m_Width, m_Height and bSenderInitialized
 				- Add GetWidth and GetHeight
 				- Add SenderCreated
-	15.07.18	- Return false for CreateSender if zero width or height
+				- Return false for CreateSender if zero width or height
 	11.08.18	- Change SetAudioData to const float
 	16.08.18	- Fix UpdateSender to include aspect ratio and no clock video for async mode
 	12.10.18	- Remove set async false from SetFrameRate
 	14.10.18	- Reset frame rate in UpdateSender
-
+	18.03.19	- Remove change of clocked video for async mode
+				  Included NULL video frame send for async mode in ReleaseSender.
+				  Removed un-necessary print statements.
 
 */
 #include "ofxNDIsend.h"
@@ -137,21 +139,9 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 	if (width == 0 || height == 0)
 		return false;
 
-	// Create an NDI source that is clocked to the video.
-	// unless async sending has been selected.
+	// Create an NDI source that is clocked to the video as per application setting
 	NDI_send_create_desc.p_ndi_name = sendername;
 	NDI_send_create_desc.p_groups = NULL;
-
-	// LJ DEBUG
-	if (m_bAsync) {
-		printf("Setting clock video false\n");
-		m_bClockVideo = false;
-	}
-	else {
-		printf("Setting clock video true\n");
-		m_bClockVideo = true;
-	}
-
 	NDI_send_create_desc.clock_video = m_bClockVideo;
 	NDI_send_create_desc.clock_audio = false;
 
@@ -242,14 +232,11 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 }
 
 // Update sender dimensions and colour format
+// Also used to update frame rate
 bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
 {
 	if(pNDI_send && m_bAsync) {
-		// Because one buffer is in flight we need to make sure that 
-		// there is no chance that we might free it before NDI is done with it. 
-		// You can ensure this either by sending another frame, or just by
-		// sending a frame with a NULL pointer, which will wait for any 
-		// unscheduled asynchronous frames to be completed before returning.
+		// Wait for any unscheduled asynchronous frames to be completed
 		NDIlib_send_send_video_async_v2(pNDI_send, NULL);
 	}
 
@@ -300,8 +287,11 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
+	if (!pNDI_send || !pixels || !bSenderInitialized) {
+		return false;
+	}
 
-	if (pNDI_send && bSenderInitialized && pixels && width > 0 && height > 0) {
+	if (pixels && width > 0 && height > 0) {
 
 		// Allow for forgotten UpdateSender
 		if (video_frame.xres != (int)width || video_frame.yres != (int)height) {
@@ -352,12 +342,17 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		if (m_bAsync) {
 			// Submit the frame asynchronously. This means that this call will return 
 			// immediately and the  API will "own" the memory location until there is
-			// a synchronizing event. A synchronouzing event is one of : 
+			// a synchronizing event. A synchronizing event is one of : 
 			// NDIlib_send_send_video_async, NDIlib_send_send_video, NDIlib_send_destroy.
 			// NDIlib_send_send_video_async_v2 will wait for the previous frame to finish before
 			// submitting the current one.
 			// printf("NDIlib_send_send_video_async_v2 %x, %x, %dx%d\n", pNDI_send, video_frame.p_data, video_frame.xres, video_frame.yres);
+			// NDIlib_send_send_video_async_v2(pNDI_send, NULL);
 			NDIlib_send_send_video_async_v2(pNDI_send, &video_frame);
+			// 20.03.19
+			// ??? Wait for any asynchronous frames to be completed before submitting the next
+			// NDIlib_send_send_video_async_v2(pNDI_send, NULL);
+
 		}
 		else {
 			// Submit the frame. Note that this call will be clocked
@@ -377,6 +372,12 @@ void ofxNDIsend::ReleaseSender()
 {
 	bSenderInitialized = false; // Do this now so no more frames are sent
 
+	// 15.03.19
+	if (pNDI_send && m_bAsync) {
+		// Wait for any unscheduled asynchronous frames to be completed.
+		NDIlib_send_send_video_async_v2(pNDI_send, NULL);
+	}
+
 	// Destroy the NDI sender
 	if (pNDI_send != NULL) {
 		NDIlib_send_destroy(pNDI_send);
@@ -388,6 +389,8 @@ void ofxNDIsend::ReleaseSender()
 	}
 
 	p_frame = NULL;
+	// 15.03.19
+	video_frame.p_data = NULL;
 	pNDI_send = NULL;
 
 	// Reset sender dimensions
@@ -492,8 +495,6 @@ bool ofxNDIsend::GetClockVideo()
 void ofxNDIsend::SetAsync(bool bActive)
 {
 	m_bAsync = bActive;
-	/// Do not clock video for async sending
-	/// 11.06.18 - do this check in CreateSender
 }
 
 // Get whether asynchronous sending mode
