@@ -42,6 +42,7 @@
 			 - minor changes
 	08.07.18 - Update for Openframeworks 10
 			 - Include all SendImage option examples
+	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
 
 */
 #include "ofApp.h"
@@ -77,7 +78,8 @@ void ofApp::setup(){
 
 	// Optionally set the framerate
 	// Sending will clock at the set frame rate 
-	// and over-ride asynchronous sending
+	// and over-ride asynchronous sending.
+	// The application cycle will also be clocked at that rate
 	//
 	// Can be set as a whole number, e.g. 60, 30, 25 etc
 	// ndiSender.SetFrameRate(30);
@@ -94,12 +96,7 @@ void ofApp::setup(){
 	// ndiSender.SetFrameRate(30000, 1001);
 
 	// Create a sender with default RGBA output format
-	// ndiSender.CreateSender(senderName, senderWidth, senderHeight);
-
-	// Optionally create a sender and specify the output colour format
-	// NDIlib_FourCC_type_UYVY and NDIlib_FourCC_type_BGRA supported
-	// NDI recommend using YCbCr if possible for higher performance and better quality
-	ndiSender.CreateSender(senderName, senderWidth, senderHeight, NDIlib_FourCC_type_UYVY);
+	ndiSender.CreateSender(senderName, senderWidth, senderHeight);
 
 	cout << "Created NDI sender [" << senderName << "] (" << senderWidth << "x" << senderHeight << ")" << endl;
 
@@ -140,7 +137,7 @@ void ofApp::draw() {
 	DrawGraphics();
 	ndiSender.SendImage(ndiFbo);
 
-	// Option 2 Send ofTexture
+	// Option 2 : Send ofTexture
 	// DrawGraphics();
 	// ndiSender.SendImage(ndiFbo.getTexture());
 
@@ -156,7 +153,7 @@ void ofApp::draw() {
 	// Option 5 Send char buffer
 	// The pixels must be rgba
 	// if (ndiImage.getImageType() != OF_IMAGE_COLOR_ALPHA)
-	//   ndiImage.setImageType(OF_IMAGE_COLOR_ALPHA);
+	   // ndiImage.setImageType(OF_IMAGE_COLOR_ALPHA);
 	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 	// ndiSender.SendImage(ndiImage.getPixels().getData(), senderWidth, senderHeight);
 

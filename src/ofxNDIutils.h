@@ -33,7 +33,7 @@
 #ifndef __ofxNDI_
 #define __ofxNDI_
 
-#include <emmintrin.h> // for SSE2
+// #include <emmintrin.h> // for SSE2
 #include <iostream> // for cout
 
 // TODO : test includes for OSX
@@ -46,6 +46,9 @@
 #include <windows.h>
 #include <intrin.h> // for _movsd
 #endif
+
+#include <cstring>
+#include <climits>
 
 namespace ofxNDIutils {
 

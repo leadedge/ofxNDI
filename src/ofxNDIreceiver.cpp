@@ -49,6 +49,9 @@
 			double GetFps()
 
 	24.03.19 - Add float GetSenderFps(), bool ReceiverConnected()
+	05.11.18 - Update to NDI Version 4.0
+			   See further : ofxNDIreceive.cpp
+
 
 */
 #include "ofxNDIreceiver.h"
@@ -108,6 +111,7 @@ bool ofxNDIreceiver::OpenReceiver()
 		// A receiver is created from an index into a list of sender names.
 		// The current user selected index is saved in the NDIreceiver class
 		// and is used to create the receiver unless you specify a particular index.
+		// Receiver is created with default preferred format BGRA
 		return NDIreceiver.CreateReceiver();
 
 	}
@@ -135,53 +139,18 @@ void ofxNDIreceiver::ReleaseReceiver()
 	NDIreceiver.ReleaseReceiver();
 }
 
-// Receive an fbo
-// Fbo re-allocated to changed sender dimensions
-// For false return, check for metadata using IsMetadata()
-bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
-{
-	if (!fbo.isAllocated())
-		return false;
-
-	// Check for receiver creation
-	if (!OpenReceiver())
-		return false;
-
-	unsigned int width = (unsigned int)fbo.getWidth();
-	unsigned int height = (unsigned int)fbo.getHeight();
-
-	// Receive a pixel image first
-	if (NDIreceiver.ReceiveImage(width, height)) {
-
-		// Get the video frame buffer pointer
-		unsigned char *videoData = NDIreceiver.GetVideoData();
-		if (!videoData) {
-			printf("ReceiveTexture : No video data\n");
-			return false;
-		}
-
-		// Check for changed sender dimensions
-		// to re-allocate the receiving texture
-		if (width != (unsigned int)fbo.getWidth() || height != (unsigned int)fbo.getHeight())
-			fbo.allocate(width, height, GL_RGBA);
-
-		// Get the NDI frame pixel data into the fbo texture
-		fbo.getTexture().loadData((const unsigned char *)videoData, width, height, GL_RGBA);
-
-		// Free the NDI video buffer
-		NDIreceiver.FreeVideoData();
-
-		return true;
-	}
-
-	return false;
-
-}
+// Receive ofTexture
+// Receive ofFbo
+// Receive ofImage
+// Receive ofPixels
+//   Re-allocated to changed sender dimensions
+// For false return :
+//   Check for metadata using IsMetadata()
+//   Use IsAudioFrame() to determine whether audio has been received
+//   and GetAudioData to retrieve the sample buffer
 
 
-// Receive a texture
-// Texture re-allocated to changed sender dimensions
-// For false return, check for metadata using IsMetadata()
+// Receive ofTexture
 bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 {
 	if (!texture.isAllocated())
@@ -191,40 +160,52 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 	if (!OpenReceiver())
 		return false;
 
+	// Receive a pixel image first
 	unsigned int width = (unsigned int)texture.getWidth();
 	unsigned int height = (unsigned int)texture.getHeight();
-
-	// Receive a pixel image first
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
-		// Get the video frame buffer pointer
-		unsigned char *videoData = NDIreceiver.GetVideoData();
-		if (!videoData) {
-			printf("ReceiveTexture : No video data\n");
-			return false;
-		}
-
 		// Check for changed sender dimensions
-		// to re-allocate the receiving texture
 		if (width != (unsigned int)texture.getWidth() || height != (unsigned int)texture.getHeight())
 			texture.allocate(width, height, GL_RGBA);
 
-		// Get the NDI frame pixel data into the texture
-		texture.loadData((const unsigned char *)videoData, width, height, GL_RGBA);
-
-		// Free the NDI video buffer
-		NDIreceiver.FreeVideoData();
-
-		return true;
+		// Get NDI pixel data from the video frame
+		return GetPixelData(texture);
 	}
 
 	return false;
 
 }
 
-// Receive an image
-// Image re-allocated to changed sender dimensions
-// For false return, check for metadata using IsMetadata()
+
+// Receive ofFbo
+bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
+{
+	if (!fbo.isAllocated())
+		return false;
+
+	// Check for receiver creation
+	if (!OpenReceiver())
+		return false;
+
+	// Receive a pixel image first
+	unsigned int width = (unsigned int)fbo.getWidth();
+	unsigned int height = (unsigned int)fbo.getHeight();
+	if (NDIreceiver.ReceiveImage(width, height)) {
+
+		// Check for changed sender dimensions
+		if (width != (unsigned int)fbo.getWidth() || height != (unsigned int)fbo.getHeight())
+			fbo.allocate(width, height, GL_RGBA);
+
+		// Get NDI pixel data from the video frame
+		return GetPixelData(fbo.getTexture());
+	}
+
+	return false;
+
+}
+
+// Receive ofImage
 bool ofxNDIreceiver::ReceiveImage(ofImage &image)
 {
 	if (!image.isAllocated())
@@ -234,38 +215,24 @@ bool ofxNDIreceiver::ReceiveImage(ofImage &image)
 	if (!OpenReceiver())
 		return false;
 
+	// Receive a pixel image first
 	unsigned int width = (unsigned int)image.getWidth();
 	unsigned int height = (unsigned int)image.getHeight();
-
-	// Receive a pixel image first
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
-		// Get the video frame buffer pointer
-		unsigned char *videoData = NDIreceiver.GetVideoData();
-		if (!videoData)
-			return false;
-
 		// Check for changed sender dimensions
-		// to re-allocate the receiving image
 		if (width != (unsigned int)image.getWidth() || height != (unsigned int)image.getHeight())
 			image.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
 
-		// Get the NDI frame pixel data into the image texture
-		image.getTexture().loadData((const unsigned char *)videoData, width, height, GL_RGBA);
-
-		// Free the NDI video buffer
-		NDIreceiver.FreeVideoData();
-
-		return true;
+		// Get NDI pixel data from the video frame
+		return GetPixelData(image.getTexture());
 	}
 
 	return false;
 
 }
 
-// Receive a pixel buffer
-// Buffer re-allocated with changed sender dimensions
-// For false return, check for metadata using IsMetadata()
+// Receive ofPixels
 bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 {
 	if (!buffer.isAllocated())
@@ -281,18 +248,36 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 	// Receive a pixel image first
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
+		// Check for changed sender dimensions
+		if (width != (unsigned int)buffer.getWidth() || height != (unsigned int)buffer.getHeight())
+			buffer.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
+
 		// Get the video frame buffer pointer
 		unsigned char *videoData = NDIreceiver.GetVideoData();
 		if (!videoData)
 			return false;
 
-		// Check for changed sender dimensions
-		// to re-allocate the receiving image
-		if (width != (unsigned int)buffer.getWidth() || height != (unsigned int)buffer.getHeight())
-			buffer.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
-
 		// Get the NDI frame pixel data into the pixel buffer
-		buffer.setFromExternalPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
+		switch (NDIreceiver.GetVideoType()) {
+			// Note : the receiver is set up to prefer BGRA format by default
+			// YCbCr - RGBA conversion not supported
+			case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
+			case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
+			case NDIlib_FourCC_type_P216: // YCbCr using 4:2:2 in 16bpp
+			case NDIlib_FourCC_type_PA16: // YCbCr using 4:2:2:4 in 16bpp
+				printf("UYVY/UYVA/P216/PA16 - not supported\n");
+				break;
+			case NDIlib_FourCC_type_RGBA: // RGBA
+			case NDIlib_FourCC_type_RGBX: // RGBX
+				buffer.setFromExternalPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
+				break;
+			case NDIlib_FourCC_type_BGRA: // BGRA
+			case NDIlib_FourCC_type_BGRX: // BGRX
+			default: // BGRA
+				buffer.setFromExternalPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
+				buffer.swapRgb();
+				break;
+		} // end switch received format
 
 		// Free the NDI video buffer
 		NDIreceiver.FreeVideoData();
@@ -308,11 +293,13 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 // Retained for compatibility with previous version of ofxNDI
 // Return sender width and height
 // Test width and height for change with true return
-// For false return, check for metadata using IsMetadata()
+// For false return :
+//   Check for metadata using IsMetadata()
+//   Use IsAudioFrame() to determine whether audio has been received
+//   and GetAudioData to retrieve the sample buffer
 bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels,
 	unsigned int &width, unsigned int &height, bool bInvert)
 {
-
 	if (!pixels)
 		return false;
 
@@ -379,17 +366,17 @@ int ofxNDIreceiver::GetSenderCount()
 
 // Return the name characters of a sender index
 // For back-compatibility only
-// Char functions replaced with string version
+// Char functions replaced with string versions
 bool ofxNDIreceiver::GetSenderName(char *sendername)
 {
-	// Length of user name string is not known
+	// Note : length of user name string is not known
 	int index = -1;
 	return GetSenderName(sendername, 128, index);
 }
 
 bool ofxNDIreceiver::GetSenderName(char *sendername, int index)
 {
-	// Length of user name string is not known
+	// NOTE : length of user name string is not known
 	return GetSenderName(sendername, 128, index);
 }
 
@@ -433,7 +420,7 @@ void ofxNDIreceiver::SetLowBandwidth(bool bLow)
 	NDIreceiver.SetLowBandwidth(bLow);
 }
 
-// Return the received frame type. TODO.
+// Return the received frame type.
 // Note that "allow_video_fields" is currently set false when
 // the receiver is created, so all video received will be progressive
 NDIlib_frame_type_e ofxNDIreceiver::GetFrameType()
@@ -453,6 +440,19 @@ std::string ofxNDIreceiver::GetMetadataString()
 	return NDIreceiver.GetMetadataString();
 }
 
+// Is the current frame Audio ?
+bool ofxNDIreceiver::IsAudioFrame()
+{
+	return NDIreceiver.IsAudioFrame();
+}
+
+// Return the current audio frame data
+// output - the audio data pointer
+void ofxNDIreceiver::GetAudioData(float *&output, int &samplerate, int &samples, int &nChannels)
+{
+	NDIreceiver.GetAudioData(output, samplerate, samples, nChannels);
+}
+
 // Return the NDI dll version number
 std::string ofxNDIreceiver::GetNDIversion()
 {
@@ -466,3 +466,44 @@ double ofxNDIreceiver::GetFps()
 }
 
 
+//
+// Private functions
+//
+
+// Get NDI pixel data from the video frame to ofTexture 
+bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
+{
+	// Get the video frame buffer pointer
+	unsigned char *videoData = NDIreceiver.GetVideoData();
+	if (!videoData) {
+		printf("GetPixelData : No video data\n");
+		return false;
+	}
+
+	// Get the NDI video frame pixel data into the texture
+	switch (NDIreceiver.GetVideoType()) {
+		// Note : the receiver is set up to prefer BGRA format by default
+		// YCbCr - RGBA conversion not supported
+	case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
+	case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
+	case NDIlib_FourCC_type_P216: // YCbCr using 4:2:2 in 16bpp
+	case NDIlib_FourCC_type_PA16: // YCbCr using 4:2:2:4 in 16bpp
+		printf("UYVY/UYVA/P216/PA16 - not supported\n");
+		break;
+	case NDIlib_FourCC_type_RGBA: // RGBA
+	case NDIlib_FourCC_type_RGBX: // RGBX
+		texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_RGBA);
+		break;
+	case NDIlib_FourCC_type_BGRA: // BGRA
+	case NDIlib_FourCC_type_BGRX: // BGRX
+	default: // BGRA
+		texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_BGRA);
+		break;
+	} // end switch received format
+
+	// Free the NDI video buffer
+	NDIreceiver.FreeVideoData();
+
+	return true;
+
+}

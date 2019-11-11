@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2019 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -52,6 +52,7 @@
 			 - All size change checks in ofxDNIreceiver class
 	06.08.18 - Include all receiving options in example
 	27.03.19 - Add example of using ReceiverCreated, ReceiverConnected and GetSenderFps
+	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
 
 */
 #include "ofApp.h"
@@ -110,13 +111,13 @@ void ofApp::update() {
 //--------------------------------------------------------------
 void ofApp::draw(){
 
+	// Receive ofTexture
+	ndiReceiver.ReceiveImage(ndiTexture);
+	ndiTexture.draw(0, 0, ofGetWidth(), ofGetHeight());
+
 	// Receive ofFbo
 	// ndiReceiver.ReceiveImage(ndiFbo);
 	// ndiFbo.draw(0, 0, ofGetWidth(), ofGetHeight());
-
-	// Receive ofTexture
-	// ndiReceiver.ReceiveImage(ndiTexture);
-	// ndiTexture.draw(0, 0, ofGetWidth(), ofGetHeight());
 
 	// Receive ofImage
 	// ndiReceiver.ReceiveImage(ndiImage);
@@ -127,8 +128,10 @@ void ofApp::draw(){
 	// ndiImage.setFromPixels(ndiPixels);
 	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 
+	/*
 	// Receive unsigned char pixel image
-	// Manage buffer resize if there is a sender size change
+	// ndiChars is the buffer to receive the pixels
+	// buffer size must be managed if there is a sender size change
 	unsigned int width = (unsigned int)ofGetWidth();
 	unsigned int height = (unsigned int)ofGetHeight();
 	if (ndiReceiver.ReceiveImage(ndiChars, width, height)) {
@@ -148,6 +151,7 @@ void ofApp::draw(){
 			ndiImage.update();
 		}
 	}
+	*/
 
 	// Draw whether received or not
 	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
@@ -168,11 +172,6 @@ void ofApp::ShowInfo() {
 			if (ndiReceiver.ReceiverConnected()) {
 				// Show received sender information
 				sprintf_s(str, 256, "[%s] (%dx%d/%4.2fp)", ndiReceiver.GetSenderName().c_str(), ndiReceiver.GetSenderWidth(), ndiReceiver.GetSenderHeight(), ndiReceiver.GetSenderFps());
-				// Optional - show actual received fps
-				// Openframeworks frame rate must be higher than the sender
-				// char str1[16];
-				// sprintf_s(str1, 256, " (%4.2f)", ndiReceiver.GetFps());
-				// strcat_s(str, 256, str1);
 			}
 			else {
 				// Nothing received

@@ -33,6 +33,9 @@
 	11.08.18 - SendImage - add checks for allocation
 			 - Release sender and resources in destructor
 			 - Return false for CreateSender if zero width or height
+	10.11.19 - Remove shaders and create an RGBA sender
+			   to let the NDI system perform data conversion.
+			   ofFbo, ofTexture, ofPixels or pixel data mst be RGBA
 
 */
 #include "ofxNDIsender.h"
@@ -40,12 +43,10 @@
 
 ofxNDIsender::ofxNDIsender()
 {
-	m_ColorFormat = NDIlib_FourCC_type_RGBA; // default rgba output format
 	m_bReadback = false; // Asynchronous fbo pixel data readback option
 	ndiPbo[0] = 0;
 	ndiPbo[1] = 0;
 	m_SenderName = "";
-
 }
 
 
@@ -58,20 +59,12 @@ ofxNDIsender::~ofxNDIsender()
 // Create an RGBA sender
 bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsigned int height)
 {
-	return CreateSender(sendername, width, height, NDIlib_FourCC_type_RGBA);
-}
-
-// Create a sender with of specified colour format
-bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
-{
-	// printf("ofxNDIsender::CreateSender %s, %dx%d\n", sendername, width, height);
-
 	if (width == 0 || height == 0)
 		return false;
 
 	// Initialize pixel buffers for sending
-	ndiBuffer[0].allocate(width, height, 4);
-	ndiBuffer[1].allocate(width, height, 4);
+	ndiBuffer[0].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
+	ndiBuffer[1].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
 	m_idx = 0;
 
 	// Initialize OpenGL pbos for asynchronous readback of fbo data
@@ -86,10 +79,7 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 	// Allocate utility fbo
 	ndiFbo.allocate(width, height, GL_RGBA);
 
-	// Set user specified colour format
-	m_ColorFormat = colorFormat;
-
-	if (NDIsender.CreateSender(sendername, width, height, colorFormat)) {
+	if (NDIsender.CreateSender(sendername, width, height)) {
 		m_SenderName = sendername;
 		return true;
 	}
@@ -99,14 +89,8 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 	}
 }
 
-// Update sender dimensions with existing colour format
+// Update sender dimensions
 bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
-{
-	return UpdateSender(width, height, m_ColorFormat);
-}
-
-// Update sender dimensions and colour format
-bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
 {
 	// Re-initialize pixel buffers
 	ndiBuffer[0].allocate(width, height, 4);
@@ -182,7 +166,6 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 	unsigned int width = (unsigned int)fbo.getWidth();
 	unsigned int height = (unsigned int)fbo.getHeight();
 
-
 	// Update the sender if the dimensions are changed
 	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
 		NDIsender.UpdateSender(width, height);
@@ -192,28 +175,8 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 	// and being processed by the API.
 	if (GetAsync())
 		m_idx = (m_idx + 1) % 2;
-
-	switch (m_ColorFormat) {
-	case NDIlib_FourCC_type_UYVY:
-		// case NDIlib_FourCC_type_UYVA: // Alpha out not supported yet
-		ofDisableAlphaBlending();
-		ColorConvert(fbo); // RGBA to YUV422
-		ReadPixels(ndiFbo, width, height, ndiBuffer[m_idx].getData());
-		break;
-	case NDIlib_FourCC_type_BGRA:
-	case NDIlib_FourCC_type_BGRX:
-		// RGBA to BGRA into the utilty fbo
-		ColorSwap(fbo);
-		// Get pixel data from the fbo
-		ReadPixels(ndiFbo, width, height, ndiBuffer[m_idx].getData());
-		break;
-	default:
-		// Default RGBA output
-		ReadPixels(fbo, width, height, ndiBuffer[m_idx].getData());
-		break;
-	}
-
-	// return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getPixels(), width, height, false, bInvert); // for < OF10
+	
+	ReadPixels(fbo.getTexture(), width, height, ndiBuffer[m_idx].getData());
 	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
 }
@@ -228,10 +191,8 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 		return false;
 
 	// Quit if the texture is not RGBA
-	if (tex.getTextureData().glInternalFormat != GL_RGBA) {
-		printf("Texture is not RGBA (%x)\n", tex.getTextureData().glInternalFormat);
+	if (tex.getTextureData().glInternalFormat != GL_RGBA)
 		return false;
-	}
 
 	unsigned int width = (unsigned int)tex.getWidth();
 	unsigned int height = (unsigned int)tex.getHeight();
@@ -242,22 +203,7 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 	if (GetAsync())
 		m_idx = (m_idx + 1) % 2;
 
-	switch (m_ColorFormat) {
-	case NDIlib_FourCC_type_UYVY:
-		ofDisableAlphaBlending(); // Avoid alpha trails
-		ColorConvert(tex);
-		ReadPixels(ndiFbo, width, height, ndiBuffer[m_idx].getData());
-		break;
-	case NDIlib_FourCC_type_BGRA:
-	case NDIlib_FourCC_type_BGRX:
-		ColorSwap(tex);
-		ReadPixels(ndiFbo, width, height, ndiBuffer[m_idx].getData());
-		break;
-	default:
-		ReadPixels(tex, width, height, ndiBuffer[m_idx].getData());
-		break;
-	}
-
+	ReadPixels(tex, width, height, ndiBuffer[m_idx].getData());
 	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
 }
@@ -275,8 +221,13 @@ bool ofxNDIsender::SendImage(ofImage img, bool bInvert)
 	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA)
 		img.setImageType(OF_IMAGE_COLOR_ALPHA);
 
-	return SendImage(img.getPixels().getData(),
-		(unsigned int)img.getWidth(), (unsigned int)img.getHeight(), false, bInvert);
+	unsigned int width = (unsigned int)img.getWidth();
+	unsigned int height = (unsigned int)img.getHeight();
+
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
+		NDIsender.UpdateSender(width, height);
+
+	return SendImage(img.getPixels().getData(),	width, height, false, bInvert);
 
 }
 
@@ -292,8 +243,13 @@ bool ofxNDIsender::SendImage(ofPixels pix, bool bInvert)
 	if (pix.getImageType() != OF_IMAGE_COLOR_ALPHA)
 		pix.setImageType(OF_IMAGE_COLOR_ALPHA);
 
-	return NDIsender.SendImage(pix.getData(),
-		(unsigned int)pix.getWidth(), (unsigned int)pix.getHeight(), false, bInvert);
+	unsigned int width = (unsigned int)pix.getWidth();
+	unsigned int height = (unsigned int)pix.getHeight();
+
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
+		NDIsender.UpdateSender(width, height);
+
+	return NDIsender.SendImage(pix.getData(), width, height, false, bInvert);
 
 }
 
@@ -306,12 +262,12 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 		return false;
 
 	// Update sender to match dimensions
-	// Data must be RGBA and the sender colour format has to match
-	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight() || m_ColorFormat != NDIlib_FourCC_type_RGBA) {
-		m_ColorFormat = NDIlib_FourCC_type_RGBA;
-		NDIsender.UpdateSender(width, height, NDIlib_FourCC_type_RGBA);
-	}
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
+		NDIsender.UpdateSender(width, height);
+	
 	return NDIsender.SendImage(pixels, width, height, bSwapRB, bInvert);
+
+
 }
 
 // Set frame rate whole number
@@ -330,6 +286,7 @@ void ofxNDIsender::SetFrameRate(double framerate)
 // Set frame rate numerator and denominator
 void ofxNDIsender::SetFrameRate(int framerate_N, int framerate_D)
 {
+	NDIsender.SetAsync(false);
 	NDIsender.SetClockVideo();
 	NDIsender.SetFrameRate(framerate_N, framerate_D);
 }
@@ -477,59 +434,6 @@ std::string ofxNDIsender::GetNDIversion()
 //
 // =========== Private functions ===========
 //
-
-// Convert fbo texture from RGBA to UVYV
-void ofxNDIsender::ColorConvert(ofFbo fbo) {
-
-	ndiFbo.begin();
-	yuvshaders.rgba2yuvShader.begin();
-	fbo.getTexture().bind(1); // Source of RGBA pixels
-	yuvshaders.rgba2yuvShader.setUniformTexture("rgbatex", fbo.getTexture(), 1);
-	ndiFbo.draw(0, 0);
-	yuvshaders.rgba2yuvShader.end();
-	ndiFbo.end(); // result is in the utility fbo
-
-}
-
-// Convert texture from RGBA to UVYV
-void ofxNDIsender::ColorConvert(ofTexture texture) {
-
-	ndiFbo.begin();
-	yuvshaders.rgba2yuvShader.begin();
-	texture.bind(1);
-	yuvshaders.rgba2yuvShader.setUniformTexture("rgbatex", texture, 1);
-	ndiFbo.draw(0, 0);
-	yuvshaders.rgba2yuvShader.end();
-	ndiFbo.end();
-}
-
-// Convert fbo texture RGBA <> BGRA
-void ofxNDIsender::ColorSwap(ofFbo fbo) {
-
-	ndiFbo.begin();
-	fbo.getTexture().bind(0);
-	yuvshaders.rgba2bgra.begin();
-	yuvshaders.rgba2bgra.setUniformTexture("texInput", fbo.getTexture(), 0);
-	fbo.draw(0, 0); // Result goes to the ndiFbo texture
-	yuvshaders.rgba2bgra.end();
-	fbo.getTexture().unbind();
-	ndiFbo.end();
-
-}
-
-// Convert texture RGBA <> BGRA
-void ofxNDIsender::ColorSwap(ofTexture texture) {
-
-	ndiFbo.begin();
-	texture.bind(0);
-	yuvshaders.rgba2bgra.begin();
-	yuvshaders.rgba2bgra.setUniformTexture("texInput", texture, 0);
-	texture.draw(0, 0); // Result goes to the ndiFbo texture
-	yuvshaders.rgba2bgra.end();
-	texture.unbind();
-	ndiFbo.end();
-
-}
 
 // Read pixels from fbo to buffer
 void ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data)

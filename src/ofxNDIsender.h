@@ -44,11 +44,9 @@
 
 #include <stdio.h>
 #include <string>
-#include <emmintrin.h> // for SSE2
 #include <iostream> // for cout
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIsend.h" // basic sender functions
-#include "ofxNDIshaders.h" // Openframeworks shader functions
 #include "ofxNDIutils.h" // buffer copy utilities
 
 class ofxNDIsender {
@@ -64,24 +62,10 @@ public:
 	// - height | sender image height
 	bool CreateSender(const char *sendername, unsigned int width, unsigned int height);
 
-	// Create a sender of specified colour format
-	// Formats supported are RGBA, RGBX, BGRA, BGRX and UVYV
-	// - sendername | name for the sender
-	// - width | sender image width
-	// - height | sender image height
-	// - colorFormat | pixel format
-	bool CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat);
-
 	// Update sender dimensions
 	// - width | sender image width
 	// - height | sender image height
 	bool UpdateSender(unsigned int width, unsigned int height);
-
-	// Update sender dimensions and colour format
-	// - width | sender image width
-	// - height | sender image height
-	// - colorFormat | pixel format
-	bool UpdateSender(unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat);
 
 	// Close sender and release resources
 	void ReleaseSender();
@@ -128,7 +112,6 @@ public:
 	// - bInvert | flip the image - default false
 	bool SendImage(const unsigned char *image, unsigned int width, unsigned int height,
 		bool bSwapRB = false, bool bInvert = false);
-
 
 	// Set frame rate whole number
 	// - framerate - frames per second
@@ -238,7 +221,6 @@ private:
 
 	ofxNDIsend NDIsender; // Basic sender functions
 	bool m_bReadback; // Asynchronous readback of pixels from FBO using two PBOs
-	NDIlib_FourCC_type_e m_ColorFormat; // Color format to send
 	ofPixels ndiBuffer[2]; // Two pixel buffers for async sending
 	int m_idx; // Index used for async buffer swapping
 	GLuint ndiPbo[2]; // PBOs used for asynchronous read-back from fbo
@@ -246,22 +228,7 @@ private:
 	int NextPboIndex;
 	std::string m_SenderName; // current sender name
 
-	// RGBA to YUV and RGBA to BGRA conversion
-	ofxNDIshaders yuvshaders;
 	ofFbo ndiFbo; // Utility Fbo
-	ofTexture ndiTexture; // utility texture
-
-	// Convert fbo texture from RGBA to YUV
-	void ColorConvert(ofFbo fbo);
-
-	// Convert texture from RGBA to YUV
-	void ColorConvert(ofTexture tex);
-
-	// Convert fbo texture RGBA <> BGRA
-	void ColorSwap(ofFbo fbo);
-
-	// Convert texture RGBA <> BGRA
-	void ColorSwap(ofTexture tex);
 
 	// Read pixels from fbo to buffer
 	void ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);

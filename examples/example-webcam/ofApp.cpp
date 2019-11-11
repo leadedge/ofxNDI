@@ -4,7 +4,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2019 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -35,7 +35,7 @@
 	01.04.18 - Change to ofxNDI for NDI SDK Version 3
 	06.08.18 - Update to Openframeworks 10
 			   Revise for ofxNDI for NDI SDK Version 3.5
-
+	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
 
 */
 #include "ofApp.h"

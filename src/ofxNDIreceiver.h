@@ -26,7 +26,6 @@
 
 	08.07.16 - Use ofxNDIreceive class
 
-
 */
 
 #pragma once
@@ -51,7 +50,6 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#include <emmintrin.h> // for SSE2
 #include <iostream> // for cout
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIreceive.h" // Basic receiver functions
@@ -68,6 +66,9 @@ public:
 	// - index | index in the sender list to connect to
 	//   -1 - connect to the selected sender
 	//        if none selected connect to the first sender
+	// Default NDI format is BGRA
+	// Default application format is RGBA
+	// Data is converted to RGBA during copy from the video frame buffer
 	bool CreateReceiver(int index = -1);
 
 	// Create a receiver with preferred colour format
@@ -89,13 +90,13 @@ public:
 	// Close receiver and release resources
 	void ReleaseReceiver();
 
-	// Receive an fbo
-	// - fbo re-allocated for changed sender dimensions
-	bool ReceiveImage(ofFbo &fbo);
-
 	// Receive a texture
 	// - texture re-allocated for changed sender dimensions
 	bool ReceiveImage(ofTexture &texture);
+
+	// Receive an fbo
+	// - fbo re-allocated for changed sender dimensions
+	bool ReceiveImage(ofFbo &fbo);
 
 	// Receive an image
 	// - image re-allocated for changed sender dimensions
@@ -106,6 +107,9 @@ public:
 	bool ReceiveImage(ofPixels &pixels);
 
 	// Receive image pixels to a char buffer
+	// - Calling application must test width and
+	//   height for change with true return
+	//   and realocate the receiving buffer.
 	// - pixel | received pixel data
 	// - width | received image width
 	// - height | received image height
@@ -164,7 +168,7 @@ public:
 	// Set NDI low banwidth option
 	void SetLowBandwidth(bool bLow = true);
 
-	// Received frame type. TODO 
+	// Received frame type
 	NDIlib_frame_type_e GetFrameType();
 
 	// Is the current frame MetaData ?
@@ -173,6 +177,13 @@ public:
 
 	// The current MetaData string
 	std::string GetMetadataString();
+
+	// Is the current frame Audio data ?
+	// Use when ReceiveImage fails
+	bool IsAudioFrame();
+
+	// Return current audio frame data
+	void GetAudioData(float * &output, int &samplerate, int &samples, int &nChannels);
 
 	// The NDI SDK version number
 	std::string GetNDIversion();
@@ -186,6 +197,7 @@ public:
 private :
 
 	std::string SenderName;
+	bool GetPixelData(ofTexture &texture);
 
 
 };

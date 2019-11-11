@@ -60,14 +60,12 @@
 	14.07.18	- Add Sender dimensions m_Width, m_Height and bSenderInitialized
 				- Add GetWidth and GetHeight
 				- Add SenderCreated
-				- Return false for CreateSender if zero width or height
+	15.07.18	- Return false for CreateSender if zero width or height
 	11.08.18	- Change SetAudioData to const float
 	16.08.18	- Fix UpdateSender to include aspect ratio and no clock video for async mode
 	12.10.18	- Remove set async false from SetFrameRate
 	14.10.18	- Reset frame rate in UpdateSender
-	18.03.19	- Remove change of clocked video for async mode
-				  Included NULL video frame send for async mode in ReleaseSender.
-				  Removed un-necessary print statements.
+	08.11.19	- Removed output format option - fix to RGBA
 
 */
 #include "ofxNDIsend.h"
@@ -88,7 +86,8 @@ ofxNDIsend::ofxNDIsend()
 	m_bNDIinitialized = false;
 	m_Width = m_Height = 0;
 	bSenderInitialized = false;
-	m_ColorFormat = NDIlib_FourCC_type_RGBA; // default rgba output format
+	// LJ DEBUG
+	// m_ColorFormat = NDIlib_FourCC_type_RGBA; // default rgba output format
 
 	// Audio
 	m_bAudio = false; // No audio default
@@ -124,24 +123,38 @@ ofxNDIsend::~ofxNDIsend()
 
 }
 
+/*
+	// LJ DEBUG
 // Create an RGBA sender
 bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsigned int height)
 {
 	return CreateSender(sendername, width, height, NDIlib_FourCC_type_RGBA);
 }
+*/
 
+// LJ DEBUG
 // Create a sender of specified colour format
 // Formats supported are RGBA, BGRA and UVYV
-bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
+// bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
+
+
+// Create an RGBA sender
+bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsigned int height)
 {
-	// printf("ofxNDIsender::CreateSender(%s, %d, %d, (%d)\n", sendername, width, height, colorFormat);
 
 	if (width == 0 || height == 0)
 		return false;
 
-	// Create an NDI source that is clocked to the video as per application setting
+	// Create an NDI source that is clocked to the video.
+	// unless async sending has been selected.
 	NDI_send_create_desc.p_ndi_name = sendername;
 	NDI_send_create_desc.p_groups = NULL;
+
+	if (m_bAsync)
+		m_bClockVideo = false;
+	else
+		m_bClockVideo = true;
+
 	NDI_send_create_desc.clock_video = m_bClockVideo;
 	NDI_send_create_desc.clock_audio = false;
 
@@ -166,7 +179,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		char* p_connection_string = "<ndi_product long_name=\"ofxNDI sender\" "
 												 "             short_name=\"ofxNDI Sender\" "
 												 "             manufacturer=\"spout@zeal.co\" "
-												 "             version=\"1.001.000\" "
+												 "             version=\"1.004.000\" "
 												 "             session=\"default\" "
 												 "             model_name=\"none\" "
 												 "             serial=\"none\"/>";
@@ -188,7 +201,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 
 		video_frame.xres = (int)width;
 		video_frame.yres = (int)height;
-		video_frame.FourCC = colorFormat;
+		video_frame.FourCC = NDIlib_FourCC_type_RGBA;
 		video_frame.frame_rate_N = m_frame_rate_N; // (default 60fps)
 		video_frame.frame_rate_D = m_frame_rate_D;
 		video_frame.picture_aspect_ratio = m_picture_aspect_ratio; // default source (width/height)
@@ -206,7 +219,6 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		m_Width = width;
 		m_Height = height;
 		bSenderInitialized = true;
-		m_ColorFormat = colorFormat;
 
 		if(m_bAudio) {
 			// Describe the audio frame
@@ -216,7 +228,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 			m_audio_frame.timecode    = m_AudioTimecode;
 			m_audio_frame.p_data      = m_AudioData;
 			// mono/stereo inter channel stride
-			m_audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(FLOAT);
+			m_audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(float);
 		}
 
 		return true;
@@ -225,18 +237,15 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 	return false;
 }
 
-// Update sender dimensions with the existing colour format
+// Update sender dimensions
 bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 {
-	return UpdateSender(width, height, m_ColorFormat);
-}
-
-// Update sender dimensions and colour format
-// Also used to update frame rate
-bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
-{
 	if(pNDI_send && m_bAsync) {
-		// Wait for any unscheduled asynchronous frames to be completed
+		// Because one buffer is in flight we need to make sure that 
+		// there is no chance that we might free it before NDI is done with it. 
+		// You can ensure this either by sending another frame, or just by
+		// sending a frame with a NULL pointer, which will wait for any 
+		// unscheduled asynchronous frames to be completed before returning.
 		NDIlib_send_send_video_async_v2(pNDI_send, NULL);
 	}
 
@@ -253,7 +262,7 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height, NDIlib_Fo
 	video_frame.xres = (int)width;
 	video_frame.yres = (int)height;
 	video_frame.line_stride_in_bytes = (int)width * 4;
-	video_frame.FourCC = colorFormat;
+	video_frame.FourCC = NDIlib_FourCC_type_RGBA; // LJ DEBUG colorFormat;
 
 	// Reset frame rate
 	video_frame.frame_rate_N = m_frame_rate_N;
@@ -275,7 +284,7 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height, NDIlib_Fo
 		m_audio_frame.timecode = m_AudioTimecode;
 		m_audio_frame.p_data = m_AudioData;
 		// mono/stereo inter channel stride
-		m_audio_frame.channel_stride_in_bytes = (m_AudioChannels - 1)*m_AudioSamples * sizeof(FLOAT);
+		m_audio_frame.channel_stride_in_bytes = (m_AudioChannels - 1)*m_AudioSamples * sizeof(float);
 	}
 
 	return true;
@@ -287,11 +296,8 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
-	if (!pNDI_send || !pixels || !bSenderInitialized) {
-		return false;
-	}
 
-	if (pixels && width > 0 && height > 0) {
+	if (pNDI_send && bSenderInitialized && pixels && width > 0 && height > 0) {
 
 		// Allow for forgotten UpdateSender
 		if (video_frame.xres != (int)width || video_frame.yres != (int)height) {
@@ -342,17 +348,12 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		if (m_bAsync) {
 			// Submit the frame asynchronously. This means that this call will return 
 			// immediately and the  API will "own" the memory location until there is
-			// a synchronizing event. A synchronizing event is one of : 
+			// a synchronizing event. A synchronouzing event is one of : 
 			// NDIlib_send_send_video_async, NDIlib_send_send_video, NDIlib_send_destroy.
 			// NDIlib_send_send_video_async_v2 will wait for the previous frame to finish before
 			// submitting the current one.
 			// printf("NDIlib_send_send_video_async_v2 %x, %x, %dx%d\n", pNDI_send, video_frame.p_data, video_frame.xres, video_frame.yres);
-			// NDIlib_send_send_video_async_v2(pNDI_send, NULL);
 			NDIlib_send_send_video_async_v2(pNDI_send, &video_frame);
-			// 20.03.19
-			// ??? Wait for any asynchronous frames to be completed before submitting the next
-			// NDIlib_send_send_video_async_v2(pNDI_send, NULL);
-
 		}
 		else {
 			// Submit the frame. Note that this call will be clocked
@@ -372,12 +373,6 @@ void ofxNDIsend::ReleaseSender()
 {
 	bSenderInitialized = false; // Do this now so no more frames are sent
 
-	// 15.03.19
-	if (pNDI_send && m_bAsync) {
-		// Wait for any unscheduled asynchronous frames to be completed.
-		NDIlib_send_send_video_async_v2(pNDI_send, NULL);
-	}
-
 	// Destroy the NDI sender
 	if (pNDI_send != NULL) {
 		NDIlib_send_destroy(pNDI_send);
@@ -389,8 +384,6 @@ void ofxNDIsend::ReleaseSender()
 	}
 
 	p_frame = NULL;
-	// 15.03.19
-	video_frame.p_data = NULL;
 	pNDI_send = NULL;
 
 	// Reset sender dimensions
@@ -414,12 +407,6 @@ unsigned int ofxNDIsend::GetWidth()
 unsigned int ofxNDIsend::GetHeight()
 {
 	return m_Height;
-}
-
-// Return current colour format
-NDIlib_FourCC_type_e ofxNDIsend::GetColorFormat()
-{
-	return m_ColorFormat;
 }
 
 // Set frame rate - frames per second whole number
@@ -495,6 +482,8 @@ bool ofxNDIsend::GetClockVideo()
 void ofxNDIsend::SetAsync(bool bActive)
 {
 	m_bAsync = bActive;
+	/// Do not clock video for async sending
+	/// 11.06.18 - do this check in CreateSender
 }
 
 // Get whether asynchronous sending mode
@@ -527,7 +516,7 @@ void ofxNDIsend::SetAudioChannels(int nChannels)
 {
 	m_AudioChannels = nChannels;
 	m_audio_frame.no_channels = nChannels;
-	m_audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(FLOAT);
+	m_audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(float);
 }
 
 // Set number of audio samples
@@ -548,7 +537,7 @@ void ofxNDIsend::SetAudioSamples(int nSamples)
 {
 	m_AudioSamples = nSamples;
 	m_audio_frame.no_samples  = nSamples;
-	m_audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(FLOAT);
+	m_audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(float);
 }
 
 // Set audio timecode

@@ -56,7 +56,6 @@
 
 #include <stdio.h>
 #include <string>
-#include <emmintrin.h> // for SSE2
 #include <iostream> // for cout
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
@@ -74,24 +73,10 @@ public:
 	// - height | sender image height
 	bool CreateSender(const char *sendername, unsigned int width, unsigned int height);
 
-	// Create a sender of specified colour format
-	// Formats supported are RGBA, BGRA and UVYV
-	// - sendername | name for the sender
-	// - width | sender image width
-	// - height | sender image height
-	// - colorFormat | pixel format
-	bool CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat);
-
 	// Update sender dimensions
 	// - width | sender image width
 	// - height | sender image height
 	bool UpdateSender(unsigned int width, unsigned int height);
-
-	// Update sender dimensions and colour format
-	// - width | sender image width
-	// - height | sender image height
-	// - colorFormat | pixel format
-	bool UpdateSender(unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat);
 
 	// Send image pixels
 	// - image | pixel data BGRA or RGBA
@@ -113,9 +98,6 @@ public:
 
 	// Return current sender height
 	unsigned int GetHeight();
-
-	// Return current colour format
-	NDIlib_FourCC_type_e GetColorFormat();
 
 	// Set frame rate
 	// - framerate - frames per second
@@ -221,7 +203,6 @@ private:
 
 	// Sender dimensions
 	unsigned int m_Width, m_Height;
-	NDIlib_FourCC_type_e m_ColorFormat;
 	bool bSenderInitialized;
 
 	// Sender options

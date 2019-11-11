@@ -30,7 +30,7 @@
 
 	Chages with update to 3.5
 	11.06.18 - __movsd for OSX (https://github.com/ThomasLengeling/ofxNDI)
-			- _rotl replacement for OSX
+			 - _rotl replacement for OSX
 
 
 */
@@ -48,7 +48,7 @@
 namespace ofxNDIutils {
 
 
-#if defined(__APPLE__)
+#if !defined(_WIN32)
 	static inline void *__movsd(void *d, const void *s, size_t n) {
 		asm volatile ("rep movsb"
 			: "=D" (d),
@@ -130,9 +130,9 @@ namespace ofxNDIutils {
 	//
 	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert)
 	{
-		unsigned __int32 *src = NULL;
-		unsigned __int32 *dst = NULL;
-		unsigned __int32 rgbapix; // 32bit rgba pixel
+		uint32_t *src = NULL;
+		uint32_t *dst = NULL;
+		uint32_t rgbapix; // 32bit rgba pixel
 		unsigned int x = 0;
 		unsigned int y = 0;
 		__m128i brMask = _mm_set1_epi32(0x00ff00ff); // argb
@@ -141,19 +141,19 @@ namespace ofxNDIutils {
 	    for (y = 0; y < height; y++) {
 
   			// Start of buffer
-			src = (unsigned __int32*)source; // unsigned int = 4 bytes
-			dst = (unsigned __int32*)dest;
+			src = (uint32_t*)source; // unsigned int = 4 bytes
+			dst = (uint32_t*)dest;
 	
 			// Increment to current line
 			if(bInvert) {
-				src += (unsigned __int32)(width*height); // end of rgba buffer
-				src -= (unsigned __int32)width;          // beginning of the last rgba line
-				src -= (unsigned __int32)y*width;        // current line
+				src += (uint32_t)(width*height); // end of rgba buffer
+				src -= (uint32_t)width;          // beginning of the last rgba line
+				src -= (uint32_t)y*width;        // current line
 			}
 			else {
-				src += (unsigned __int32)y*width;
+				src += (uint32_t)y*width;
 			}
-			dst += (unsigned __int32)y*width; // dest is not inverted
+			dst += (uint32_t)y*width; // dest is not inverted
 
 			// Make output writes aligned
 			for (x = 0; ((reinterpret_cast<intptr_t>(&dst[x]) & 15) != 0) && x < width; x++) {
@@ -162,7 +162,7 @@ namespace ofxNDIutils {
 				//        & 0x00ff00ff  : r g b . > . b . r
 				// rgbapix & 0xff00ff00 : a r g b > a . g .
 				// result of or			:           a b g r
-#if defined(__APPLE__)
+#if !defined(_WIN32)
 				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
 #else
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
@@ -184,7 +184,7 @@ namespace ofxNDIutils {
 			// Perform leftover writes
 			for (; x < width; x++) {
 				rgbapix = src[x];
-#if defined(__APPLE__)
+#if !defined(_WIN32)
 				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
 #else
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);

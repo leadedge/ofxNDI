@@ -24,6 +24,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	=========================================================================
 
+
+	Function additions see ofxReceive.cpp
+
 	16.10.16 - common buffer copy utilities
 	09.02.17 - Changes for NDI SDK Version 2
 				ReceiveImage - remove swap RG flag - now done internally
@@ -40,8 +43,9 @@
 			 - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
 	11.07.18 - Change class name to ofxReceive
 			   Class can be used independently of Openframeworks
-			   Function additions see ofxReceive.cpp
-
+	08.11.19 - Arch Linux x64 compatibility
+			   https://github.com/hugoaboud/ofxNDI
+			   To be tested
 
 */
 #pragma once
@@ -61,13 +65,33 @@
 #include <sys/time.h>
 #endif
 
+
 #include <string>
 #include <iostream>
 #include <vector>
-#include <emmintrin.h> // for SSE2
 #include <iostream> // for cout
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
+
+// Linux
+#if !defined(_WIN32) && !defined (__APPLE__)
+#include <sys/time.h>
+#include <cstring>
+#include <cmath>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <assert.h>
+
+typedef struct {
+	long long QuadPart;
+} LARGE_INTEGER;
+
+typedef unsigned int DWORD;
+
+#endif
+
+
 
 class ofxNDIreceive {
 
@@ -76,10 +100,10 @@ public:
 	ofxNDIreceive();
 	~ofxNDIreceive();
 
-	// Create an RGBA receiver
+	// Create a BGRA receiver
 	// - index | index in the sender list to connect to
 	//   -1 - connect to the selected sender
-	//        if none selected connect to the first sender
+	//        if none selected, connect to the first sender
 	bool CreateReceiver(int index = -1);
 
 	// Create a receiver with preferred colour format
@@ -118,7 +142,8 @@ public:
 	// Get the video type received
 	// The receiver should always receive RGBA.
 	// This function is backup only - no error checking.
-	NDIlib_FourCC_type_e GetVideoType();
+	// NDIlib_FourCC_type_e GetVideoType();
+	NDIlib_FourCC_video_type_e GetVideoType();
 
 	// Get a pointer to the current video frame data
 	unsigned char *GetVideoData();
@@ -156,21 +181,17 @@ public:
 	// Get the index of a sender name
 	bool GetSenderIndex(const char *sendername, int &index);
 
-	// Get the name characters of a sender index
-	// For back-compatibility only
-	bool GetSenderName(char *sendername);
-	bool GetSenderName(char *sendername, int index);
-	bool GetSenderName(char *sendername, int maxsize, int index);
-
-	///
-	/// std::string versions
-	///
-
 	// Get the index of a sender name
 	bool GetSenderIndex(std::string sendername, int &index);
 
 	// Return the name string of a sender index
 	std::string GetSenderName(int index = -1);
+
+	// Get the name characters of a sender index
+	// For back-compatibility only
+	bool GetSenderName(char *sendername);
+	bool GetSenderName(char *sendername, int index);
+	bool GetSenderName(char *sendername, int maxsize, int index);
 
 	// Sender width
 	unsigned int GetSenderWidth();
@@ -187,7 +208,7 @@ public:
 	// Has the user changed the sender index
 	bool SenderSelected();
 
-	// Set NDI low banwidth option
+	// Set NDI low bandwidth option
 	// Refer to NDI documentation
 	void SetLowBandwidth(bool bLow = true);
 
@@ -226,8 +247,6 @@ private:
 	NDIlib_send_create_t NDI_send_create_desc;
 	NDIlib_find_instance_t pNDI_find;
 	NDIlib_recv_instance_t pNDI_recv;
-	/// NDIlib_video_frame_t video_frame;
-	/// Vers 3
 	NDIlib_video_frame_v2_t video_frame;
 	NDIlib_frame_type_e m_FrameType;
 
@@ -247,7 +266,7 @@ private:
 
 	// For received frame fps calculations
 	double startTime, lastTime, frameTime, frameRate, fps, PCFreq;
-	__int64 CounterStart;
+	int64_t CounterStart;
 	void StartCounter();
 	double GetCounter();
 	void UpdateFps();
@@ -267,7 +286,7 @@ private:
 	// If no timeout specified, return the sources that exist right now
 	// For a timeout, wait for that timeout and return the sources that exist then
 	// If that fails, return NULL
-	const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_instance,
+	const NDIlib_source_t* FindGetSources(NDIlib_find_instance_t p_instance,
 		uint32_t* p_no_sources,
 		uint32_t timeout_in_ms);
 
