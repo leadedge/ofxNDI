@@ -106,7 +106,7 @@ void ofApp::setup(){
 	ofDisableArbTex(); // needed for textures to work
 	textureImage.load("NDI_Box.png"); // Load a texture image for the demo
 	// Workaround for mirrored texture with ofDrawBox and ofBoxPrimitive for Openframeworks 10.
-#if OF_VERSION_MINOR == 10
+#if OF_VERSION_MINOR >= 10
 	textureImage.mirror(false, true);
 #endif
 

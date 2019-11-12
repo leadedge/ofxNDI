@@ -49,7 +49,7 @@ void ofApp::setup(){
 	cout << "NDI SDK copyright NewTek (http:\\NDI.NewTek.com)" << endl;
 
 	// Set up webcam
-	vidGrabber.setDeviceID(0); // The first webcam
+	vidGrabber.setDeviceID(1); // The first webcam
 	vidGrabber.setup(640, 480); // try to grab at this size.
 
 	// Set NDI asynchronous sending for best performance

@@ -151,10 +151,10 @@ void ofApp::draw(){
 			ndiImage.update();
 		}
 	}
-	*/
-
+	
 	// Draw whether received or not
 	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	*/
 
 	// Show what it is receiving
 	ShowInfo();
