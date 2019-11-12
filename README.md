@@ -18,6 +18,12 @@ ofxNDIsend and ofxNDIreceive classes can be used independently for applications 
 
 For Windows
 
+### Project Generator
+
+The OF Project Generator will create your project with correct paths. Make sure "ofxNDI" is selected in the addons section and all headers, libraries, and DLLs will be imported in the Visual Studio project.
+
+### Manual Setup
+
 1. Add files from "ofxNDI" to your Visual Studio project.
 2. Copy .dll's from ofxNDI/libs to the application "bin" folder
 3. Got to the [NDI web page](https://www.ndi.tv/) and download the NDI SDK. Install the NewTek SDK and copy files as follows.
