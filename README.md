@@ -2,10 +2,10 @@
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
 ## Updates
-31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3"
-(Note changes to function argument variable types to match with Version 3.)
-06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.
-10.03.19 - Updated for NDI SDK Vers 3.8
+31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3"\
+(Note changes to function argument variable types to match with Version 3.)\
+06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.\
+10.03.19 - Updated for NDI SDK Vers 3.8\
 10.11.19 - Updated for NDI SDK Vers 4.0
 
 With update to NDI 4.0, shaders have been removed. All buffers need to be RGBA or BGRA and for a sender, conversion to other formats are handled by the NDI API. Default receiving format is BGRA, and conversion to RGBA is made within the ofxNDIreceiver class. Experimental audio functions are included but not tested.
@@ -20,7 +20,7 @@ For Windows
 
 1. Add files from "ofxNDI" to your Visual Studio project.
 2. Copy .dll's from ofxNDI/libs to the application "bin" folder
-3. Got to the[NDI web page](https://www.ndi.tv/) and download the NDI SDK. Install the NewTek SDK and copy files as follows.
+3. Got to the [NDI web page](https://www.ndi.tv/) and download the NDI SDK. Install the NewTek SDK and copy files as follows.
 	- Copy the files in  "../NDI 4 SDK/Include" to "ofxNDI/include"
 	- Copy the files in "../NDI 4 SDK/Lib" to "ofxNDI/libs/NDI/Lib"
 
