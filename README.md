@@ -57,10 +57,11 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 You should have received a copy of the GNU Lesser General Public License along with this program.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses).
 
 ----------------------
-NDI SDK - Copyright NewTek Inc. [http://NDI.NewTek.com](http://NDI.NewTek.com).
+NDI SDK - Copyright NewTek Inc. [https://www.ndi.tv/](https://www.ndi.tv/).
 
-A license agreement is included with the Newtek SDK when you receive it after registration with NewTek.
-The SDK is used by you in accordance with the license you accepted by clicking “I accept” during installation. This license is available for review from the root of the SDK folder.
-Read the conditions carefully. You can include the NDI dlls as part of your own application, but the Newtek SDK and specfic SDK's which may be contained within it may not be re-distributed.
-Your own EULA must cover the specific requirements of the NDI SDK EULA.
+A license agreement is included with the Newtek SDK when you receive it after downloading from NewTek.\
+The SDK is used by you in accordance with the license you accepted by clicking “I accept” during installation. This license is available for review from the root of the SDK folder.\
+Read the document (NDI SDK License Agreement) conditions carefully as well as the in the LICENSE section of the SDK documentation (NDI SDK Documentation).\
+Your own EULA terms must cover the specific requirements of the NDI SDK EULA and the terms of the LICENSE section.\
+You can include the NDI dlls as part of your own application, but you need to ensure that your application complies with the NDI SDK license, the LICENSE section and the license terms outlined in “3rd party rights” towards the end of  end of the manual.
 
