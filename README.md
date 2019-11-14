@@ -8,7 +8,7 @@ An Openframeworks addon to allow sending and receiving images over a network usi
 10.03.19 - Updated for NDI SDK Vers 3.8\
 10.11.19 - Updated for NDI SDK Vers 4.0
 
-With update to NDI 4.0, shaders have been removed. All buffers need to be RGBA or BGRA and for a sender, conversion to other formats are handled by the NDI API. Default receiving format is BGRA, and conversion to RGBA is made within the ofxNDIreceiver class. Experimental audio functions are included but not tested.
+With update to NDI 4.0, shaders have been removed. All buffers need to be RGBA or BGRA and, for a sender, conversion to other formats are handled by the NDI API. Default receiving format is BGRA, and conversion to RGBA is made within the ofxNDIreceiver class. Experimental audio functions are included but not tested.
 
 ofxNDIsender and ofxNDIreceiver depend on Openframeworks. There are options to send and receive using ofFbo, ofTexture, ofPixels as well as an unsigned char pixel buffer. If receiving to ofFbo, ofTexture of ofPixels, it is not necessary to manage sender size change from the application. Nor is it necessary to handle receiver creation. Simply use the receive functions alone. For best efficiency, the sender class includes pbo pixel buffer readback, activated by SetReadback(). Refer to the header files for details. Examples have been updated to include all the options available. For a simple, practical example, refer to the webcam sender. The examples assume Openframeworks 10 and are not compatible with previous versions.
 
@@ -27,10 +27,10 @@ For Windows
 In your Visual Studio project properties :
 
 - Add "ofxNDI/src" to additional "C/C++/General/Additional Include Directories"
-- Add "ofxNDI/include" to additional "C/C++/General/Additional Include Directories"
+- Add "ofxNDI/include" to additional "C/C++/General/Additional Include Directories"\
 For a 32bit project
 - Add "ofxNDI/libs/NDI/Lib/x86" to "Linker > General > Additional Library Directories"
-- Add "Processing.NDI.Lib.x86.lib" to "Linker > Input > Additional Dependencies"
+- Add "Processing.NDI.Lib.x86.lib" to "Linker > Input > Additional Dependencies"\
 For a 64bit project
 - Add "ofxNDI/libs/NDI/Lib/x64" to "Linker > General > Additional Library Directories"
 - Add "Processing.NDI.Lib.x64.lib" to "Linker > Input > Additional Dependencies"
@@ -57,5 +57,5 @@ This program is free software: you can redistribute it and/or modify it under th
 ----------------------
 NDI SDK - Copyright NewTek Inc. [https://www.ndi.tv/](https://www.ndi.tv/).
 
-You can include the NDI dlls as part of your own application, but you need to ensure that your application complies with the NDI SDK license. If you have not already installed the NDI SDK, you should download from the [NDI web page](https://www.ndi.tv/) and install it to review the license agreements for it's use. The SDK is used by you in accordance with the license that you accept before installation. In addition, a license document is available for review from the root of the SDK folder. Read the conditions carefully. Your own EULA terms must cover the specific requirements of the NDI SDK EULA, the terms of the LICENSE section and the terms outlined in “3rd party rights” towards the end of  end of the manual.
+You can include the NDI dlls as part of your own application, but you need to ensure that your application complies with the NDI SDK license. If you have not already installed the NDI SDK, you should download from the [NDI web page](https://www.ndi.tv/) and install it to review the license agreements for it's use. The SDK is used by you in accordance with the license that you accept before installation. In addition, a license document is available for review from the root of the SDK folder. Read the conditions carefully. Your own EULA terms must cover the specific requirements of the NDI SDK EULA, the terms of the LICENSE section and the terms outlined in “3rd party rights” towards the end of the manual.
 
