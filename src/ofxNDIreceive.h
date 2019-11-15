@@ -46,6 +46,7 @@
 	08.11.19 - Arch Linux x64 compatibility
 			   https://github.com/hugoaboud/ofxNDI
 			   To be tested
+	15.11.19 - Change to dynamic load of Newtek NDI dlls
 
 */
 #pragma once
@@ -70,8 +71,14 @@
 #include <iostream>
 #include <vector>
 #include <iostream> // for cout
+#include <shlwapi.h>  // for path functions
+#include <Shellapi.h> // for shellexecute
+
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
+
+#pragma comment(lib, "shlwapi.lib")  // for path functions
+#pragma comment(lib, "Shell32.lib")  // for shellexecute
 
 // Linux
 #if !defined(_WIN32) && !defined (__APPLE__)
@@ -99,6 +106,8 @@ public:
 
 	ofxNDIreceive();
 	~ofxNDIreceive();
+
+	bool LoadNDI();
 
 	// Create a BGRA receiver
 	// - index | index in the sender list to connect to
@@ -241,6 +250,9 @@ public:
 	// ====================================================================
 
 private:
+
+	HMODULE hNDILib;
+	const NDIlib_v4* p_NDILib;
 
 	const NDIlib_source_t* p_sources;
 	uint32_t no_sources;

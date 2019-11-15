@@ -46,7 +46,12 @@ void ofApp::setup(){
 	ofSetColor(255);
 
 	ofSetWindowTitle("Openframeworks NDI webcam"); // show the sender name on the title bar
-	cout << "NDI SDK copyright NewTek (http:\\NDI.NewTek.com)" << endl;
+#ifdef _WIN64
+	cout << "\nofxNDI example webcam sender - 64 bit" << endl;
+#else // _WIN64
+	cout << "\nofxNDI example webcam sender - 32 bit" << endl;
+#endif // _WIN64	
+	cout << ndiSender.GetNDIversion() << " (http://ndi.tv/)" << endl;
 
 	// Set up webcam
 	vidGrabber.setDeviceID(0); // The first webcam

@@ -72,7 +72,7 @@ void ofApp::setup(){
 	cout << "\nofxNDI example receiver - 32 bit" << endl;
 #endif // _WIN64
 
-	cout << NDIlib_version() << " (http:\\NDI.NewTek.com)" << endl;
+	cout << ndiReceiver.GetNDIversion() << " (http://ndi.tv/)" << endl;
 	cout << "Press 'SPACE' to list NDI senders" << endl;
 
 	// ofFbo

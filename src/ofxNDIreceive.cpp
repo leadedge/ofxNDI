@@ -146,6 +146,8 @@ bool QueryPerformanceCounter(LARGE_INTEGER *performance_count)
 
 ofxNDIreceive::ofxNDIreceive()
 {
+	hNDILib = NULL;
+	p_NDILib = NULL;
 	pNDI_find = NULL;
 	pNDI_recv = NULL;
 	p_sources = NULL;
@@ -167,16 +169,8 @@ ofxNDIreceive::ofxNDIreceive()
 
 	m_bandWidth = NDIlib_recv_bandwidth_highest;
 
-	if (!NDIlib_is_supported_CPU()) {
-		std::cout << "CPU does not support NDI NDILib requires SSE4.1 NDIreceiver" << std::endl;
-	}
-	else {
-		bNDIinitialized = NDIlib_initialize();
-		if (!bNDIinitialized) {
-			std::cout << "Cannot run NDI - NDILib initialization failed" << std::endl;
-		}
-
-	}
+	// Find and load the NDI dll
+	LoadNDI();
 
 }
 
@@ -184,19 +178,140 @@ ofxNDIreceive::ofxNDIreceive()
 ofxNDIreceive::~ofxNDIreceive()
 {
 	FreeAudioData();
-	if(pNDI_recv) NDIlib_recv_destroy(pNDI_recv);
-	if(pNDI_find) NDIlib_find_destroy(pNDI_find);
-	if(bNDIinitialized)	NDIlib_destroy();
+	if(pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
+	if(pNDI_find) p_NDILib->find_destroy(pNDI_find);
+	if (p_NDILib) p_NDILib->destroy();
+	if (hNDILib) FreeLibrary(hNDILib);
 }
+
+
+// Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files 
+bool ofxNDIreceive::LoadNDI()
+{
+	std::string ndi_path = "";
+
+#ifdef _WIN32
+	// First look in the executable folder for the dlls
+	// in case they are distributed with the application.
+	char path[MAX_PATH];
+	DWORD dwSize = GetModuleFileNameA(NULL, path, sizeof(path));
+	if (dwSize > 0) {
+		PathRemoveFileSpecA(path); // Remove executable name
+		strcat_s(path, MAX_PATH, "\\");
+		strcat_s(path, MAX_PATH, NDILIB_LIBRARY_NAME);
+		// Does the dll file exist in the executable folder ?
+		if (PathFileExistsA(path)) {
+			// Use the exe path
+			ndi_path = path;
+		}
+		else {
+			// The dll does not exist in exe folder
+			// Check whether the NDI run-time is installed
+			char *p_ndi_runtime_v4 = NULL;
+			size_t nchars;
+			_dupenv_s((char **)&p_ndi_runtime_v4, &nchars, NDILIB_REDIST_FOLDER);
+			if (!p_ndi_runtime_v4) {
+				// The NDI run-time is not yet installed. Let the user know and take them to the download URL.
+				MessageBoxA(NULL, "The NewTek NDI run-time is not yet installed\nPlease install it to use this application", "Warning.", MB_OK);
+				ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
+				return false;
+			}
+			// Get the full path of the installed dll
+			ndi_path = p_ndi_runtime_v4;
+			ndi_path += "\\" NDILIB_LIBRARY_NAME;
+			free(p_ndi_runtime_v4); // free the buffer allocated by _dupenv_s
+		}
+		// Now we have the DLL path
+		// printf("Path [%s]\n", ndi_path.c_str());
+	}
+
+	// Try to load the library
+	hNDILib = LoadLibraryA(ndi_path.c_str());
+	if (!hNDILib) {
+		MessageBoxA(NULL, "NDI library failed to load", "Warning", MB_OK);
+		return false;
+	}
+
+	// The main NDI entry point for dynamic loading if we got the library
+	const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
+	*((FARPROC*)&NDIlib_v4_load) = GetProcAddress(hNDILib, "NDIlib_v4_load");
+
+	// If we failed to load the library then we tell people to re-install it
+	if (!NDIlib_v4_load)
+	{	// Unload the DLL if we loaded it
+		if (hNDILib)
+			FreeLibrary(hNDILib);
+		// The NDI run-time is not installed correctly. Let the user know and take them to the download URL.
+		MessageBoxA(NULL, "Failed to find Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
+		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
+		return false;
+	}
+#else
+	// TODO : to be tested
+	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
+	if (p_NDI_runtime_folder)
+	{
+		ndi_path = p_NDI_runtime_folder;
+		ndi_path += NDILIB_LIBRARY_NAME;
+	}
+	else ndi_path = NDILIB_LIBRARY_NAME;
+
+	// Try to load the library
+	void *hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
+
+	// The main NDI entry point for dynamic loading if we got the library
+	const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
+	if (hNDILib)
+		*((void**)&NDIlib_v4_load) = dlsym(hNDILib, "NDIlib_v4_load");
+
+	// If we failed to load the library then we tell people to re-install it
+	if (!NDIlib_v4_load)
+	{	// Unload the library if we loaded it
+		if (hNDILib)
+			dlclose(hNDILib);
+		printf("Please re-install the NewTek NDI Runtimes from " NDILIB_REDIST_URL " to use this application");
+		return false;
+	}
+#endif
+
+	// Get all of the DLL entry points
+	p_NDILib = NDIlib_v4_load();
+	if (!p_NDILib) {
+		MessageBoxA(NULL, "Failed to load Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
+		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
+		return false;
+	}
+
+	// Check cpu compatibility
+	if (!p_NDILib->is_supported_CPU()) {
+		MessageBoxA(NULL, "CPU does not support NDI NDILib requires SSE4.1 NDIreceiver", "Warning", MB_OK);
+		if (hNDILib)
+			FreeLibrary(hNDILib);
+		return false;
+	}
+	else {
+		if (!p_NDILib->initialize()) {
+			MessageBoxA(NULL, "Cannot run NDI - NDILib initialization failed", "Warning", MB_OK);
+			if (hNDILib)
+				FreeLibrary(hNDILib);
+			return false;
+		}
+		bNDIinitialized = true;
+	}
+
+	return true;
+}
+
+
 
 // Create a finder to look for a sources on the network
 void ofxNDIreceive::CreateFinder()
 {
 	if(!bNDIinitialized) return;
 
-	if(pNDI_find) NDIlib_find_destroy(pNDI_find);
+	if (pNDI_find) p_NDILib->find_destroy(pNDI_find);
 	const NDIlib_find_create_t NDI_find_create_desc = { true, NULL, NULL }; // Version 2
-	pNDI_find = NDIlib_find_create_v2(&NDI_find_create_desc);
+	pNDI_find = p_NDILib->find_create_v2(&NDI_find_create_desc);
 	p_sources = NULL;
 	no_sources = 0;
 	nsenders = 0;
@@ -208,7 +323,7 @@ void ofxNDIreceive::ReleaseFinder()
 {
 	if(!bNDIinitialized) return;
 
-	if(pNDI_find) NDIlib_find_destroy(pNDI_find);
+	if (pNDI_find) p_NDILib->find_destroy(pNDI_find);
 	pNDI_find = NULL;
 	p_sources = NULL;
 	no_sources = 0;
@@ -334,7 +449,7 @@ int ofxNDIreceive::RefreshSenders(uint32_t timeout)
 		dwStartTime = timeGetTime();
 		dwElapsedTime = 0;
 		do {
-			p_sources = NDIlib_find_get_current_sources(pNDI_find, &nsources);
+			p_sources = p_NDILib->find_get_current_sources(pNDI_find, &nsources);
 			dwElapsedTime = timeGetTime() - dwStartTime;
 		} while(nsources == 0 && (uint32_t)dwElapsedTime < timeout);
 		return nsources;
@@ -580,6 +695,8 @@ void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, 
 // to RGBA during copy from the video frame buffer.
 bool ofxNDIreceive::CreateReceiver(int userindex)
 {
+	// NDI 4.0 > VERSION 4.1.3 BETA required for RGBA preferred
+	// return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
 	return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
 }
 
@@ -605,7 +722,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 		if (pNDI_find) {
 			dwStartTime = (unsigned int)timeGetTime();
 			do {
-				p_sources = NDIlib_find_get_current_sources(pNDI_find, &no_sources);
+				p_sources = p_NDILib->find_get_current_sources(pNDI_find, &no_sources);
 				dwElapsedTime = (unsigned int)timeGetTime() - dwStartTime;
 			} while (no_sources == 0 && dwElapsedTime < 4000);
 		}
@@ -650,7 +767,9 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			// Vers 3
 			// pNDI_recv = NDIlib_recv_create_v2(&NDI_recv_create_desc);
 			// Vers 3.5
-			pNDI_recv = NDIlib_recv_create_v3(&NDI_recv_create_desc);
+			// pNDI_recv = NDIlib_recv_create_v3(&NDI_recv_create_desc);
+			// Vers 4.0
+			pNDI_recv = p_NDILib->recv_create_v3(&NDI_recv_create_desc);
 			if (!pNDI_recv) {
 				printf("CreateReceiver : NDIlib_recv_create_v3 error\n");
 				return false;
@@ -667,7 +786,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 
 			// on_program = true, on_preview = false
 			const NDIlib_tally_t tally_state = { true, false };
-			NDIlib_recv_set_tally(pNDI_recv, &tally_state);
+			p_NDILib->recv_set_tally(pNDI_recv, &tally_state);
 
 			// Set class flag that a receiver has been created
 			bReceiverCreated = true;
@@ -698,7 +817,7 @@ void ofxNDIreceive::ReleaseReceiver()
 	if(!bNDIinitialized) return;
 
 	if(pNDI_recv) 
-		NDIlib_recv_destroy(pNDI_recv);
+		p_NDILib->recv_destroy(pNDI_recv);
 
 	m_Width = 0;
 	m_Height = 0;
@@ -726,7 +845,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 	if (pNDI_recv) {
 
-		NDI_frame_type = NDIlib_recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
 		// Is no data received or the connection lost ?
 		if (NDI_frame_type == NDIlib_frame_type_none)
@@ -780,7 +899,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 					m_nAudioSamples    = audio_frame.no_samples;
 					m_nAudioSampleRate = audio_frame.sample_rate;
 					memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-					NDIlib_recv_free_audio_v2(pNDI_recv, &audio_frame);
+					p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
 					m_bAudioFrame = true;
 					// ReceiveImage will return false
 					// Use IsAudioFrame() to determine whether audio has been received
@@ -835,7 +954,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 						} // end switch received format
 
 						// Buffers captured must be freed
-						NDIlib_recv_free_video_v2(pNDI_recv, &video_frame);
+						p_NDILib->recv_free_video_v2(pNDI_recv, &video_frame);
 
 						// The caller always checks the received dimensions
 						width = m_Width;
@@ -880,7 +999,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 	if (pNDI_recv) {
 
-		NDI_frame_type = NDIlib_recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
 		// Is no data received or the connection lost ?
 		if (NDI_frame_type == NDIlib_frame_type_none) {
@@ -932,7 +1051,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 					m_nAudioSamples = audio_frame.no_samples;
 					m_nAudioSampleRate = audio_frame.sample_rate;
 					memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-					NDIlib_recv_free_audio_v2(pNDI_recv, &audio_frame);
+					p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
 					m_bAudioFrame = true;
 					// ReceiveImage will return false
 					// Use IsAudioFrame() to determine whether audio has been received
@@ -991,7 +1110,8 @@ unsigned char *ofxNDIreceive::GetVideoData()
 // Free NDI video frame buffers
 void ofxNDIreceive::FreeVideoData()
 {
-	if (video_frame.p_data) NDIlib_recv_free_video_v2(pNDI_recv, &video_frame);
+	if (video_frame.p_data) 
+		p_NDILib->recv_free_video_v2(pNDI_recv, &video_frame);
 }
 
 // Free local audio frame buffer
@@ -1009,7 +1129,7 @@ void ofxNDIreceive::FreeAudioData()
 // Get NDI dll version number
 std::string ofxNDIreceive::GetNDIversion()
 {
-	return NDIlib_version();
+	return p_NDILib->version();
 }
 
 // Get the received frame rate
@@ -1034,9 +1154,9 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 	if (!p_instance)
 		return NULL;
 
-	if ((!timeout_in_ms) || (NDIlib_find_wait_for_sources(p_instance, timeout_in_ms))) {
+	if ((!timeout_in_ms) || (p_NDILib->find_wait_for_sources(p_instance, timeout_in_ms))) {
 		// Recover the current set of sources (i.e. the ones that exist right this second)
-		return NDIlib_find_get_current_sources(p_instance, p_no_sources);
+		return p_NDILib->find_get_current_sources(p_instance, p_no_sources);
 	}
 
 	return NULL;

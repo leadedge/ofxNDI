@@ -73,6 +73,8 @@
 
 ofxNDIsend::ofxNDIsend()
 {
+	hNDILib = NULL;
+	p_NDILib = NULL;
 	pNDI_send = NULL;
 	p_frame = NULL;
 	m_frame_rate_N = 60000; // 60 fps default : 30000 - 29.97 fps
@@ -86,8 +88,6 @@ ofxNDIsend::ofxNDIsend()
 	m_bNDIinitialized = false;
 	m_Width = m_Height = 0;
 	bSenderInitialized = false;
-	// LJ DEBUG
-	// m_ColorFormat = NDIlib_FourCC_type_RGBA; // default rgba output format
 
 	// Audio
 	m_bAudio = false; // No audio default
@@ -97,16 +97,9 @@ ofxNDIsend::ofxNDIsend()
 	m_AudioTimecode = NDIlib_send_timecode_synthesize; // Timecode (synthesized for us !)
 	m_AudioData = NULL; // Audio buffer
 
-	if(!NDIlib_is_supported_CPU() ) {
-		std::cout << "CPU does not support NDI NDILib requires SSE4.1 NDIsender" << std::endl;
-		m_bNDIinitialized = false;
-	}
-	else {
-		m_bNDIinitialized = NDIlib_initialize();
-		if(!m_bNDIinitialized) {
-			std::cout << "Cannot run NDI - NDILib initialization failed" << std::endl;
-		}
-	}
+	// Find and load the Newtek NDI dll
+	LoadNDI();
+
 }
 
 
@@ -118,24 +111,129 @@ ofxNDIsend::~ofxNDIsend()
 	bSenderInitialized = false;
 
 	// Release the library
-	NDIlib_destroy();
+	if (p_NDILib) p_NDILib->destroy();
+	if (hNDILib) FreeLibrary(hNDILib);
+
 	m_bNDIinitialized = false;
 
 }
 
-/*
-	// LJ DEBUG
-// Create an RGBA sender
-bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsigned int height)
+// Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files 
+bool ofxNDIsend::LoadNDI()
 {
-	return CreateSender(sendername, width, height, NDIlib_FourCC_type_RGBA);
-}
-*/
+	std::string ndi_path = "";
 
-// LJ DEBUG
-// Create a sender of specified colour format
-// Formats supported are RGBA, BGRA and UVYV
-// bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsigned int height, NDIlib_FourCC_type_e colorFormat)
+#ifdef _WIN32
+	// First look in the executable folder for the dlls
+	// in case they are distributed with the application.
+	char path[MAX_PATH];
+	DWORD dwSize = GetModuleFileNameA(NULL, path, sizeof(path));
+	if (dwSize > 0) {
+		PathRemoveFileSpecA(path); // Remove executable name
+		strcat_s(path, MAX_PATH, "\\");
+		strcat_s(path, MAX_PATH, NDILIB_LIBRARY_NAME);
+		// Does the dll file exist in the executable folder ?
+		if (PathFileExistsA(path)) {
+			// Use the exe path
+			ndi_path = path;
+		}
+		else {
+			// The dll does not exist in exe folder
+			// Check whether the NDI run-time is installed
+			char *p_ndi_runtime_v4 = NULL;
+			size_t nchars;
+			_dupenv_s((char **)&p_ndi_runtime_v4, &nchars, NDILIB_REDIST_FOLDER);
+			if (!p_ndi_runtime_v4) {
+				// The NDI run-time is not yet installed. Let the user know and take them to the download URL.
+				MessageBoxA(NULL, "The NewTek NDI run-time is not yet installed\nPlease install it to use this application", "Warning.", MB_OK);
+				ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
+				return false;
+			}
+			// Get the full path of the installed dll
+			ndi_path = p_ndi_runtime_v4;
+			ndi_path += "\\" NDILIB_LIBRARY_NAME;
+			free(p_ndi_runtime_v4); // free the buffer allocated by _dupenv_s
+		}
+		// Now we have the DLL path
+		// printf("Path [%s]\n", ndi_path.c_str());
+	}
+
+	// Try to load the library
+	hNDILib = LoadLibraryA(ndi_path.c_str());
+	if (!hNDILib) {
+		MessageBoxA(NULL, "NDI library failed to load", "Warning", MB_OK);
+		return false;
+	}
+
+	// The main NDI entry point for dynamic loading if we got the library
+	const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
+	*((FARPROC*)&NDIlib_v4_load) = GetProcAddress(hNDILib, "NDIlib_v4_load");
+
+	// If we failed to load the library then we tell people to re-install it
+	if (!NDIlib_v4_load)
+	{	// Unload the DLL if we loaded it
+		if (hNDILib)
+			FreeLibrary(hNDILib);
+		// The NDI run-time is not installed correctly. Let the user know and take them to the download URL.
+		MessageBoxA(NULL, "Failed to find Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
+		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
+		return false;
+	}
+#else
+	// TODO : to be tested
+	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
+	if (p_NDI_runtime_folder)
+	{
+		ndi_path = p_NDI_runtime_folder;
+		ndi_path += NDILIB_LIBRARY_NAME;
+	}
+	else ndi_path = NDILIB_LIBRARY_NAME;
+
+	// Try to load the library
+	void *hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
+
+	// The main NDI entry point for dynamic loading if we got the library
+	const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
+	if (hNDILib)
+		*((void**)&NDIlib_v4_load) = dlsym(hNDILib, "NDIlib_v4_load");
+
+	// If we failed to load the library then we tell people to re-install it
+	if (!NDIlib_v4_load)
+	{	// Unload the library if we loaded it
+		if (hNDILib)
+			dlclose(hNDILib);
+		printf("Please re-install the NewTek NDI Runtimes from " NDILIB_REDIST_URL " to use this application");
+		return false;
+	}
+#endif
+
+	// Get all of the DLL entry points
+	p_NDILib = NDIlib_v4_load();
+	if (!p_NDILib) {
+		MessageBoxA(NULL, "Failed to load Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
+		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
+		return false;
+	}
+
+	// Check cpu compatibility
+	if (!p_NDILib->is_supported_CPU()) {
+		MessageBoxA(NULL, "CPU does not support NDI NDILib requires SSE4.1 NDIreceiver", "Warning", MB_OK);
+		if (hNDILib)
+			FreeLibrary(hNDILib);
+		return false;
+	}
+	else {
+		if (!p_NDILib->initialize()) {
+			MessageBoxA(NULL, "Cannot run NDI - NDILib initialization failed", "Warning", MB_OK);
+			if (hNDILib)
+				FreeLibrary(hNDILib);
+			return false;
+		}
+		m_bNDIinitialized = true;
+	}
+
+	return true;
+}
 
 
 // Create an RGBA sender
@@ -170,7 +268,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		m_picture_aspect_ratio = (float)m_horizontal_aspect/(float)m_vertical_aspect;
 
 	// We create the NDI sender
-	pNDI_send = NDIlib_send_create(&NDI_send_create_desc);
+	pNDI_send = p_NDILib->send_create(&NDI_send_create_desc);
 
 	if (pNDI_send) {
 
@@ -193,7 +291,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 			p_connection_string
 		};
 
-		NDIlib_send_add_connection_metadata(pNDI_send, &NDI_connection_type);
+		p_NDILib->send_add_connection_metadata(pNDI_send, &NDI_connection_type);
 		
 		// We are going to create an non-interlaced frame at 60fps
 		if(p_frame) free((void *)p_frame);
@@ -246,7 +344,7 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 		// You can ensure this either by sending another frame, or just by
 		// sending a frame with a NULL pointer, which will wait for any 
 		// unscheduled asynchronous frames to be completed before returning.
-		NDIlib_send_send_video_async_v2(pNDI_send, NULL);
+		p_NDILib->send_send_video_async_v2(pNDI_send, NULL);
 	}
 
 	// Free the local invert buffer, it is re-created in SendImage if invert is needed
@@ -262,7 +360,7 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 	video_frame.xres = (int)width;
 	video_frame.yres = (int)height;
 	video_frame.line_stride_in_bytes = (int)width * 4;
-	video_frame.FourCC = NDIlib_FourCC_type_RGBA; // LJ DEBUG colorFormat;
+	video_frame.FourCC = NDIlib_FourCC_type_RGBA;
 
 	// Reset frame rate
 	video_frame.frame_rate_N = m_frame_rate_N;
@@ -334,7 +432,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		// Do this in the application using SetAudioSamples(nSamples);
 		// General reference : http://jacklinstudios.com/docs/post-primer.html
 		if (m_bAudio && m_audio_frame.p_data != NULL) {
-			NDIlib_send_send_audio_v2(pNDI_send, &m_audio_frame);
+			p_NDILib->send_send_audio_v2(pNDI_send, &m_audio_frame);
 		}
 
 		// Metadata
@@ -342,7 +440,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 			metadata_frame.length = (int)m_metadataString.size();
 			metadata_frame.timecode = NDIlib_send_timecode_synthesize;
 			metadata_frame.p_data = (char *)m_metadataString.c_str(); // XML message format
-			NDIlib_send_send_metadata(pNDI_send, &metadata_frame);
+			p_NDILib->send_send_metadata(pNDI_send, &metadata_frame);
 		}
 
 		if (m_bAsync) {
@@ -353,13 +451,13 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 			// NDIlib_send_send_video_async_v2 will wait for the previous frame to finish before
 			// submitting the current one.
 			// printf("NDIlib_send_send_video_async_v2 %x, %x, %dx%d\n", pNDI_send, video_frame.p_data, video_frame.xres, video_frame.yres);
-			NDIlib_send_send_video_async_v2(pNDI_send, &video_frame);
+			p_NDILib->send_send_video_async_v2(pNDI_send, &video_frame);
 		}
 		else {
 			// Submit the frame. Note that this call will be clocked
 			// so that we end up submitting at exactly the predetermined fps.
 			// printf("NDIlib_send_send_video_v2 %x, %x, %dx%d\n", pNDI_send, video_frame.p_data, video_frame.xres, video_frame.yres);
-			NDIlib_send_send_video_v2(pNDI_send, &video_frame);
+			p_NDILib->send_send_video_v2(pNDI_send, &video_frame);
 		}
 
 		return true;
@@ -375,7 +473,7 @@ void ofxNDIsend::ReleaseSender()
 
 	// Destroy the NDI sender
 	if (pNDI_send != NULL) {
-		NDIlib_send_destroy(pNDI_send);
+		p_NDILib->send_destroy(pNDI_send);
 	}
 
 	// Release the invert buffer
@@ -569,6 +667,6 @@ void ofxNDIsend::SetMetadataString(std::string datastring)
 // Get the current NDI SDK version
 std::string ofxNDIsend::GetNDIversion()
 {
-	return NDIlib_version();
+	return p_NDILib->version();
 }
 

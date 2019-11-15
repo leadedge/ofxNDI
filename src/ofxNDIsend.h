@@ -39,6 +39,7 @@
 	         - Header function comments expanded so that they are visible to the user
 			 - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
 			 - add "m_" prefix to all class variables
+	15.11.19 - Change to dynamic load of Newtek NDI dlls
 
 */
 #pragma once
@@ -57,8 +58,14 @@
 #include <stdio.h>
 #include <string>
 #include <iostream> // for cout
+#include <shlwapi.h>  // for path functions
+#include <Shellapi.h> // for shellexecute
+
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
+
+#pragma comment(lib, "shlwapi.lib")  // for path functions
+#pragma comment(lib, "Shell32.lib")  // for shellexecute
 
 class ofxNDIsend {
 
@@ -66,6 +73,8 @@ public:
 
 	ofxNDIsend();
 	~ofxNDIsend();
+
+	bool LoadNDI();
 
 	// Create an RGBA sender
 	// - sendername | name for the sender
@@ -195,6 +204,9 @@ public:
 
 
 private:
+
+	HMODULE hNDILib;
+	const NDIlib_v4* p_NDILib;
 
 	NDIlib_send_create_t NDI_send_create_desc;
 	NDIlib_send_instance_t pNDI_send;

@@ -59,7 +59,7 @@ void ofApp::setup(){
 	cout << "\nofxNDI example sender - 32 bit" << endl;
 	#endif // _WIN64
 
-	cout << "NDI SDK copyright NewTek (http:\\NDI.NewTek.com)" << endl;
+	cout << ndiSender.GetNDIversion() << " (http://ndi.tv/)" << endl;
 
 	// Set the dimensions of the sender output here
 	// This is independent of the size of the display window
