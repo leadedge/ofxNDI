@@ -6,7 +6,7 @@ An Openframeworks addon to allow sending and receiving images over a network usi
 (Note changes to function argument variable types to match with Version 3.)\
 06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.\
 10.03.19 - Updated for NDI SDK Vers 3.8\
-10.11.19 - Updated for NDI SDK Vers 4.0
+10.11.19 - Updated for NDI SDK Vers 4.0\
 15.11.19 - Change to dynamic load of NDI dlls
 
 With update to NDI 4.0, shaders have been removed. All buffers need to be RGBA or BGRA and, for a sender, conversion to other formats are handled by the NDI API. Default receiving format is BGRA, and conversion to RGBA is made within the ofxNDIreceiver class. Experimental audio functions are included but not tested.
@@ -53,4 +53,4 @@ NDI SDK - Copyright NewTek Inc. [https://www.ndi.tv/](https://www.ndi.tv/).
 
 You can include the NDI dlls as part of your application as long as your EULA terms cover the specific requirements of the NDI SDK EULA, the terms of the LICENSE section of the SDK documentation and the terms outlined in “3rd party rights” towards the end of the manual. A license document is available for review from the root of the SDK folder.
 
-If the dlls are not included with the application, the user should install the NDI runtime. Re-start may be required after installation. Download from [http://new.tk/NDIRedistV4](http://new.tk/NDIRedistV4)\
+If the dlls are not included with the application, the user should install the NDI runtime. Re-start may be required after installation. Download from [http://new.tk/NDIRedistV4](http://new.tk/NDIRedistV4).
