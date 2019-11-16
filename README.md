@@ -20,16 +20,11 @@ ofxNDIsend and ofxNDIreceive classes can be used independently for applications 
 For Windows
 
 1. Add files from "ofxNDI" to your Visual Studio project.
-2. Copy .dll's from ofxNDI/libs to the application "bin" folder
-3. Go to the [NDI web page](https://www.ndi.tv/) and download the NDI SDK. Install the NewTek SDK and copy files as follows.
-	- Copy the files in  "../NDI 4 SDK/Include" to "ofxNDI/include"
-	- Copy "Processing.NDI.Lib.x86.dll" in "../NDI 4 SDK/Bin/x86" to "ofxNDI/libs/NDI/export/vs/Win32"
-	- Copy "Processing.NDI.Lib.x64.dll" in "../NDI 4 SDK/Bin/x64" to "ofxNDI/libs/NDI/export/vs/x64"
-
-In your Visual Studio project properties :
-
+2. Copy .dll's from "ofxNDI/libs/NDI/export/vs/" to the application "bin" folder
+3. In your Visual Studio project properties :
 - Add "ofxNDI/src" to additional "C/C++/General/Additional Include Directories"
-- Add "ofxNDI/include" to additional "C/C++/General/Additional Include Directories"\
+- Add "ofxNDI/include" to additional "C/C++/General/Additional Include Directories"
+- Add "ofxNDI/libs/NDI/include" to  "C/C++/General/Additional Include Directories"
 - Add "#include ofxNDI.h" to your source header file
 
 ## Example sender
@@ -51,6 +46,6 @@ This program is free software: you can redistribute it and/or modify it under th
 ----------------------
 NDI SDK - Copyright NewTek Inc. [https://www.ndi.tv/](https://www.ndi.tv/).
 
-You can include the NDI dlls as part of your application as long as your EULA terms cover the specific requirements of the NDI SDK EULA, the terms of the LICENSE section of the SDK documentation and the terms outlined in “3rd party rights” towards the end of the manual. A license document is available for review from the root of the SDK folder.
+You can include the NDI dlls as part of your application as long as your EULA terms cover the specific requirements of the NDI SDK EULA, the terms of the LICENSE section of the SDK documentation and the terms outlined in “3rd party rights” towards the end of the manual. Go to the [NDI web page](https://www.ndi.tv/) and download the NDI SDK. After installation, a license document is available for review from the root of the SDK folder.
 
 If the dlls are not included with the application, the user should install the NDI runtime. Re-start may be required after installation. Download from [http://new.tk/NDIRedistV4](http://new.tk/NDIRedistV4).
