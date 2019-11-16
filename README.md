@@ -20,7 +20,7 @@ ofxNDIsend and ofxNDIreceive classes can be used independently for applications 
 For Windows
 
 1. Add files from "ofxNDI" to your Visual Studio project.
-2. Copy .dll's from "ofxNDI/libs/NDI/export/vs/" to the application "bin" folder
+2. Copy .dll's from "ofxNDI/libs/NDI/export" to the application "bin" folder
 3. In your Visual Studio project properties :
 - Add "ofxNDI/src" to additional "C/C++/General/Additional Include Directories"
 - Add "ofxNDI/libs/NDI/include" to  "C/C++/General/Additional Include Directories"
