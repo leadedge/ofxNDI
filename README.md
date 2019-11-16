@@ -23,7 +23,6 @@ For Windows
 2. Copy .dll's from "ofxNDI/libs/NDI/export/vs/" to the application "bin" folder
 3. In your Visual Studio project properties :
 - Add "ofxNDI/src" to additional "C/C++/General/Additional Include Directories"
-- Add "ofxNDI/include" to additional "C/C++/General/Additional Include Directories"
 - Add "ofxNDI/libs/NDI/include" to  "C/C++/General/Additional Include Directories"
 - Add "#include ofxNDI.h" to your source header file
 
