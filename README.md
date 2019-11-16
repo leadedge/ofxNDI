@@ -7,7 +7,9 @@ An Openframeworks addon to allow sending and receiving images over a network usi
 06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.\
 10.03.19 - Updated for NDI SDK Vers 3.8\
 10.11.19 - Updated for NDI SDK Vers 4.0\
-15.11.19 - Change to dynamic load of NDI dlls
+15.11.19 - Change to dynamic load of NDI dlls\
+16.11.19 - Reconfigure folders and include make files for the project generator\
+(as per [pull request](https://github.com/leadedge/ofxNDI/pull/11) by prisonerjohn).
 
 With update to NDI 4.0, shaders have been removed. All buffers need to be RGBA or BGRA and, for a sender, conversion to other formats are handled by the NDI API. Default receiving format is BGRA, and conversion to RGBA is made within the ofxNDIreceiver class. Experimental audio functions are included but not tested.
 
@@ -15,19 +17,25 @@ ofxNDIsender and ofxNDIreceiver depend on Openframeworks. There are options to s
 
 ofxNDIsend and ofxNDIreceive classes can be used independently for applications other than Openframeworks. Sender size update and receiving buffer size change have to be manged from the application.
 
-## Manual Setup
+## Setup
 
 For Windows
 
+### Project Generator
+
+The OF Project Generator will create your project with correct paths. Make sure "ofxNDI" is selected in the addons section and all headers, and DLLs will be imported in the Visual Studio project.
+
+### Manual Setup
+
 1. Add files from "ofxNDI" to your Visual Studio project.
-2. Copy .dll's from "ofxNDI/libs/NDI/export" to the application "bin" folder
+2. Copy .dll's from "ofxNDI/libs/NDI/export/vs/Win32" and "ofxNDI/libs/NDI/export/vs/x64" to the application "bin" folder
 3. In your Visual Studio project properties :
 - Add "ofxNDI/src" to additional "C/C++/General/Additional Include Directories"
 - Add "ofxNDI/libs/NDI/include" to  "C/C++/General/Additional Include Directories"
 - Add "#include ofxNDI.h" to your source header file
 
 ## Example sender
-Copy the images from "ofxNDI/bin/data" to the application "bin/data" folder.
+Copy the images from "ofxNDI/example-sender/bin/data" to the application "bin/data" folder.
 
 ## Example receiver
 Press 's' for a listing NDI senders. Press '0' to 'x' to select a sender. 

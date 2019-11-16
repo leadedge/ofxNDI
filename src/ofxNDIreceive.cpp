@@ -98,6 +98,10 @@
 	08.11.19 - Arch Linux x64 compatibility
 			   https://github.com/hugoaboud/ofxNDI
 			   To be tested
+	15.11.19 - Change to dynamic load of NDI libraries
+			   Add runtime download if load of library failed
+	16.11.19 - Protect against loading the NDI dll again
+
 
 */
 #include "ofxNDIreceive.h"
@@ -188,6 +192,10 @@ ofxNDIreceive::~ofxNDIreceive()
 // Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files 
 bool ofxNDIreceive::LoadNDI()
 {
+	// Protect against loading the NDI dll again
+	if (bNDIinitialized)
+		return true;
+
 	std::string ndi_path = "";
 
 #ifdef _WIN32

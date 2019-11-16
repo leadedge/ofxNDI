@@ -66,6 +66,9 @@
 	12.10.18	- Remove set async false from SetFrameRate
 	14.10.18	- Reset frame rate in UpdateSender
 	08.11.19	- Removed output format option - fix to RGBA
+	15.11.19	- Change to dynamic load of NDI libraries
+				- Add runtime download if load of library failed
+	16.11.19	- Protect against loading the NDI dll again
 
 */
 #include "ofxNDIsend.h"
@@ -121,6 +124,10 @@ ofxNDIsend::~ofxNDIsend()
 // Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files 
 bool ofxNDIsend::LoadNDI()
 {
+	// Protect against loading the NDI dll again
+	if (m_bNDIinitialized)
+		return true;
+
 	std::string ndi_path = "";
 
 #ifdef _WIN32
@@ -161,7 +168,8 @@ bool ofxNDIsend::LoadNDI()
 	// Try to load the library
 	hNDILib = LoadLibraryA(ndi_path.c_str());
 	if (!hNDILib) {
-		MessageBoxA(NULL, "NDI library failed to load", "Warning", MB_OK);
+		MessageBoxA(NULL, "NDI library failed to load\nPlease re-install the NewTek NDI Runtimes\nfrom " NDILIB_REDIST_URL " to use this application", "Warning", MB_OK);
+		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL); 
 		return false;
 	}
 
