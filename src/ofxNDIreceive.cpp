@@ -101,6 +101,7 @@
 	15.11.19 - Change to dynamic load of NDI libraries
 			   Add runtime download if load of library failed
 	16.11.19 - Protect against loading the NDI dll again
+			 - Initialize m_AudioData to nullptr and check null for access
 
 
 */
@@ -165,6 +166,7 @@ ofxNDIreceive::ofxNDIreceive()
 	m_Height = 0;
 	senderIndex = 0;
 	senderName = "";
+	m_AudioData = nullptr;
 
 	// For received frame fps calculations
 	frameTime = 0.0;
@@ -690,10 +692,12 @@ bool ofxNDIreceive::IsAudioFrame()
 // output - the audio data pointer
 void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, int &nChannels)
 {
-	output = m_AudioData;
-	samplerate = m_nAudioSampleRate;
-	samples = m_nAudioSamples;
-	nChannels = m_nAudioChannels;
+	if (m_AudioData) {
+		output = m_AudioData;
+		samplerate = m_nAudioSampleRate;
+		samples = m_nAudioSamples;
+		nChannels = m_nAudioChannels;
+	}
 }
 
 
@@ -906,7 +910,8 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 					m_nAudioChannels   = audio_frame.no_channels;
 					m_nAudioSamples    = audio_frame.no_samples;
 					m_nAudioSampleRate = audio_frame.sample_rate;
-					memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
+					if (m_AudioData)
+						memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
 					p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
 					m_bAudioFrame = true;
 					// ReceiveImage will return false
@@ -1058,7 +1063,8 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 					m_nAudioChannels = audio_frame.no_channels;
 					m_nAudioSamples = audio_frame.no_samples;
 					m_nAudioSampleRate = audio_frame.sample_rate;
-					memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
+					if (m_AudioData)
+						memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
 					p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
 					m_bAudioFrame = true;
 					// ReceiveImage will return false
@@ -1126,9 +1132,8 @@ void ofxNDIreceive::FreeVideoData()
 void ofxNDIreceive::FreeAudioData()
 {
 	// Free audio data
-	if (m_AudioData)
-		free((void *)m_AudioData);
-	m_AudioData = NULL;
+	if (m_AudioData) free((void *)m_AudioData);
+	m_AudioData =nullptr;
 	m_bAudioFrame = false;
 	m_nAudioSamples = 0;
 	m_nAudioChannels = 1;
