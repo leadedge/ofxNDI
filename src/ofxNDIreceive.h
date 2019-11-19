@@ -47,6 +47,7 @@
 			   https://github.com/hugoaboud/ofxNDI
 			   To be tested
 	15.11.19 - Change to dynamic load of Newtek NDI dlls
+	19.11.19 - Add conditional audio receive
 
 */
 #pragma once
@@ -231,6 +232,9 @@ public:
 	// Return the current MetaData string
 	std::string GetMetadataString();
 
+	// Set to receive Audio
+	void SetAudio(bool bAudio);
+
 	// Is the current frame Audio data ?
 	// Use when ReceiveImage fails
 	bool IsAudioFrame();
@@ -288,6 +292,7 @@ private:
 	std::string m_metadataString; // XML message format string NULL terminated
 
 	// Audio frame received
+	bool m_bAudio;
 	bool m_bAudioFrame;
 	float * m_AudioData;
 	int m_nAudioSampleRate;

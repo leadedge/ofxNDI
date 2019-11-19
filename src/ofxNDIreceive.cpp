@@ -102,7 +102,7 @@
 			   Add runtime download if load of library failed
 	16.11.19 - Protect against loading the NDI dll again
 			 - Initialize m_AudioData to nullptr and check null for access
-
+	19.11.19 - Add conditional audio receive
 
 */
 #include "ofxNDIreceive.h"
@@ -167,6 +167,8 @@ ofxNDIreceive::ofxNDIreceive()
 	senderIndex = 0;
 	senderName = "";
 	m_AudioData = nullptr;
+	m_bAudio = false;
+	m_bAudioFrame = false;
 
 	// For received frame fps calculations
 	frameTime = 0.0;
@@ -682,6 +684,13 @@ std::string ofxNDIreceive::GetMetadataString()
 	return m_metadataString;
 }
 
+
+// Set to receive Audio
+void ofxNDIreceive::SetAudio(bool bAudio)
+{
+	m_bAudio = bAudio;
+}
+
 // Is the current frame Audio ?
 bool ofxNDIreceive::IsAudioFrame()
 {
@@ -708,8 +717,8 @@ void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, 
 bool ofxNDIreceive::CreateReceiver(int userindex)
 {
 	// NDI 4.0 > VERSION 4.1.3 BETA required for RGBA preferred
-	// return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
-	return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
+	return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
+	// return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
 }
 
 // Create a receiver with preferred colour format
@@ -893,30 +902,32 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 				break;
 
 			case NDIlib_frame_type_audio:
-				// printf("Audio\n");
-				if (audio_frame.p_data) {
-					// printf("Audio data received (%d samples).\n", audio_frame.no_samples);
-					// Copy the audio data to a local audio buffer
-					// Allocate only for sample size change
-					if (m_nAudioSamples       != audio_frame.no_samples
-						|| m_nAudioSampleRate != audio_frame.sample_rate
-						|| m_nAudioChannels   != audio_frame.no_channels) {
+				if (m_bAudio) {
+					// printf("Audio\n");
+					if (audio_frame.p_data) {
+						// printf("Audio data received (%d samples).\n", audio_frame.no_samples);
+						// Copy the audio data to a local audio buffer
+						// Allocate only for sample size change
+						if (m_nAudioSamples != audio_frame.no_samples
+							|| m_nAudioSampleRate != audio_frame.sample_rate
+							|| m_nAudioChannels != audio_frame.no_channels) {
 							// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
 							if (m_AudioData) free((void *)m_AudioData);
 							m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
-					}
+						}
 
-					// printf("Audio data received data = %x, samples = %d\n", (unsigned int)audio_frame.p_data, audio_frame.no_samples);
-					m_nAudioChannels   = audio_frame.no_channels;
-					m_nAudioSamples    = audio_frame.no_samples;
-					m_nAudioSampleRate = audio_frame.sample_rate;
-					if (m_AudioData)
-						memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-					p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
-					m_bAudioFrame = true;
-					// ReceiveImage will return false
-					// Use IsAudioFrame() to determine whether audio has been received
-					// and GetAudioData to retrieve the sample buffer
+						// printf("Audio data received data = %x, samples = %d\n", (unsigned int)audio_frame.p_data, audio_frame.no_samples);
+						m_nAudioChannels = audio_frame.no_channels;
+						m_nAudioSamples = audio_frame.no_samples;
+						m_nAudioSampleRate = audio_frame.sample_rate;
+						if (m_AudioData)
+							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
+						p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						m_bAudioFrame = true;
+						// ReceiveImage will return false
+						// Use IsAudioFrame() to determine whether audio has been received
+						// and GetAudioData to retrieve the sample buffer
+					}
 				}
 				break;
 
@@ -1050,26 +1061,28 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 				break;
 
 			case NDIlib_frame_type_audio :
-				if (audio_frame.p_data) {
-					// Copy the audio data to a local audio buffer
-					// Allocate only for sample size change
-					if (m_nAudioSamples != audio_frame.no_samples
-					|| m_nAudioSampleRate != audio_frame.sample_rate
-					|| m_nAudioChannels != audio_frame.no_channels) {
-						// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
-						if (m_AudioData) free((void *)m_AudioData);
-						m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
+				if (m_bAudio) {
+					if (audio_frame.p_data) {
+						// Copy the audio data to a local audio buffer
+						// Allocate only for sample size change
+						if (m_nAudioSamples != audio_frame.no_samples
+							|| m_nAudioSampleRate != audio_frame.sample_rate
+							|| m_nAudioChannels != audio_frame.no_channels) {
+							// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
+							if (m_AudioData) free((void *)m_AudioData);
+							m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
+						}
+						m_nAudioChannels = audio_frame.no_channels;
+						m_nAudioSamples = audio_frame.no_samples;
+						m_nAudioSampleRate = audio_frame.sample_rate;
+						if (m_AudioData)
+							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
+						p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						m_bAudioFrame = true;
+						// ReceiveImage will return false
+						// Use IsAudioFrame() to determine whether audio has been received
+						// and GetAudioData to retrieve the sample buffer
 					}
-					m_nAudioChannels = audio_frame.no_channels;
-					m_nAudioSamples = audio_frame.no_samples;
-					m_nAudioSampleRate = audio_frame.sample_rate;
-					if (m_AudioData)
-						memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-					p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
-					m_bAudioFrame = true;
-					// ReceiveImage will return false
-					// Use IsAudioFrame() to determine whether audio has been received
-					// and GetAudioData to retrieve the sample buffer
 				}
 				break;
 
