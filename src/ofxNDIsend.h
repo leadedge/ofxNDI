@@ -46,26 +46,24 @@
 #ifndef __ofxNDIsend__
 #define __ofxNDIsend__
 
-#if defined(_WIN32)
-#include <windows.h>
-#include <intrin.h> // for _movsd
-#endif
-
-#if defined(__APPLE__)
-#include <x86intrin.h> // for _movsd
+#if defined(TARGET_WIN32)
+    #include <windows.h>
+    #include <intrin.h> // for _movsd
+    #include <shlwapi.h>  // for path functions
+    #include <Shellapi.h> // for shellexecute
+    #pragma comment(lib, "shlwapi.lib")  // for path functions
+    #pragma comment(lib, "Shell32.lib")  // for shellexecute
+#elif defined(TARGET_OSX)
+    #include <x86intrin.h> // for _movsd
+#elif defined(TARGET_LINUX)
 #endif
 
 #include <stdio.h>
 #include <string>
 #include <iostream> // for cout
-#include <shlwapi.h>  // for path functions
-#include <Shellapi.h> // for shellexecute
 
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
-
-#pragma comment(lib, "shlwapi.lib")  // for path functions
-#pragma comment(lib, "Shell32.lib")  // for shellexecute
 
 class ofxNDIsend {
 
@@ -204,8 +202,9 @@ public:
 
 
 private:
-
+#if defined(TARGET_WIN32)
 	HMODULE hNDILib;
+#endif
 	const NDIlib_v4* p_NDILib;
 
 	NDIlib_send_create_t NDI_send_create_desc;

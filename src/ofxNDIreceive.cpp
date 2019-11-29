@@ -106,10 +106,10 @@
 
 */
 #include "ofxNDIreceive.h"
+#include <sys/time.h>
+#include <math.h>
 
-// Linux
-#if !defined(_WIN32) && !defined (__APPLE__)
-unsigned int timeGetTime() {
+double timeGetTime() {
 	struct timeval now;
 	gettimeofday(&now, NULL);
 	return now.tv_usec / 1000;
@@ -146,12 +146,13 @@ bool QueryPerformanceCounter(LARGE_INTEGER *performance_count)
 
 	return true;
 }
-#endif
 
 
 ofxNDIreceive::ofxNDIreceive()
 {
+#if defined(TARGET_WIN32)
 	hNDILib = NULL;
+#endif
 	p_NDILib = NULL;
 	pNDI_find = NULL;
 	pNDI_recv = NULL;
@@ -189,7 +190,9 @@ ofxNDIreceive::~ofxNDIreceive()
 	if(pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
 	if(pNDI_find) p_NDILib->find_destroy(pNDI_find);
 	if (p_NDILib) p_NDILib->destroy();
+#if defined(TARGET_WIN32)
 	if (hNDILib) FreeLibrary(hNDILib);
+#endif
 }
 
 
@@ -202,7 +205,7 @@ bool ofxNDIreceive::LoadNDI()
 
 	std::string ndi_path = "";
 
-#ifdef _WIN32
+#if defined(TARGET_WIN32)
 	// First look in the executable folder for the dlls
 	// in case they are distributed with the application.
 	char path[MAX_PATH];
@@ -258,7 +261,7 @@ bool ofxNDIreceive::LoadNDI()
 		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
 		return false;
 	}
-#else
+#elif defined(TARGET_OSX)
 	// TODO : to be tested
 	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
 	if (p_NDI_runtime_folder)
@@ -286,6 +289,7 @@ bool ofxNDIreceive::LoadNDI()
 	}
 #endif
 
+#if defined(TARGET_WIN32)
 	// Get all of the DLL entry points
 	p_NDILib = NDIlib_v4_load();
 	if (!p_NDILib) {
@@ -310,7 +314,7 @@ bool ofxNDIreceive::LoadNDI()
 		}
 		bNDIinitialized = true;
 	}
-
+#endif
 	return true;
 }
 

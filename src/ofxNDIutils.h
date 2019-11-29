@@ -36,15 +36,22 @@
 // #include <emmintrin.h> // for SSE2
 #include <iostream> // for cout
 
-// TODO : test includes for OSX
-#if defined(__APPLE__)
-#include <x86intrin.h> // for _movsd
 #include <stdlib.h>
 #include <cstdint>
 #include <string.h>
-#else
+
+// TODO : test includes for OSX
+#if defined(TARGET_OSX)
+#include <x86intrin.h> // for _movsd
+#warning "COMPILING OSX VERSION!!!"
+#elif defined(TARGET_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
+#warning "COMPILING WIN32 VERSION!!!"
+#elif defined(TARGET_LINUX)
+#include <immintrin.h>
+#include <x86intrin.h>
+#warning "COMPILING LINUX VERSION!!!"
 #endif
 
 #include <cstring>

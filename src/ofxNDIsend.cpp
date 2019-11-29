@@ -72,11 +72,13 @@
 
 */
 #include "ofxNDIsend.h"
-
+#include <dlfcn.h>
 
 ofxNDIsend::ofxNDIsend()
 {
+#if defined (TARGET_WIN32)
 	hNDILib = NULL;
+#endif
 	p_NDILib = NULL;
 	pNDI_send = NULL;
 	p_frame = NULL;
@@ -115,8 +117,9 @@ ofxNDIsend::~ofxNDIsend()
 
 	// Release the library
 	if (p_NDILib) p_NDILib->destroy();
+#if defined(TARGET_WIN32)
 	if (hNDILib) FreeLibrary(hNDILib);
-
+#endif
 	m_bNDIinitialized = false;
 
 }
@@ -130,7 +133,7 @@ bool ofxNDIsend::LoadNDI()
 
 	std::string ndi_path = "";
 
-#ifdef _WIN32
+#ifdef TARGET_WIN32
 	// First look in the executable folder for the dlls
 	// in case they are distributed with the application.
 	char path[MAX_PATH];
@@ -186,8 +189,8 @@ bool ofxNDIsend::LoadNDI()
 		MessageBoxA(NULL, "Failed to find Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
 		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
 		return false;
-	}
-#else
+    }
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 	// TODO : to be tested
 	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
 	if (p_NDI_runtime_folder)
@@ -215,6 +218,7 @@ bool ofxNDIsend::LoadNDI()
 	}
 #endif
 
+#if defined(TARGET_WIN32)
 	// Get all of the DLL entry points
 	p_NDILib = NDIlib_v4_load();
 	if (!p_NDILib) {
@@ -239,6 +243,7 @@ bool ofxNDIsend::LoadNDI()
 		}
 		m_bNDIinitialized = true;
 	}
+#endif
 
 	return true;
 }
