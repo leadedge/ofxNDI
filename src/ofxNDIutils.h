@@ -47,7 +47,7 @@
 #include <windows.h>
 #include <intrin.h> // for _movsd
 #elif defined(TARGET_LINUX)
-#include "xmmintrin.h"
+#include <xmmintrin.h>
 #endif
 
 #include <cstring>
