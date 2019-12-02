@@ -61,7 +61,7 @@ namespace ofxNDIutils {
 	}
 #endif
 
-    /*
+#if defined(TARGET_WIN32)
 	//
 	// Fast memcpy
 	//
@@ -114,7 +114,7 @@ namespace ofxNDIutils {
 			pDst += 128;
 		}
 	} // end memcpy_sse2
-*/
+#endif
 
 /*
 	//
