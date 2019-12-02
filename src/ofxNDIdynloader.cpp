@@ -49,20 +49,22 @@ const NDIlib_v4* ofxNDIdynloader::Load()
         return NULL;
     }
 
-    // bind
-    //*((void**)&p_NDILib) = dlsym(hNDILib, "NDIlib_v4_load");
-    p_NDILib = (NDIlib_v4 *)dlsym(hNDILib, "NDIlib_v4_load");
-
+    // binding code
+    NDIlib_v4_load_ lib_load = (NDIlib_v4_load_)dlsym(hNDILib, "NDIlib_v4_load");
     // If we failed to load the library then we tell people to re-install it
-    if (!p_NDILib)
-    {	// Unload the library if we loaded it
+    if (!lib_load)
+    {
+        // Unload the library if we loaded it
         if (hNDILib) {
             dlclose(hNDILib);
         }
         ofLogError() << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application";
         return NULL;
+    } else {
+        return lib_load();
     }
-    return p_NDILib;
+
+    return NULL;
 }
 #elif defined(TARGET_WIN32)
 const NDIlib_v4* ofxNDIdynloader::load()
