@@ -47,7 +47,6 @@
 
 namespace ofxNDIutils {
 
-
 #if !defined(TARGET_WIN32)
 	static inline void *__movsd(void *d, const void *s, size_t n) {
 		asm volatile ("rep movsb"

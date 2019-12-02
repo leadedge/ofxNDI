@@ -51,14 +51,12 @@
 #elif defined(TARGET_LINUX)
 #include <immintrin.h>
 #include <x86intrin.h>
-#warning "COMPILING LINUX VERSION!!!"
 #endif
 
 #include <cstring>
 #include <climits>
 
 namespace ofxNDIutils {
-
 	void CopyImage(const unsigned char *source, unsigned char *dest, 
 				   unsigned int width, unsigned int height, unsigned int stride,
 				   bool bSwapRB = false, bool bInvert = false);
@@ -66,7 +64,6 @@ namespace ofxNDIutils {
 	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert = false);
 	void FlipBuffer(const unsigned char *src, unsigned char *dst, unsigned int width, unsigned int height);
 	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride);
-
 }
 
 

@@ -46,17 +46,8 @@
 #ifndef __ofxNDIsend__
 #define __ofxNDIsend__
 
-#if defined(TARGET_WIN32)
-    #include <windows.h>
-    #include <intrin.h> // for _movsd
-    #include <shlwapi.h>  // for path functions
-    #include <Shellapi.h> // for shellexecute
-    #pragma comment(lib, "shlwapi.lib")  // for path functions
-    #pragma comment(lib, "Shell32.lib")  // for shellexecute
-#elif defined(TARGET_OSX)
-    #include <x86intrin.h> // for _movsd
-#elif defined(TARGET_LINUX)
-#endif
+#include "ofxNDIdynloader.h"
+#include "ofMain.h"
 
 #include <stdio.h>
 #include <string>
@@ -72,7 +63,7 @@ public:
 	ofxNDIsend();
 	~ofxNDIsend();
 
-	bool LoadNDI();
+	//bool LoadNDI();
 
 	// Create an RGBA sender
 	// - sendername | name for the sender
@@ -206,6 +197,9 @@ private:
 	HMODULE hNDILib;
 #endif
 	const NDIlib_v4* p_NDILib;
+	bool m_bNDIinitialized;
+
+	ofxNDIdynloader libloader;
 
 	NDIlib_send_create_t NDI_send_create_desc;
 	NDIlib_send_instance_t pNDI_send;
@@ -225,7 +219,6 @@ private:
 	bool m_bProgressive; // Progressive output flag
 	bool m_bClockVideo; // Clock video flag
 	bool m_bAsync; // NDI asynchronous sender
-	bool m_bNDIinitialized; // NDI initialized
 
 	// Audio
 	bool m_bAudio;
