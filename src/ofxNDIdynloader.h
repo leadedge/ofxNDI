@@ -12,6 +12,7 @@ typedef NDIlib_v4* (*NDIlib_v4_load_)(void);
 class ofxNDIdynloader
 {
 	const NDIlib_v4* p_NDILib;
+    bool             m_bWasLoaded;
     
     const std::string FindRuntime();
 

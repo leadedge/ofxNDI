@@ -13,10 +13,11 @@
 
 ofxNDIdynloader::ofxNDIdynloader()
 {
+    m_bWasLoaded = false;
 }
 
 const std::string ofxNDIdynloader::FindRuntime() {
-    std::string rt = "";
+    std::string rt;
 
     const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
     ofLogNotice() << "NDI runtime location " << p_NDI_runtime_folder;
@@ -34,37 +35,39 @@ const std::string ofxNDIdynloader::FindRuntime() {
 // Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files
 const NDIlib_v4* ofxNDIdynloader::Load()
 {
-//    // Protect against loading the NDI dll again
-//    if (m_bNDIinitialized)
-//        return true;
+    // protect against loading the NDI dll again
+    if (m_bWasLoaded) {
+        return p_NDILib;
+    }
 
     std::string ndi_path = FindRuntime();
 
-    // Try to load the library
+    // attempt to load the library and get a handle to it
     void *hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
-
-    // The main NDI entry point for dynamic loading if we got the library
     if (!hNDILib) {
         ofLogWarning() << "Couldn't load dynamic library at: " << ndi_path;
-        return NULL;
+        return nullptr;
     }
 
-    // binding code
-    NDIlib_v4_load_ lib_load = (NDIlib_v4_load_)dlsym(hNDILib, "NDIlib_v4_load");
-    // If we failed to load the library then we tell people to re-install it
+    // binding dynamic library
+    // see this for reference: https://raw.githubusercontent.com/Palakis/obs-ndi/master/src/obs-ndi.cpp
+    NDIlib_v4_load_ lib_load = reinterpret_cast<NDIlib_v4_load_>(dlsym(hNDILib, "NDIlib_v4_load"));
+
+    // if lib is loaded but couldn't bind, user probably needs to reinstall
     if (!lib_load)
     {
-        // Unload the library if we loaded it
+        // unload the library
         if (hNDILib) {
             dlclose(hNDILib);
         }
         ofLogError() << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application";
-        return NULL;
-    } else {
-        return lib_load();
+        return nullptr;
     }
 
-    return NULL;
+    p_NDILib = lib_load(); // this loads the library and returns a pointer to the dynamic binding
+    m_bWasLoaded = true;
+
+    return p_NDILib;
 }
 #elif defined(TARGET_WIN32)
 const NDIlib_v4* ofxNDIdynloader::load()
