@@ -54,17 +54,26 @@
 #ifndef __ofxNDIreceive__
 #define __ofxNDIreceive__
 
-#if defined(_WIN32)
-#include <windows.h>
-#include <intrin.h> // for _movsd
-#include <gl\GL.h>
-#include <mmsystem.h> // for timegettime if ofMain is included
-#pragma comment(lib, "Winmm.lib") // for timegettime
-#endif
-
-#if defined(__APPLE__)
-#include <x86intrin.h> // for _movsd
-#include <sys/time.h>
+#if defined(TARGET_WIN32)
+    #include <windows.h>
+    #include <intrin.h> // for _movsd
+    #include <gl\GL.h>
+    #include <mmsystem.h> // for timegettime if ofMain is included
+    #include <shlwapi.h>  // for path functions
+    #include <Shellapi.h> // for shellexecute
+    #pragma comment(lib, "Winmm.lib") // for timegettime
+    #pragma comment(lib, "shlwapi.lib")  // for path functions
+    #pragma comment(lib, "Shell32.lib")  // for shellexecute
+#elif defined(TARGET_OSX)
+    #include <x86intrin.h> // for _movsd
+    #include <sys/time.h>
+#elif defined(TARGET_LINUX)
+    #include <sys/time.h>
+    #include <cstring>
+    #include <cmath>
+    #include <stdint.h>
+    #include <stdbool.h>
+    #include <stddef.h>
 #endif
 
 
@@ -72,24 +81,11 @@
 #include <iostream>
 #include <vector>
 #include <iostream> // for cout
-#include <shlwapi.h>  // for path functions
-#include <Shellapi.h> // for shellexecute
+#include <assert.h>
 
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 
-#pragma comment(lib, "shlwapi.lib")  // for path functions
-#pragma comment(lib, "Shell32.lib")  // for shellexecute
-
-// Linux
-#if !defined(_WIN32) && !defined (__APPLE__)
-#include <sys/time.h>
-#include <cstring>
-#include <cmath>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <assert.h>
 
 typedef struct {
 	long long QuadPart;
@@ -97,7 +93,6 @@ typedef struct {
 
 typedef unsigned int DWORD;
 
-#endif
 
 
 
@@ -255,7 +250,9 @@ public:
 
 private:
 
+#if defined(TARGET_WIN32)
 	HMODULE hNDILib;
+#endif
 	const NDIlib_v4* p_NDILib;
 
 	const NDIlib_source_t* p_sources;
@@ -309,6 +306,5 @@ private:
 
 
 };
-
 
 #endif

@@ -33,13 +33,12 @@
 
 #include "ofMain.h"
 
-#if defined(_WIN32)
+#if defined(TARGET_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
-#endif
-
-#if defined(__APPLE__)
+#elif defined(TARGET_OSX)
 #include <x86intrin.h> // for _movsd
+#elif defined(TARGET_LINUX)
 #endif
 
 #include <stdio.h>
