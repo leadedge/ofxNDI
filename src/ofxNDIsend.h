@@ -46,7 +46,7 @@
 #ifndef __ofxNDIsend__
 #define __ofxNDIsend__
 
-#include "ofxNDIdynloader.h"
+#include "ofxNDIdynloader.h" // - includes platform definitions
 //// #include "ofMain.h"
 
 #include <stdio.h>

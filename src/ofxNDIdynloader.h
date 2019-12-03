@@ -1,10 +1,9 @@
-#pragma once ////
-
 #ifndef OFXNDIDYNLOADER_H
 #define OFXNDIDYNLOADER_H
 
-//// #if defined(TARGET_WIN32)
-#if defined(_WIN32)
+#include "ofxNDIplatforms.h" // Platform definitions
+
+#if defined(TARGET_WIN32)
 #include <windows.h>
 #include <shlwapi.h>  // for path functions
 #include <Shellapi.h> // for shellexecute

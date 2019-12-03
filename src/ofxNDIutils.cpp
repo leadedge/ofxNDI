@@ -39,6 +39,7 @@
 */
 #include "ofxNDIutils.h"
 
+
 // _rotl replacement
 // Other solutions possible
 // https://stackoverflow.com/questions/776508/best-practices-for-circular-shift-rotate-operations-in-c
@@ -50,8 +51,8 @@
 
 namespace ofxNDIutils {
 
-//// #if !defined(TARGET_WIN32)
-#if !defined(_WIN32)
+// TODO - CHECK - TARGET_OSX instead ?
+#if !defined(TARGET_WIN32)
 	static inline void *__movsd(void *d, const void *s, size_t n) {
 		asm volatile ("rep movsb"
 			: "=D" (d),
@@ -65,8 +66,8 @@ namespace ofxNDIutils {
 	}
 #endif
 
-//// #if defined(TARGET_WIN32)
-#if defined(_WIN32)
+// TODO - CHECK - TARGET_OSX as well ?
+#if defined(TARGET_WIN32)
 
 	//
 	// Fast memcpy
@@ -167,7 +168,8 @@ namespace ofxNDIutils {
 				//        & 0x00ff00ff  : r g b . > . b . r
 				// rgbapix & 0xff00ff00 : a r g b > a . g .
 				// result of or			:           a b g r
-#if !defined(_WIN32) ////
+// TODO - CHECK - TARGET_OSX as well ?
+#if !defined(TARGET_WIN32) ////
 				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
 #else
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
@@ -189,7 +191,8 @@ namespace ofxNDIutils {
 			// Perform leftover writes
 			for (; x < width; x++) {
 				rgbapix = src[x];
-#if !defined(_WIN32) ////
+// TODO - CHECK - TARGET_OSX as well ?
+#if !defined(TARGET_WIN32) ////
 				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
 #else
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
@@ -241,7 +244,8 @@ namespace ofxNDIutils {
 
 		for (unsigned int y = 0; y<height; y++) {
             // @zilog no SSE stuff for aarch64 build
-#if defined(_WIN32) ////
+// TODO - CHECK - TARGET_OSX as well ?
+#if defined(TARGET_WIN32) ////
 			if (width <= 640 || height <= 480) // too small for assembler
 				memcpy((void *)(To + line_t), (void *)(From + line_s), pitch);
 			else if ((pitch % 16) == 0) // use sse assembler function
@@ -272,7 +276,7 @@ namespace ofxNDIutils {
 
 		if(bSwapRB) { // user requires bgra->rgba or rgba->bgra conversion from source to dest
             // @zilog Trying to swap RGB but method is based on SSE
-#if defined(_WIN32) ////
+#if defined(TARGET_WIN32) ////
             rgba_bgra_sse2((const void *)source, (void *)dest, width, height, bInvert);
 #else
 			////
@@ -287,15 +291,17 @@ namespace ofxNDIutils {
 				memcpy((void *)dest, (const void *)source, height*stride);
 			}
 			else if((stride % 16) == 0) { // 16 byte aligned
-#if defined(_WIN32) ////
+// TODO - CHECK - TARGET_OSX as well ?
+#if defined(TARGET_WIN32) ////
                 memcpy_sse2((void *)dest, (const void *)source, height*stride);
 #else
 				memcpy((void *)dest, (const void *)source, height*stride);
 #endif
 			}
 			else if((stride % 4) == 0) { // 4 byte aligned
-#if defined(_WIN32) ////
-                //__movsd((unsigned long *)dest, (const unsigned long *)source, height*stride);
+// TODO - CHECK - TARGET_OSX as well ?
+#if defined(TARGET_WIN32) ////
+                __movsd((unsigned long *)dest, (const unsigned long *)source, height*stride);
 #else
 				memcpy((void *)dest, (const void *)source, height*stride);
 #endif

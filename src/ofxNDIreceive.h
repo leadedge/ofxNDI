@@ -54,8 +54,17 @@
 #ifndef __ofxNDIreceive__
 #define __ofxNDIreceive__
 
-//// #if defined(TARGET_WIN32)
-#if defined(_WIN32)
+#include <string>
+#include <iostream>
+#include <vector>
+#include <iostream> // for cout
+#include <assert.h>
+
+#include "ofxNDIdynloader.h" // NDI library loader - includes platform definitions
+#include "Processing.NDI.Lib.h" // NDI SDK
+#include "ofxNDIutils.h" // buffer copy utilities
+
+#if defined(TARGET_WIN32)
     #include <windows.h>
     #include <intrin.h> // for _movsd
 	#include <math.h> ////
@@ -78,20 +87,8 @@
     #include <stddef.h>
 #endif
 
-
-#include <string>
-#include <iostream>
-#include <vector>
-#include <iostream> // for cout
-#include <assert.h>
-
-#include "ofxNDIdynloader.h" // NDI library loader
-#include "Processing.NDI.Lib.h" // NDI SDK
-#include "ofxNDIutils.h" // buffer copy utilities
-
-
 ////
-#if !defined(_WIN32)
+#if !defined(TARGET_WIN32)
 typedef struct {
 	long long QuadPart;
 } LARGE_INTEGER;
@@ -108,7 +105,7 @@ public:
 	ofxNDIreceive();
 	~ofxNDIreceive();
 
-	bool LoadNDI();
+	//// bool LoadNDI();
 
 	// Create a BGRA receiver
 	// - index | index in the sender list to connect to

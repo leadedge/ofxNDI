@@ -109,7 +109,7 @@
 //// #include <sys/time.h>
 //// #include <math.h>
 
-#if !defined(_WIN32)
+#if !defined(TARGET_WIN32)
 
 double timeGetTime() {
 	struct timeval now;
@@ -573,11 +573,12 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 	if (userindex < 0) {
 		// If there is an existing name, return it
 		if (!senderName.empty()) {
-			#if !defined(_WIN32) && !defined (__APPLE__)
+// TODO - CHECK
+#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
 			strcpy(sendername, senderName.c_str());
-			#else
+#else
 			strcpy_s(sendername, maxsize, senderName.c_str());
-			#endif
+#endif
 			return true;
 		}
 		// Otherwise use the existing index
@@ -588,11 +589,13 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 		&& (unsigned int)index < NDIsenders.size()
 		&& !NDIsenders.empty()
 		&& NDIsenders.at(index).size() > 0) {
-		#if !defined(_WIN32) && !defined (__APPLE__)
+// TODO - CHECK
+#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
+		//// #if !defined(_WIN32) && !defined (__APPLE__)
 		strcpy(sendername, NDIsenders.at(index).c_str());
-		#else
+#else
 		strcpy_s(sendername, maxsize, NDIsenders.at(index).c_str());
-		#endif
+#endif
 		return true;
 	}
 

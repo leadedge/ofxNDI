@@ -97,8 +97,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 
     return p_NDILib;
 }
-//// #elif defined(TARGET_WIN32)
-#elif defined(_WIN32)
+#elif defined(TARGET_WIN32)
 const NDIlib_v4* ofxNDIdynloader::Load()
 {
 	////
