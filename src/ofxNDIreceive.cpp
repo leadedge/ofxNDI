@@ -106,8 +106,10 @@
 
 */
 #include "ofxNDIreceive.h"
-#include <sys/time.h>
-#include <math.h>
+//// #include <sys/time.h>
+//// #include <math.h>
+
+#if !defined(_WIN32)
 
 double timeGetTime() {
 	struct timeval now;
@@ -125,10 +127,8 @@ bool QueryPerformanceFrequency(LARGE_INTEGER *frequency)
 {
 	// Sanity check.
 	assert(frequency != NULL);
-
 	// gettimeofday reports to microsecond accuracy.
 	frequency->QuadPart = usec_per_sec;
-
 	return true;
 }
 
@@ -146,13 +146,14 @@ bool QueryPerformanceCounter(LARGE_INTEGER *performance_count)
 
 	return true;
 }
+#endif
 
 
 ofxNDIreceive::ofxNDIreceive()
 {
-#if defined(TARGET_WIN32)
-	hNDILib = NULL;
-#endif
+// #if defined(TARGET_WIN32)
+//	hNDILib = NULL;
+// #endif
 	p_NDILib = NULL;
 	pNDI_find = NULL;
 	pNDI_recv = NULL;
@@ -179,7 +180,11 @@ ofxNDIreceive::ofxNDIreceive()
 	m_bandWidth = NDIlib_recv_bandwidth_highest;
 
 	// Find and load the NDI dll
-	LoadNDI();
+	//// LoadNDI();
+
+	p_NDILib = libloader.Load();
+	if (p_NDILib)
+		bNDIinitialized = true;
 
 }
 
@@ -189,13 +194,18 @@ ofxNDIreceive::~ofxNDIreceive()
 	FreeAudioData();
 	if(pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
 	if(pNDI_find) p_NDILib->find_destroy(pNDI_find);
-	if (p_NDILib) p_NDILib->destroy();
-#if defined(TARGET_WIN32)
-	if (hNDILib) FreeLibrary(hNDILib);
-#endif
+
+////
+	// if (p_NDILib) p_NDILib->destroy();
+// #if defined(TARGET_WIN32)
+	// if (hNDILib) FreeLibrary(hNDILib);
+// #endif
+
 }
 
 
+////
+/*
 // Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files 
 bool ofxNDIreceive::LoadNDI()
 {
@@ -289,7 +299,8 @@ bool ofxNDIreceive::LoadNDI()
 	}
 #endif
 
-#if defined(TARGET_WIN32)
+//// #if defined(TARGET_WIN32)
+#if defined(_WIN32)
 	// Get all of the DLL entry points
 	p_NDILib = NDIlib_v4_load();
 	if (!p_NDILib) {
@@ -301,15 +312,17 @@ bool ofxNDIreceive::LoadNDI()
 	// Check cpu compatibility
 	if (!p_NDILib->is_supported_CPU()) {
 		MessageBoxA(NULL, "CPU does not support NDI NDILib requires SSE4.1 NDIreceiver", "Warning", MB_OK);
-		if (hNDILib)
-			FreeLibrary(hNDILib);
+		////
+		// if (hNDILib)
+			// FreeLibrary(hNDILib);
 		return false;
 	}
 	else {
 		if (!p_NDILib->initialize()) {
 			MessageBoxA(NULL, "Cannot run NDI - NDILib initialization failed", "Warning", MB_OK);
-			if (hNDILib)
-				FreeLibrary(hNDILib);
+			//// 
+			// if (hNDILib)
+				// FreeLibrary(hNDILib);
 			return false;
 		}
 		bNDIinitialized = true;
@@ -317,7 +330,7 @@ bool ofxNDIreceive::LoadNDI()
 #endif
 	return true;
 }
-
+*/
 
 
 // Create a finder to look for a sources on the network
@@ -720,9 +733,10 @@ void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, 
 // to RGBA during copy from the video frame buffer.
 bool ofxNDIreceive::CreateReceiver(int userindex)
 {
-	// NDI 4.0 > VERSION 4.1.3 BETA required for RGBA preferred
-	return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
-	// return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
+	////
+	// NDI 4.0 > VERSION 4.1.3 BETA 64 bit required for RGBA preferred
+	// return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
+	return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
 }
 
 // Create a receiver with preferred colour format

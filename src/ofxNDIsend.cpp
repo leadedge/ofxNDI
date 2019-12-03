@@ -76,9 +76,10 @@
 
 ofxNDIsend::ofxNDIsend()
 {
-#if defined (TARGET_WIN32)
-	hNDILib = NULL;
-#endif
+//// 
+// #if defined (TARGET_WIN32)
+//	hNDILib = NULL;
+// #endif
 	p_NDILib = NULL;
 	pNDI_send = NULL;
 	p_frame = NULL;
@@ -108,7 +109,8 @@ ofxNDIsend::ofxNDIsend()
     p_NDILib = libloader.Load();
 	if(p_NDILib) {
 		m_bNDIinitialized = true;
-		ofLogNotice() << "NDI runtime has been initialized...";
+		//// ofLogNotice() << "NDI runtime has been initialized...";
+		std::cout << "NDI runtime has been initialized..." << std::endl;
 	}
 }
 
@@ -120,11 +122,12 @@ ofxNDIsend::~ofxNDIsend()
 		ReleaseSender();
 	bSenderInitialized = false;
 
+	////
 	// Release the library
-	if (p_NDILib) p_NDILib->destroy();
-#if defined(TARGET_WIN32)
-	if (hNDILib) FreeLibrary(hNDILib);
-#endif
+	// if (p_NDILib) p_NDILib->destroy();
+// #if defined(TARGET_WIN32)
+// 	if (hNDILib) FreeLibrary(hNDILib);
+// #endif
 	m_bNDIinitialized = false;
 
 }

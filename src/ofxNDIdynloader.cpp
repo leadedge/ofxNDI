@@ -1,6 +1,8 @@
 #include "ofxNDIdynloader.h"
-#include "ofMain.h"
+//// #include "ofMain.h"
 
+/*
+// Move to header
 #if defined(TARGET_WIN32)
     #include <windows.h>
     #include <shlwapi.h>  // for path functions
@@ -10,23 +12,43 @@
 #elif defined(TARGET_LINUX) || defined(TARGET_OSX)
     #include <dlfcn.h> // dynamic library loading in Linux
 #endif
+*/
 
 ofxNDIdynloader::ofxNDIdynloader()
 {
     m_bWasLoaded = false;
+	m_hNDILib = NULL; ////
 }
+
+////
+ofxNDIdynloader::~ofxNDIdynloader()
+{
+	if (p_NDILib) p_NDILib->destroy();
+#if defined(WIN32)
+	if (m_hNDILib) FreeLibrary(m_hNDILib);
+#endif
+}
+
 
 const std::string ofxNDIdynloader::FindRuntime() {
     std::string rt;
 
-    const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
-    ofLogNotice() << "NDI runtime location " << p_NDI_runtime_folder;
+    //// const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
+	char* p_NDI_runtime_folder = nullptr;
+	size_t nchars;
+	_dupenv_s((char **)&p_NDI_runtime_folder, &nchars, NDILIB_REDIST_FOLDER);
+    ////
+	// ofLogNotice() << "NDI runtime location " << p_NDI_runtime_folder;
+	std::cout << "NDI runtime location " << p_NDI_runtime_folder << std::endl;
     if (p_NDI_runtime_folder)
     {
         rt = p_NDI_runtime_folder;
         rt += NDILIB_LIBRARY_NAME;
     }
     else rt = NDILIB_LIBRARY_NAME;
+
+	////
+	free(p_NDI_runtime_folder); // free the buffer allocated by _dupenv_s
 
     return rt;
 }
@@ -43,24 +65,30 @@ const NDIlib_v4* ofxNDIdynloader::Load()
     std::string ndi_path = FindRuntime();
 
     // attempt to load the library and get a handle to it
-    void *hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
-    if (!hNDILib) {
-        ofLogWarning() << "Couldn't load dynamic library at: " << ndi_path;
+    void *m_hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
+    if (!m_hNDILib) {
+        ////
+		// ofLogWarning() << "Couldn't load dynamic library at: " << ndi_path;
+		std::cout << "Couldn't load dynamic library at: " << ndi_path << std::endl;
         return nullptr;
     }
 
     // binding dynamic library
     // see this for reference: https://raw.githubusercontent.com/Palakis/obs-ndi/master/src/obs-ndi.cpp
-    NDIlib_v4_load_ lib_load = reinterpret_cast<NDIlib_v4_load_>(dlsym(hNDILib, "NDIlib_v4_load"));
+    NDIlib_v4_load_ lib_load = reinterpret_cast<NDIlib_v4_load_>(dlsym(m_hNDILib, "NDIlib_v4_load"));
 
     // if lib is loaded but couldn't bind, user probably needs to reinstall
     if (!lib_load)
     {
         // unload the library
-        if (hNDILib) {
-            dlclose(hNDILib);
+        if (m_hNDILib) {
+            dlclose(m_hNDILib);
+			////
+			m_hNDILib = NULL;
         }
-        ofLogError() << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application";
+        ////
+		// ofLogError() << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application";
+		std::cout << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application" << std::endl;
         return nullptr;
     }
 
@@ -69,9 +97,18 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 
     return p_NDILib;
 }
-#elif defined(TARGET_WIN32)
-const NDIlib_v4* ofxNDIdynloader::load()
+//// #elif defined(TARGET_WIN32)
+#elif defined(_WIN32)
+const NDIlib_v4* ofxNDIdynloader::Load()
 {
+	////
+	// protect against loading the NDI dll again
+	if (m_bWasLoaded) {
+		return p_NDILib;
+	}
+
+	std::string ndi_path; ////
+
     // First look in the executable folder for the dlls
     // in case they are distributed with the application.
     char path[MAX_PATH];
@@ -107,26 +144,27 @@ const NDIlib_v4* ofxNDIdynloader::load()
     }
 
     // Try to load the library
-    hNDILib = LoadLibraryA(ndi_path.c_str());
-    if (!hNDILib) {
+	m_hNDILib = LoadLibraryA(ndi_path.c_str()); ////
+    if (!m_hNDILib) {
         MessageBoxA(NULL, "NDI library failed to load\nPlease re-install the NewTek NDI Runtimes\nfrom " NDILIB_REDIST_URL " to use this application", "Warning", MB_OK);
         ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-        return false;
+		return NULL; //// false;
     }
 
     // The main NDI entry point for dynamic loading if we got the library
     const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
-    *((FARPROC*)&NDIlib_v4_load) = GetProcAddress(hNDILib, "NDIlib_v4_load");
+    *((FARPROC*)&NDIlib_v4_load) = GetProcAddress(m_hNDILib, "NDIlib_v4_load");
 
     // If we failed to load the library then we tell people to re-install it
     if (!NDIlib_v4_load)
     {	// Unload the DLL if we loaded it
-        if (hNDILib)
-            FreeLibrary(hNDILib);
+        if (m_hNDILib)
+            FreeLibrary(m_hNDILib);
+		m_hNDILib = NULL;
         // The NDI run-time is not installed correctly. Let the user know and take them to the download URL.
         MessageBoxA(NULL, "Failed to find Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
         ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-        return false;
+		return NULL; // false;
     }
 
     // Get all of the DLL entry points
@@ -134,27 +172,31 @@ const NDIlib_v4* ofxNDIdynloader::load()
     if (!p_NDILib) {
         MessageBoxA(NULL, "Failed to load Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
         ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-        return false;
+		return NULL; /// false;
     }
 
     // Check cpu compatibility
     if (!p_NDILib->is_supported_CPU()) {
         MessageBoxA(NULL, "CPU does not support NDI NDILib requires SSE4.1 NDIreceiver", "Warning", MB_OK);
-        if (hNDILib)
-            FreeLibrary(hNDILib);
-        return false;
+        if (m_hNDILib)
+            FreeLibrary(m_hNDILib);
+		m_hNDILib = NULL;
+		return NULL; //// false;
     }
     else {
         if (!p_NDILib->initialize()) {
             MessageBoxA(NULL, "Cannot run NDI - NDILib initialization failed", "Warning", MB_OK);
-            if (hNDILib)
-                FreeLibrary(hNDILib);
-            return false;
+            if (m_hNDILib)
+                FreeLibrary(m_hNDILib);
+			m_hNDILib = NULL;
+			return NULL; //// false;
         }
-        m_bNDIinitialized = true;
+        //// m_bNDIinitialized = true;
+		m_bWasLoaded = true;
     }
 
-    return true;
+    /// return true;
+	return p_NDILib; ////
 }
 #endif
 

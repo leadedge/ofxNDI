@@ -47,7 +47,7 @@
 #define __ofxNDIsend__
 
 #include "ofxNDIdynloader.h"
-#include "ofMain.h"
+//// #include "ofMain.h"
 
 #include <stdio.h>
 #include <string>
@@ -193,9 +193,10 @@ public:
 
 
 private:
-#if defined(TARGET_WIN32)
-	HMODULE hNDILib;
-#endif
+//// 
+// #if defined(TARGET_WIN32)
+//	HMODULE hNDILib;
+// #endif
 	const NDIlib_v4* p_NDILib;
 	bool m_bNDIinitialized;
 

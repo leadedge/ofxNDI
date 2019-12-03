@@ -54,9 +54,11 @@
 #ifndef __ofxNDIreceive__
 #define __ofxNDIreceive__
 
-#if defined(TARGET_WIN32)
+//// #if defined(TARGET_WIN32)
+#if defined(_WIN32)
     #include <windows.h>
     #include <intrin.h> // for _movsd
+	#include <math.h> ////
     #include <gl\GL.h>
     #include <mmsystem.h> // for timegettime if ofMain is included
     #include <shlwapi.h>  // for path functions
@@ -83,16 +85,19 @@
 #include <iostream> // for cout
 #include <assert.h>
 
+#include "ofxNDIdynloader.h" // NDI library loader
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 
 
+////
+#if !defined(_WIN32)
 typedef struct {
 	long long QuadPart;
 } LARGE_INTEGER;
 
 typedef unsigned int DWORD;
-
+#endif
 
 
 
@@ -250,9 +255,13 @@ public:
 
 private:
 
-#if defined(TARGET_WIN32)
-	HMODULE hNDILib;
-#endif
+//// 
+// #if defined(TARGET_WIN32)
+//	HMODULE hNDILib;
+// #endif
+
+	////
+	ofxNDIdynloader libloader;
 	const NDIlib_v4* p_NDILib;
 
 	const NDIlib_source_t* p_sources;
