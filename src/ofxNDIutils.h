@@ -59,11 +59,11 @@ namespace ofxNDIutils {
 	void CopyImage(const unsigned char *source, unsigned char *dest, 
 				   unsigned int width, unsigned int height, unsigned int stride,
 				   bool bSwapRB = false, bool bInvert = false);
-#if defined(TARGET_WIN32)
+// TODO : check for OSX
+#if defined(TARGET_WIN32) || defined(TARGET_OSX)
 	void memcpy_sse2(void* dst, const void* src, size_t Size);
 	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert = false);
 #endif
-	////
 	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert = false);
 	void FlipBuffer(const unsigned char *src, unsigned char *dst, unsigned int width, unsigned int height);
 	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride);

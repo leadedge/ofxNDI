@@ -103,13 +103,15 @@
 	16.11.19 - Protect against loading the NDI dll again
 			 - Initialize m_AudioData to nullptr and check null for access
 	19.11.19 - Add conditional audio receive
+	04.12.19 - Revise for ARM port
+			   Check targets for Linux and OSX - not tested
+			   Cleanup
 
 */
 #include "ofxNDIreceive.h"
-//// #include <sys/time.h>
-//// #include <math.h>
 
-#if !defined(TARGET_WIN32)
+// https://github.com/hugoaboud/ofxNDI
+#if defined(TARGET_LINUX)
 
 double timeGetTime() {
 	struct timeval now;
@@ -151,9 +153,6 @@ bool QueryPerformanceCounter(LARGE_INTEGER *performance_count)
 
 ofxNDIreceive::ofxNDIreceive()
 {
-// #if defined(TARGET_WIN32)
-//	hNDILib = NULL;
-// #endif
 	p_NDILib = NULL;
 	pNDI_find = NULL;
 	pNDI_recv = NULL;
@@ -180,8 +179,6 @@ ofxNDIreceive::ofxNDIreceive()
 	m_bandWidth = NDIlib_recv_bandwidth_highest;
 
 	// Find and load the NDI dll
-	//// LoadNDI();
-
 	p_NDILib = libloader.Load();
 	if (p_NDILib)
 		bNDIinitialized = true;
@@ -194,143 +191,8 @@ ofxNDIreceive::~ofxNDIreceive()
 	FreeAudioData();
 	if(pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
 	if(pNDI_find) p_NDILib->find_destroy(pNDI_find);
-
-////
-	// if (p_NDILib) p_NDILib->destroy();
-// #if defined(TARGET_WIN32)
-	// if (hNDILib) FreeLibrary(hNDILib);
-// #endif
-
+	// Library is released in ofxNDIdynloaderer
 }
-
-
-////
-/*
-// Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files 
-bool ofxNDIreceive::LoadNDI()
-{
-	// Protect against loading the NDI dll again
-	if (bNDIinitialized)
-		return true;
-
-	std::string ndi_path = "";
-
-#if defined(TARGET_WIN32)
-	// First look in the executable folder for the dlls
-	// in case they are distributed with the application.
-	char path[MAX_PATH];
-	DWORD dwSize = GetModuleFileNameA(NULL, path, sizeof(path));
-	if (dwSize > 0) {
-		PathRemoveFileSpecA(path); // Remove executable name
-		strcat_s(path, MAX_PATH, "\\");
-		strcat_s(path, MAX_PATH, NDILIB_LIBRARY_NAME);
-		// Does the dll file exist in the executable folder ?
-		if (PathFileExistsA(path)) {
-			// Use the exe path
-			ndi_path = path;
-		}
-		else {
-			// The dll does not exist in exe folder
-			// Check whether the NDI run-time is installed
-			char *p_ndi_runtime_v4 = NULL;
-			size_t nchars;
-			_dupenv_s((char **)&p_ndi_runtime_v4, &nchars, NDILIB_REDIST_FOLDER);
-			if (!p_ndi_runtime_v4) {
-				// The NDI run-time is not yet installed. Let the user know and take them to the download URL.
-				MessageBoxA(NULL, "The NewTek NDI run-time is not yet installed\nPlease install it to use this application", "Warning.", MB_OK);
-				ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-				return false;
-			}
-			// Get the full path of the installed dll
-			ndi_path = p_ndi_runtime_v4;
-			ndi_path += "\\" NDILIB_LIBRARY_NAME;
-			free(p_ndi_runtime_v4); // free the buffer allocated by _dupenv_s
-		}
-		// Now we have the DLL path
-		// printf("Path [%s]\n", ndi_path.c_str());
-	}
-
-	// Try to load the library
-	hNDILib = LoadLibraryA(ndi_path.c_str());
-	if (!hNDILib) {
-		MessageBoxA(NULL, "NDI library failed to load", "Warning", MB_OK);
-		return false;
-	}
-
-	// The main NDI entry point for dynamic loading if we got the library
-	const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
-	*((FARPROC*)&NDIlib_v4_load) = GetProcAddress(hNDILib, "NDIlib_v4_load");
-
-	// If we failed to load the library then we tell people to re-install it
-	if (!NDIlib_v4_load)
-	{	// Unload the DLL if we loaded it
-		if (hNDILib)
-			FreeLibrary(hNDILib);
-		// The NDI run-time is not installed correctly. Let the user know and take them to the download URL.
-		MessageBoxA(NULL, "Failed to find Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
-		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-		return false;
-	}
-#elif defined(TARGET_OSX)
-	// TODO : to be tested
-	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
-	if (p_NDI_runtime_folder)
-	{
-		ndi_path = p_NDI_runtime_folder;
-		ndi_path += NDILIB_LIBRARY_NAME;
-	}
-	else ndi_path = NDILIB_LIBRARY_NAME;
-
-	// Try to load the library
-	void *hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
-
-	// The main NDI entry point for dynamic loading if we got the library
-	const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
-	if (hNDILib)
-		*((void**)&NDIlib_v4_load) = dlsym(hNDILib, "NDIlib_v4_load");
-
-	// If we failed to load the library then we tell people to re-install it
-	if (!NDIlib_v4_load)
-	{	// Unload the library if we loaded it
-		if (hNDILib)
-			dlclose(hNDILib);
-		printf("Please re-install the NewTek NDI Runtimes from " NDILIB_REDIST_URL " to use this application");
-		return false;
-	}
-#endif
-
-//// #if defined(TARGET_WIN32)
-#if defined(_WIN32)
-	// Get all of the DLL entry points
-	p_NDILib = NDIlib_v4_load();
-	if (!p_NDILib) {
-		MessageBoxA(NULL, "Failed to load Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
-		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-		return false;
-	}
-
-	// Check cpu compatibility
-	if (!p_NDILib->is_supported_CPU()) {
-		MessageBoxA(NULL, "CPU does not support NDI NDILib requires SSE4.1 NDIreceiver", "Warning", MB_OK);
-		////
-		// if (hNDILib)
-			// FreeLibrary(hNDILib);
-		return false;
-	}
-	else {
-		if (!p_NDILib->initialize()) {
-			MessageBoxA(NULL, "Cannot run NDI - NDILib initialization failed", "Warning", MB_OK);
-			//// 
-			// if (hNDILib)
-				// FreeLibrary(hNDILib);
-			return false;
-		}
-		bNDIinitialized = true;
-	}
-#endif
-	return true;
-}
-*/
 
 
 // Create a finder to look for a sources on the network
@@ -591,7 +453,6 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 		&& NDIsenders.at(index).size() > 0) {
 // TODO - CHECK
 #if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
-		//// #if !defined(_WIN32) && !defined (__APPLE__)
 		strcpy(sendername, NDIsenders.at(index).c_str());
 #else
 		strcpy_s(sendername, maxsize, NDIsenders.at(index).c_str());
@@ -736,10 +597,14 @@ void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, 
 // to RGBA during copy from the video frame buffer.
 bool ofxNDIreceive::CreateReceiver(int userindex)
 {
-	////
 	// NDI 4.0 > VERSION 4.1.3 BETA 64 bit required for RGBA preferred
-	// return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
+	// NDI bug - TODO : check Win32 with other OS
+	// If the received result is BGRA, set the receiver to prefer BGRA
+#if defined(_WIN64)
+	return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
+#else
 	return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
+#endif
 }
 
 // Create a receiver with preferred colour format

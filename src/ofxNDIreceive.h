@@ -87,8 +87,8 @@
     #include <stddef.h>
 #endif
 
-////
-#if !defined(TARGET_WIN32)
+// https://github.com/hugoaboud/ofxNDI
+#if defined(TARGET_LINUX)
 typedef struct {
 	long long QuadPart;
 } LARGE_INTEGER;
@@ -252,12 +252,6 @@ public:
 
 private:
 
-//// 
-// #if defined(TARGET_WIN32)
-//	HMODULE hNDILib;
-// #endif
-
-	////
 	ofxNDIdynloader libloader;
 	const NDIlib_v4* p_NDILib;
 

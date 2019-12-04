@@ -1,60 +1,57 @@
-#include "ofxNDIdynloader.h"
-//// #include "ofMain.h"
-
 /*
-// Move to header
-#if defined(TARGET_WIN32)
-    #include <windows.h>
-    #include <shlwapi.h>  // for path functions
-    #include <Shellapi.h> // for shellexecute
-    #pragma comment(lib, "shlwapi.lib")  // for path functions
-    #pragma comment(lib, "Shell32.lib")  // for shellexecute
-#elif defined(TARGET_LINUX) || defined(TARGET_OSX)
-    #include <dlfcn.h> // dynamic library loading in Linux
-#endif
+
+	Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files
+
+	http://NDI.NewTek.com
+
+	Copyright (C) 2019
+
+	Luis Rodil-Fernandez
+	https://github.com/IDArnhem/ofxNDI
+	https://github.com/dropmeaword
+
+	Lynn Jarvis
+	http://www.spout.zeal.co
+
+	=========================================================================
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU Lesser General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU Lesser General Public License for more details.
+
+	You should have received a copy of the GNU Lesser General Public License
+	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+	=========================================================================
+
+	03-12-19	- Create files
+	04-12-19	- Added licencing
+
 */
+
+
+#include "ofxNDIdynloader.h"
 
 ofxNDIdynloader::ofxNDIdynloader()
 {
     m_bWasLoaded = false;
-	m_hNDILib = NULL; ////
+	p_NDILib = nullptr;
+	m_hNDILib = NULL;
 }
 
-////
 ofxNDIdynloader::~ofxNDIdynloader()
 {
 	if (p_NDILib) p_NDILib->destroy();
-#if defined(WIN32)
+#if defined(TARGET_WIN32)
 	if (m_hNDILib) FreeLibrary(m_hNDILib);
 #endif
 }
 
-
-const std::string ofxNDIdynloader::FindRuntime() {
-    std::string rt;
-
-    //// const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
-	char* p_NDI_runtime_folder = nullptr;
-	size_t nchars;
-	_dupenv_s((char **)&p_NDI_runtime_folder, &nchars, NDILIB_REDIST_FOLDER);
-    ////
-	// ofLogNotice() << "NDI runtime location " << p_NDI_runtime_folder;
-	std::cout << "NDI runtime location " << p_NDI_runtime_folder << std::endl;
-    if (p_NDI_runtime_folder)
-    {
-        rt = p_NDI_runtime_folder;
-        rt += NDILIB_LIBRARY_NAME;
-    }
-    else rt = NDILIB_LIBRARY_NAME;
-
-	////
-	free(p_NDI_runtime_folder); // free the buffer allocated by _dupenv_s
-
-    return rt;
-}
-
 #if defined(TARGET_OSX) || defined(TARGET_LINUX)
-// Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files
 const NDIlib_v4* ofxNDIdynloader::Load()
 {
     // protect against loading the NDI dll again
@@ -62,14 +59,20 @@ const NDIlib_v4* ofxNDIdynloader::Load()
         return p_NDILib;
     }
 
-    std::string ndi_path = FindRuntime();
+	std::string ndi_path;
+	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
+	ofLogWarning() << "NDI runtime location " << p_NDI_runtime_folder;
+	if (p_NDI_runtime_folder) {
+		ndi_path = p_NDI_runtime_folder;
+		ndi_path += NDILIB_LIBRARY_NAME;
+	}
+	else
+		ndi_path = NDILIB_LIBRARY_NAME;
 
     // attempt to load the library and get a handle to it
     void *m_hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
     if (!m_hNDILib) {
-        ////
-		// ofLogWarning() << "Couldn't load dynamic library at: " << ndi_path;
-		std::cout << "Couldn't load dynamic library at: " << ndi_path << std::endl;
+		ofLogWarning() << "Couldn't load dynamic library at: " << ndi_path;
         return nullptr;
     }
 
@@ -83,12 +86,9 @@ const NDIlib_v4* ofxNDIdynloader::Load()
         // unload the library
         if (m_hNDILib) {
             dlclose(m_hNDILib);
-			////
 			m_hNDILib = NULL;
         }
-        ////
-		// ofLogError() << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application";
-		std::cout << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application" << std::endl;
+		ofLogError() << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application";
         return nullptr;
     }
 
@@ -100,13 +100,11 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 #elif defined(TARGET_WIN32)
 const NDIlib_v4* ofxNDIdynloader::Load()
 {
-	////
 	// protect against loading the NDI dll again
-	if (m_bWasLoaded) {
+	if (m_bWasLoaded)
 		return p_NDILib;
-	}
 
-	std::string ndi_path; ////
+	std::string ndi_path;
 
     // First look in the executable folder for the dlls
     // in case they are distributed with the application.
@@ -131,7 +129,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
                 // The NDI run-time is not yet installed. Let the user know and take them to the download URL.
                 MessageBoxA(NULL, "The NewTek NDI run-time is not yet installed\nPlease install it to use this application", "Warning.", MB_OK);
                 ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-                return false;
+                return nullptr;
             }
             // Get the full path of the installed dll
             ndi_path = p_ndi_runtime_v4;
@@ -139,15 +137,14 @@ const NDIlib_v4* ofxNDIdynloader::Load()
             free(p_ndi_runtime_v4); // free the buffer allocated by _dupenv_s
         }
         // Now we have the DLL path
-        // printf("Path [%s]\n", ndi_path.c_str());
     }
 
     // Try to load the library
-	m_hNDILib = LoadLibraryA(ndi_path.c_str()); ////
+	m_hNDILib = LoadLibraryA(ndi_path.c_str());
     if (!m_hNDILib) {
         MessageBoxA(NULL, "NDI library failed to load\nPlease re-install the NewTek NDI Runtimes\nfrom " NDILIB_REDIST_URL " to use this application", "Warning", MB_OK);
         ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-		return NULL; //// false;
+		return nullptr;
     }
 
     // The main NDI entry point for dynamic loading if we got the library
@@ -163,7 +160,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
         // The NDI run-time is not installed correctly. Let the user know and take them to the download URL.
         MessageBoxA(NULL, "Failed to find Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
         ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-		return NULL; // false;
+		return nullptr;
     }
 
     // Get all of the DLL entry points
@@ -171,7 +168,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
     if (!p_NDILib) {
         MessageBoxA(NULL, "Failed to load Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
         ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-		return NULL; /// false;
+		return nullptr;
     }
 
     // Check cpu compatibility
@@ -180,7 +177,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
         if (m_hNDILib)
             FreeLibrary(m_hNDILib);
 		m_hNDILib = NULL;
-		return NULL; //// false;
+		return nullptr;
     }
     else {
         if (!p_NDILib->initialize()) {
@@ -188,14 +185,12 @@ const NDIlib_v4* ofxNDIdynloader::Load()
             if (m_hNDILib)
                 FreeLibrary(m_hNDILib);
 			m_hNDILib = NULL;
-			return NULL; //// false;
+			return nullptr;
         }
-        //// m_bNDIinitialized = true;
 		m_bWasLoaded = true;
     }
 
-    /// return true;
-	return p_NDILib; ////
+	return p_NDILib;
 }
 #endif
 

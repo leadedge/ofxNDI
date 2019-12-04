@@ -1,5 +1,5 @@
-#ifndef OFXNDIDYNLOADER_H
-#define OFXNDIDYNLOADER_H
+#ifndef ofxNDIdynloader_H
+#define ofxNDIdynloader_H
 
 #include "ofxNDIplatforms.h" // Platform definitions
 
@@ -15,7 +15,7 @@
 
 #include <string>
 #include <vector>
-#include <iostream> //// for cout
+#include <iostream> // for cout
 #include "Processing.NDI.Lib.h" // NDI SDK
 
 typedef NDIlib_v4* (*NDIlib_v4_load_)(void);
@@ -23,30 +23,20 @@ typedef NDIlib_v4* (*NDIlib_v4_load_)(void);
 
 class ofxNDIdynloader
 {
-	//// 
-	/*
-	const NDIlib_v4* p_NDILib;
-    bool             m_bWasLoaded;
-    const std::string FindRuntime();
-	*/
-
+	
 public:
     ofxNDIdynloader();
-	////
 	~ofxNDIdynloader();
 
-    /** load library dynamically */
+    // load library dynamically
     const NDIlib_v4* Load();
 
 private :
 
-	////
 	HMODULE m_hNDILib;
 	const NDIlib_v4* p_NDILib;
 	bool             m_bWasLoaded;
-	const std::string FindRuntime();
-
 
 };
 
-#endif // OFXNDIDYNLOADER_H
+#endif // ofxNDIdynloader_H

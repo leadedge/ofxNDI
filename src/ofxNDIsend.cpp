@@ -69,6 +69,8 @@
 	15.11.19	- Change to dynamic load of NDI libraries
 				- Add runtime download if load of library failed
 	16.11.19	- Protect against loading the NDI dll again
+	04.12.19	- Revise for ARM port
+			    - Cleanup
 
 */
 #include "ofxNDIsend.h"
@@ -76,10 +78,6 @@
 
 ofxNDIsend::ofxNDIsend()
 {
-//// 
-// #if defined (TARGET_WIN32)
-//	hNDILib = NULL;
-// #endif
 	p_NDILib = NULL;
 	pNDI_send = NULL;
 	p_frame = NULL;
@@ -104,12 +102,9 @@ ofxNDIsend::ofxNDIsend()
 	m_AudioData = NULL; // Audio buffer
 
 	// Find and load the Newtek NDI dll
-	//LoadNDI();
-
     p_NDILib = libloader.Load();
 	if(p_NDILib) {
 		m_bNDIinitialized = true;
-		//// ofLogNotice() << "NDI runtime has been initialized...";
 		std::cout << "NDI runtime has been initialized..." << std::endl;
 	}
 }
@@ -121,13 +116,7 @@ ofxNDIsend::~ofxNDIsend()
 	if (bSenderInitialized)
 		ReleaseSender();
 	bSenderInitialized = false;
-
-	////
-	// Release the library
-	// if (p_NDILib) p_NDILib->destroy();
-// #if defined(TARGET_WIN32)
-// 	if (hNDILib) FreeLibrary(hNDILib);
-// #endif
+	// Library is released in ofxNDIdynloaderer
 	m_bNDIinitialized = false;
 
 }
