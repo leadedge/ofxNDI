@@ -3,6 +3,7 @@
 
 ofxNDIdynloader::ofxNDIdynloader()
 {
+    p_NDILib = nullptr;
 }
 
 ofxNDIdynloader::~ofxNDIdynloader()
@@ -31,7 +32,6 @@ const std::string ofxNDIdynloader::FindRuntime() {
 const NDIlib_v4* ofxNDIdynloader::Load()
 {
     std::string path = FindRuntime();
-    //path.append(SharedLibrary::suffix());   // adds ".dll" or ".so"
 
     dynlib.load(path, dll::load_mode::search_system_folders);
     if( dynlib.has("NDIlib_v4_load") ) {
