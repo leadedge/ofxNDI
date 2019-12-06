@@ -26,14 +26,19 @@ public:
     ofxNDIdynloader();
 	~ofxNDIdynloader();
 
+    const std::string FindRuntime();
+
     // load library dynamically
     const NDIlib_v4* Load();
+    bool IsLoaded();
 
 private :
 
 #if defined(TARGET_WIN32)
 	HMODULE m_hNDILib;
 #endif
+
+    bool m_bIsLoaded;
 	const NDIlib_v4* p_NDILib;
 
 };

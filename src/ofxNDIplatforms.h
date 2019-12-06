@@ -5,8 +5,14 @@
 
 #if !defined(OF_VERSION_MAJOR) // guard aginst overriding OF constants if we are in a OF app
 
+// error, warning and out streams for non-OF apps all map to `cout`
+#define ERRS cout
+#define WARNS cout
+#define OUTS cout
+
+
 //
-// Platform definitions
+//	Platform definitions
 //
 // Copied from Openframeworks platform defines in "ofConstants.h"
 //
@@ -60,6 +66,13 @@
 //-------------------------------
 
 // Could be extended - see ofConstants.h
+
+#elif defined(OF_VERSION_MAJOR) // we are being compiled from an OF applications
+
+// error, warning and out streams for non-OF apps all map to `cout`
+#define ERRS ofLogError()
+#define WARNS ofLogWarning()
+#define OUTS ofLogNotice()
 
 #endif // !defined(OF_VERSION_MAJOR)
 
