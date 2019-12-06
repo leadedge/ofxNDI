@@ -192,8 +192,9 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
 		return false;
 
-	// Quit if the texture is not RGBA
-	if (tex.getTextureData().glInternalFormat != GL_RGBA)
+    // Quit if the texture is not RGBA or RGB
+    int format = tex.getTextureData().glInternalFormat;
+    if ( (format != GL_RGBA) && (format != GL_RGB) )
 		return false;
 
 	unsigned int width = (unsigned int)tex.getWidth();
