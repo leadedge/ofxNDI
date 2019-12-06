@@ -30,7 +30,7 @@ public:
 
     // load library dynamically
     const NDIlib_v4* Load();
-    bool IsLoaded();
+    bool IsLoaded() { return m_bIsLoaded; }
 
 private :
 

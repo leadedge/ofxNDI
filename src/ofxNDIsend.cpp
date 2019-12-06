@@ -101,12 +101,16 @@ ofxNDIsend::ofxNDIsend()
 	m_AudioTimecode = NDIlib_send_timecode_synthesize; // Timecode (synthesized for us !)
 	m_AudioData = NULL; // Audio buffer
 
-	// Find and load the Newtek NDI dll
-    p_NDILib = libloader.Load();
-	if(p_NDILib) {
-		m_bNDIinitialized = true;
-		std::cout << "NDI runtime has been initialized..." << std::endl;
-	}
+    // if not already loaded
+    if(!libloader.IsLoaded()) {
+        // find and load the Newtek NDI dll
+        p_NDILib = libloader.Load();
+        if(p_NDILib) {
+            m_bNDIinitialized = true;
+            std::cout << "NDI runtime has been initialized..." << std::endl;
+        }
+    }
+
 }
 
 
