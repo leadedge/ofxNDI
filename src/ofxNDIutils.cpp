@@ -42,6 +42,7 @@
 
 */
 #include "ofxNDIutils.h"
+#include <stdint.h> // ints of known sizes, standard library
 
 
 // _rotl replacement
@@ -220,8 +221,8 @@ namespace ofxNDIutils {
 		for (unsigned int y = 0; y < height; y++) {
 
 			// Start of buffer
-			auto source = static_cast<const unsigned __int32 *>(rgba_source);; // unsigned int = 4 bytes
-			auto dest = static_cast<unsigned __int32 *>(bgra_dest);
+            auto source = static_cast<const uint32_t *>(rgba_source); // unsigned int = 4 bytes
+            auto dest = static_cast<uint32_t *>(bgra_dest);
 
 			// Increment to current line
 			if (bInvert) {
