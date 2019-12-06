@@ -35,6 +35,7 @@
 */
 
 #include "ofxNDIdynloader.h"
+
 #include <iostream> // for cout
 
 using namespace std;
@@ -42,7 +43,7 @@ using namespace std;
 ofxNDIdynloader::ofxNDIdynloader()
 {
 	p_NDILib = nullptr;
-#if defined(_WIN32)
+#if defined(TARGET_WIN32)
 	m_hNDILib = NULL;
 #endif
 }
@@ -50,12 +51,12 @@ ofxNDIdynloader::ofxNDIdynloader()
 ofxNDIdynloader::~ofxNDIdynloader()
 {
 	if (p_NDILib) p_NDILib->destroy();
-#if defined(_WIN32)
+#if defined(TARGET_WIN32)
 	if (m_hNDILib) FreeLibrary(m_hNDILib);
 #endif
 }
 
-#if defined(_WIN32)
+#if defined(TARGET_WIN32)
 const NDIlib_v4* ofxNDIdynloader::Load()
 {
 	std::string ndi_path;
@@ -145,7 +146,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 
 	return p_NDILib;
 }
-#elif defined(__APPLE__) || defined(__linux__)
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 // OSX and LINUX
 const NDIlib_v4* ofxNDIdynloader::Load()
 {
@@ -188,6 +189,9 @@ const NDIlib_v4* ofxNDIdynloader::Load()
     return p_NDILib;
 }
 #else
-return nullptr;
+const NDIlib_v4* ofxNDIdynloader::Load()
+{
+    return p_NDILib;
+}
 #endif
 

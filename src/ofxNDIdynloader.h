@@ -1,13 +1,15 @@
 #ifndef ofxNDIdynloader_H
 #define ofxNDIdynloader_H
 
-#if defined(_WIN32)
+#include "ofxNDIplatforms.h"
+
+#if defined(TARGET_WIN32)
 #include <windows.h>
 #include <shlwapi.h>  // for path functions and HMODULE definition
 #include <Shellapi.h> // for shellexecute
 #pragma comment(lib, "shlwapi.lib")  // for path functions
 #pragma comment(lib, "Shell32.lib")  // for shellexecute
-#elif defined(__APPLE__) || defined(__linux__)
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 #include <dlfcn.h> // dynamic library loading in Linux
 #endif
 
@@ -29,7 +31,7 @@ public:
 
 private :
 
-#if defined(_WIN32)
+#if defined(TARGET_WIN32)
 	HMODULE m_hNDILib;
 #endif
 	const NDIlib_v4* p_NDILib;
