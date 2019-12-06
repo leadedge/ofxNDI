@@ -39,7 +39,7 @@
 #elif defined(TARGET_OSX)
 #include <x86intrin.h> // for _movsd
 #elif defined(TARGET_LINUX)
-//// TODO - check
+//// TODO - what? - Check
 #endif
 
 #include <stdio.h>

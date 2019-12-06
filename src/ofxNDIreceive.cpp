@@ -106,12 +106,14 @@
 	04.12.19 - Revise for ARM port
 			   Check targets for Linux and OSX - not tested
 			   Cleanup
+	06.12.19 - Change all DWORD to uint32_t
 
 */
 #include "ofxNDIreceive.h"
 
+// Linux
 // https://github.com/hugoaboud/ofxNDI
-#if defined(TARGET_LINUX)
+#if !defined(_WIN32) && !defined (__APPLE__)
 
 double timeGetTime() {
 	struct timeval now;
@@ -191,7 +193,7 @@ ofxNDIreceive::~ofxNDIreceive()
 	FreeAudioData();
 	if(pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
 	if(pNDI_find) p_NDILib->find_destroy(pNDI_find);
-	// Library is released in ofxNDIdynloaderer
+	// Library is released in ofxNDIdynloader
 }
 
 
@@ -436,7 +438,7 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 		// If there is an existing name, return it
 		if (!senderName.empty()) {
 // TODO - CHECK
-#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
+#if !defined(_WIN32) && !defined (__APPLE__)
 			strcpy(sendername, senderName.c_str());
 #else
 			strcpy_s(sendername, maxsize, senderName.c_str());
@@ -452,7 +454,7 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 		&& !NDIsenders.empty()
 		&& NDIsenders.at(index).size() > 0) {
 // TODO - CHECK
-#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
+#if !defined(_WIN32) && !defined (__APPLE__)
 		strcpy(sendername, NDIsenders.at(index).c_str());
 #else
 		strcpy_s(sendername, maxsize, NDIsenders.at(index).c_str());
@@ -592,14 +594,15 @@ void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, 
 
 
 // Create a receiver
-// Default NDI format is BGRA
-// If the application format is RGBA, data is converted
-// to RGBA during copy from the video frame buffer.
+// If the NDI format is BGRA and the application format is RGBA,
+// data is converted from BGRA to RGBA during copy from the video frame buffer.
 bool ofxNDIreceive::CreateReceiver(int userindex)
 {
-	// NDI 4.0 > VERSION 4.1.3 BETA 64 bit required for RGBA preferred
-	// NDI bug - TODO : check Win32 with other OS
-	// If the received result is BGRA, set the receiver to prefer BGRA
+	// NDI 4.0 > VERSION 4.1.3
+	// NDI bug to be resolved.
+	// 64 bit required for RGBA preferred
+	// 32 bit returns BGRA even if RGBA preferred.
+	// If you find the received result is BGRA, set the receiver to prefer BGRA
 #if defined(_WIN64)
 	return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
 #else

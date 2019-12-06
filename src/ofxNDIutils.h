@@ -25,30 +25,27 @@
 	=========================================================================
 
 	16.10.16 - Create file
-	11.06.18 - - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
-
+	11.06.18 - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
+	06.12.19 - Remove SSE functions for Linux
 
 */
 #pragma once
 #ifndef __ofxNDI_
 #define __ofxNDI_
 
-#include "ofxNDIplatforms.h" // Platform definitions
-
 // #include <emmintrin.h> // for SSE2
 #include <iostream> // for cout
-
 #include <stdlib.h>
 #include <cstdint>
 #include <string.h>
 
 // TODO : test includes for OSX
-#if defined(TARGET_OSX)
+#if defined(__APPLE__)
 #include <x86intrin.h> // for _movsd
-#elif defined(TARGET_WIN32)
+#elif defined(_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
-#elif defined(TARGET_LINUX)
+#else // Linux
 #include <xmmintrin.h>
 #endif
 
@@ -59,9 +56,10 @@ namespace ofxNDIutils {
 	void CopyImage(const unsigned char *source, unsigned char *dest, 
 				   unsigned int width, unsigned int height, unsigned int stride,
 				   bool bSwapRB = false, bool bInvert = false);
-// TODO : check for OSX
-#if defined(TARGET_WIN32) || defined(TARGET_OSX)
+// TODO : check it works for OSX
+#if defined(_WIN32) || defined(__APPLE__)
 	void memcpy_sse2(void* dst, const void* src, size_t Size);
+	void memcpy_movsd(void* dst, const void* src, size_t Size);
 	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert = false);
 #endif
 	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert = false);

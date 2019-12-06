@@ -36,7 +36,7 @@
 	10.11.19 - Remove shaders and create an RGBA sender
 			   to let the NDI system perform data conversion.
 			   ofFbo, ofTexture, ofPixels or pixel data mst be RGBA
-	04.12.19 - Revise for ARM port
+	04.12.19 - Revise for ARM port (https://github.com/IDArnhem/ofxNDI)
 			   Cleanup
 
 */

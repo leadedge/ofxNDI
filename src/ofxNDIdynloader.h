@@ -1,15 +1,13 @@
 #ifndef ofxNDIdynloader_H
 #define ofxNDIdynloader_H
 
-#include "ofxNDIplatforms.h" // Platform definitions
-
-#if defined(TARGET_WIN32)
+#if defined(_WIN32)
 #include <windows.h>
-#include <shlwapi.h>  // for path functions
+#include <shlwapi.h>  // for path functions and HMODULE definition
 #include <Shellapi.h> // for shellexecute
 #pragma comment(lib, "shlwapi.lib")  // for path functions
 #pragma comment(lib, "Shell32.lib")  // for shellexecute
-#elif defined(TARGET_LINUX) || defined(TARGET_OSX)
+#elif defined(__APPLE__) || defined(__linux__)
 #include <dlfcn.h> // dynamic library loading in Linux
 #endif
 
@@ -18,8 +16,7 @@
 #include <iostream> // for cout
 #include "Processing.NDI.Lib.h" // NDI SDK
 
-typedef NDIlib_v4* (*NDIlib_v4_load_)(void);
-
+typedef NDIlib_v4* (NDIlib_v4_load_)(void);
 
 class ofxNDIdynloader
 {
@@ -33,9 +30,10 @@ public:
 
 private :
 
+#if defined(_WIN32)
 	HMODULE m_hNDILib;
+#endif
 	const NDIlib_v4* p_NDILib;
-	bool             m_bWasLoaded;
 
 };
 

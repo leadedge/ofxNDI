@@ -46,12 +46,11 @@
 #ifndef __ofxNDIsend__
 #define __ofxNDIsend__
 
-#include "ofxNDIdynloader.h" // - includes platform definitions
-
 #include <stdio.h>
 #include <string>
 #include <iostream> // for cout
 
+#include "ofxNDIdynloader.h" // NDI library loader
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 

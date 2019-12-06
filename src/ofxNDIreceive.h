@@ -48,6 +48,7 @@
 			   To be tested
 	15.11.19 - Change to dynamic load of Newtek NDI dlls
 	19.11.19 - Add conditional audio receive
+	06.12.19 - Add dynamic load class (https://github.com/IDArnhem/ofxNDI)
 
 */
 #pragma once
@@ -60,42 +61,43 @@
 #include <iostream> // for cout
 #include <assert.h>
 
-#include "ofxNDIdynloader.h" // NDI library loader - includes platform definitions
+#include "ofxNDIdynloader.h" // NDI library loader
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 
-#if defined(TARGET_WIN32)
-    #include <windows.h>
-    #include <intrin.h> // for _movsd
-	#include <math.h> ////
-    #include <gl\GL.h>
-    #include <mmsystem.h> // for timegettime if ofMain is included
-    #include <shlwapi.h>  // for path functions
-    #include <Shellapi.h> // for shellexecute
-    #pragma comment(lib, "Winmm.lib") // for timegettime
-    #pragma comment(lib, "shlwapi.lib")  // for path functions
-    #pragma comment(lib, "Shell32.lib")  // for shellexecute
-#elif defined(TARGET_OSX)
-    #include <x86intrin.h> // for _movsd
-    #include <sys/time.h>
-#elif defined(TARGET_LINUX)
-    #include <sys/time.h>
-    #include <cstring>
-    #include <cmath>
-    #include <stdint.h>
-    #include <stdbool.h>
-    #include <stddef.h>
+#if defined(_WIN32)
+#include <windows.h>
+#include <intrin.h> // for _movsd
+#include <math.h> ////
+#include <gl\GL.h>
+#include <mmsystem.h> // for timegettime if ofMain is included
+#include <shlwapi.h>  // for path functions
+#include <Shellapi.h> // for shellexecute
+#pragma comment(lib, "Winmm.lib") // for timegettime
+#pragma comment(lib, "shlwapi.lib")  // for path functions
+#pragma comment(lib, "Shell32.lib")  // for shellexecute
+#elif defined(__APPLE__)
+#include <x86intrin.h> // for _movsd
+#include <sys/time.h>
+#else // Linux
+#include <sys/time.h>
+#include <cstring>
+#include <cmath>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 #endif
 
+// Linux
 // https://github.com/hugoaboud/ofxNDI
-#if defined(TARGET_LINUX)
+#if !defined(_WIN32) && !defined(__APPLE__)
 typedef struct {
 	long long QuadPart;
 } LARGE_INTEGER;
 
 typedef unsigned int DWORD;
-#endif
 
+#endif
 
 
 class ofxNDIreceive {
@@ -105,9 +107,8 @@ public:
 	ofxNDIreceive();
 	~ofxNDIreceive();
 
-	//// bool LoadNDI();
-
-	// Create a BGRA receiver
+	// Create a receiver
+	// Default format RGBA (x64) or BGRA (Win32)
 	// - index | index in the sender list to connect to
 	//   -1 - connect to the selected sender
 	//        if none selected, connect to the first sender
@@ -274,8 +275,8 @@ private:
 	bool bSenderSelected; // Sender index has been changed by the user
 	NDIlib_recv_bandwidth_e m_bandWidth; // Bandwidth receive option
 
-	DWORD dwStartTime; // For timing delay
-	DWORD dwElapsedTime;
+	uint32_t dwStartTime; // For timing delay
+	uint32_t dwElapsedTime;
 
 	// For received frame fps calculations
 	double startTime, lastTime, frameTime, frameRate, fps, PCFreq;
