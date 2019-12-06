@@ -1,6 +1,9 @@
 ﻿## ofxNDI
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
+## Testing branch
+Use this branch for testing modifications to ofxNDI before incorporating in the master.
+
 ## Updates
 31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3"\
 (Note changes to function argument variable types to match with Version 3.)\

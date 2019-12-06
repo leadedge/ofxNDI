@@ -28,13 +28,21 @@
 	22.02.17 - Changed lower size limit for SSE copy to 640x480
 	30.03.18 - const source for memcpy_sse2 and rgba_bgra_sse2
 
-	Chages with update to 3.5
+	Changes with update to 3.5
 	11.06.18 - __movsd for OSX (https://github.com/ThomasLengeling/ofxNDI)
 			 - _rotl replacement for OSX
+
+	03.12-19 - changes for Ubuntu/ARM (https://github.com/IDArnhem/ofxNDI)
+			 - TODO bring up to date with Spout SDK
+	04.12.19 - Cleanup
+			 - TODO - use TARGET_LINUX_ARM for SSE functions?
+	05.12.19 - Clean all functions
+			 - justify targets with compiler definitions
 
 
 */
 #include "ofxNDIutils.h"
+
 
 // _rotl replacement
 // Other solutions possible
@@ -44,10 +52,9 @@
 #define ROL( val, steps ) ( ( val << Shift( val, steps ) ) | ( val >> ( BitsCount( val ) - Shift( val, steps ) ) ) )
 #define ROR( val, steps ) ( ( val >> Shift( val, steps ) ) | ( val << ( BitsCount( val )
 
-
 namespace ofxNDIutils {
 
-#if !defined(TARGET_WIN32)
+#if defined (__APPLE__)
 	static inline void *__movsd(void *d, const void *s, size_t n) {
 		asm volatile ("rep movsb"
 			: "=D" (d),
@@ -61,7 +68,16 @@ namespace ofxNDIutils {
 	}
 #endif
 
-#if defined(TARGET_WIN32)
+#if defined(_WIN32) || defined (__APPLE__)
+
+	// movsd requires 4 byte aligned data
+	void memcpy_movsd(void* dst, const void* src, size_t Size)
+	{
+		const unsigned long *pSrc = static_cast<const unsigned long *>(src); // Source buffer
+		unsigned long *pDst = static_cast<unsigned long *>(dst); // Dest buffer
+		__movsd(pDst, pSrc, Size >> 2); //Size divided by 4 (4 bytes per rep move)
+	}
+
 	//
 	// Fast memcpy
 	//
@@ -114,9 +130,8 @@ namespace ofxNDIutils {
 			pDst += 128;
 		}
 	} // end memcpy_sse2
-#endif
 
-/*
+
 	//
 	// Adapted from : https://searchcode.com/codesearch/view/5070982/
 	// 
@@ -162,11 +177,13 @@ namespace ofxNDIutils {
 				//        & 0x00ff00ff  : r g b . > . b . r
 				// rgbapix & 0xff00ff00 : a r g b > a . g .
 				// result of or			:           a b g r
-#if !defined(TARGET_WIN32)
-				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-#else
+				#if defined(_WIN32)
+				// _rotl is available
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-#endif
+				#else
+				// _rotl replacement
+				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
+				#endif
 			}
 
 			for (; x + 3 < width; x += 4) {
@@ -184,17 +201,54 @@ namespace ofxNDIutils {
 			// Perform leftover writes
 			for (; x < width; x++) {
 				rgbapix = src[x];
-#if !defined(TARGET_WIN32)
-				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-#else
+
+				#if defined(_WIN32)
+				// _rotl is available
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-#endif
+				#else
+				// _rotl replacement
+				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
+				#endif
 			}
 		}
-
 	} // end rgba_bgra_sse2
-*/
+#endif
 
+	// Without SSE
+	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert)
+	{
+		for (unsigned int y = 0; y < height; y++) {
+
+			// Start of buffer
+			auto source = static_cast<const unsigned __int32 *>(rgba_source);; // unsigned int = 4 bytes
+			auto dest = static_cast<unsigned __int32 *>(bgra_dest);
+
+			// Increment to current line
+			if (bInvert) {
+				// https://docs.microsoft.com/en-us/visualstudio/code-quality/c26451?view=vs-2017
+				source += (unsigned long)((height - 1 - y)*width);
+				dest += (unsigned long)(y * width); // dest is not inverted
+			}
+			else {
+				source += (unsigned long)(y * width);
+				dest += (unsigned long)(y * width);
+			}
+
+			for (unsigned int x = 0; x < width; x++) {
+				auto rgbapix = source[x];
+				#if defined(_WIN32)
+				// _rotl is available
+				dest[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
+				#else
+				// _rotl replacement
+				dest[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
+				#endif
+			}
+		}
+	} // end rgba_bgra
+
+
+	// Flip a buffer in place
 	void FlipBuffer(const unsigned char *src, 
 					unsigned char *dst,
 					unsigned int width,
@@ -207,62 +261,65 @@ namespace ofxNDIutils {
 		unsigned int line_t = (height - 1)*pitch;
 
 		for (unsigned int y = 0; y<height; y++) {
-            // @zilog no SSE stuff for aarch64 build
-            /*
-			if (width <= 640 || height <= 480) // too small for assembler
+			// @zilog no SSE stuff for aarch64 build
+			#if defined(_WIN32) || defined (__APPLE__)
+			if (width <= 512 || height <= 512) // too small for assembler
 				memcpy((void *)(To + line_t), (void *)(From + line_s), pitch);
 			else if ((pitch % 16) == 0) // use sse assembler function
 				memcpy_sse2((void *)(To + line_t), (void *)(From + line_s), pitch);
 			else if ((pitch % 4) == 0) // use 4 byte move assembler function
-				__movsd((unsigned long *)(To + line_t), (unsigned long *)(From + line_s), pitch / 4);
+				memcpy_movsd((unsigned long *)(To + line_t), (unsigned long *)(From + line_s), pitch);
 			else
-            */
+			#endif
 				memcpy((void *)(To + line_t), (void *)(From + line_s), pitch);
+
 			line_s += pitch;
 			line_t -= pitch;
 		}
-
 	} // end FlipBuffer
 
 
 	//
-	// Copy source image to dest, optionally converting bgra<>rgba and/or inverting image
+	// Copy source image to dest, optionally converting bgra<>rgba or inverting
 	//
 	void CopyImage(const unsigned char *source, unsigned char *dest, 
 				   unsigned int width, unsigned int height, unsigned int stride,
 				   bool bSwapRB, bool bInvert)
 	{
-
-		// printf("CopyImage(%x, %x, %d, %d, %d, (%d, %d)\n", source, dest, width, height, stride, bSwapRB, bInvert);
-		if (source == NULL || dest == NULL)
+		if (source == nullptr || dest == nullptr)
 			return;
+		
+		// user requires bgra->rgba or rgba->bgra conversion from source to dest
+		if(bSwapRB) {
+			#if defined(_WIN32) || defined (__APPLE__)
+			rgba_bgra_sse2((const void *)source, (void *)dest, width, height, bInvert);
+			#else
+			rgba_bgra((const void *)source, (void *)dest, width, height, bInvert);
+			#endif
+			return;
+		}
 
-		if(bSwapRB) { // user requires bgra->rgba or rgba->bgra conversion from source to dest
-            // @zilog Trying to swap RGB but method is based on SSE
-            //rgba_bgra_sse2((const void *)source, (void *)dest, width, height, bInvert);
+		if (bInvert) { // Flip the image in place
+			FlipBuffer(source, dest, width, height);
 		}
 		else {
-			if(bInvert) {
-				FlipBuffer(source, dest, width, height);
-			}
-			else if (width <= 640 || height <= 480) {
+			#if defined(_WIN32) || defined (__APPLE__)
+			// Small image just use memcpy
+			if (width < 512 || height < 256) {
 				memcpy((void *)dest, (const void *)source, height*stride);
 			}
-			else if((stride % 16) == 0) { // 16 byte aligned
-                memcpy((void *)dest, (const void *)source, height*stride);
-                //memcpy_sse2((void *)dest, (const void *)source, height*stride);
+			else if ((stride % 16) == 0) { // 16 byte aligned
+				memcpy_sse2((void *)dest, (const void *)source, height*stride);
 			}
-			else if((stride % 4) == 0) { // 4 byte aligned
-                memcpy((void *)dest, (const void *)source, height*stride);
-                //__movsd((unsigned long *)dest, (const unsigned long *)source, height*stride);
+			else if ((stride % 4) == 0) { // 4 byte aligned
+				memcpy_movsd((void*)dest, (const void *)source, height*stride);
 			}
-			else {
-				memcpy((void *)dest, (const void *)source, height*stride);
-			}
+			#else
+			// @zilog no SSE stuff for aarch64 build
+			memcpy((void *)dest, (const void *)source, height*stride);
+			#endif
 		}
-
 	} // end CopyImage
-
 
 	//
 	//        YUV422_to_RGBA

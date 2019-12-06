@@ -46,13 +46,11 @@
 #ifndef __ofxNDIsend__
 #define __ofxNDIsend__
 
-#include "ofxNDIdynloader.h"
-#include "ofMain.h"
-
 #include <stdio.h>
 #include <string>
 #include <iostream> // for cout
 
+#include "ofxNDIdynloader.h" // NDI library loader
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 
@@ -62,8 +60,6 @@ public:
 
 	ofxNDIsend();
 	~ofxNDIsend();
-
-	//bool LoadNDI();
 
 	// Create an RGBA sender
 	// - sendername | name for the sender
@@ -191,11 +187,8 @@ public:
 	// Get the current NDI SDK version
 	std::string GetNDIversion();
 
-
 private:
-#if defined(TARGET_WIN32)
-	HMODULE hNDILib;
-#endif
+
 	const NDIlib_v4* p_NDILib;
 	bool m_bNDIinitialized;
 

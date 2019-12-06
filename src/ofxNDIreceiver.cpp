@@ -51,11 +51,12 @@
 	24.03.19 - Add float GetSenderFps(), bool ReceiverConnected()
 	05.11.18 - Update to NDI Version 4.0
 			   See further : ofxNDIreceive.cpp
+	04.12.19 - Revise for ARM port (https://github.com/IDArnhem/ofxNDI)
+			   Cleanup
 
 
 */
 #include "ofxNDIreceiver.h"
-
 
 ofxNDIreceiver::ofxNDIreceiver()
 {
