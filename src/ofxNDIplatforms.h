@@ -19,6 +19,7 @@
 
 #if defined( __WIN32__ ) || defined( _WIN32 )
 #define TARGET_WIN32
+#define TARGET_WINDOWS
 #elif defined( __APPLE_CC__)
 #define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
 #include <TargetConditionals.h>
