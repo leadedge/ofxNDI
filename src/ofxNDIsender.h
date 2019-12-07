@@ -25,6 +25,7 @@
 	=========================================================================
 
 	08.07.18 - Use ofxNDIsend class
+	07.12.19 - remove iostream
 
 */
 #pragma once
@@ -44,7 +45,6 @@
 
 #include <stdio.h>
 #include <string>
-#include <iostream> // for cout
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIsend.h" // basic sender functions
 #include "ofxNDIutils.h" // buffer copy utilities
