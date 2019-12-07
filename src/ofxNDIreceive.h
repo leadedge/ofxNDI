@@ -58,14 +58,13 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#include <iostream> // for cout
 #include <assert.h>
 
 #include "ofxNDIdynloader.h" // NDI library loader
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 
-#if defined(_WIN32)
+#if defined(TARGET_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
 #include <math.h> ////
@@ -90,7 +89,7 @@
 
 // Linux
 // https://github.com/hugoaboud/ofxNDI
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(TARGET_WIN32) && !defined(TARGET_OSX)
 typedef struct {
 	long long QuadPart;
 } LARGE_INTEGER;

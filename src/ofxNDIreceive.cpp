@@ -107,13 +107,14 @@
 			   Check targets for Linux and OSX - not tested
 			   Cleanup
 	06.12.19 - Change all DWORD to uint32_t
+	07.12.19 - Use Openframeworks platform target definitions in ofxNDIplatforms.h
 
 */
 #include "ofxNDIreceive.h"
 
 // Linux
 // https://github.com/hugoaboud/ofxNDI
-#if !defined(_WIN32) && !defined (__APPLE__)
+#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
 
 double timeGetTime() {
 	struct timeval now;
@@ -438,7 +439,7 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 		// If there is an existing name, return it
 		if (!senderName.empty()) {
 // TODO - CHECK
-#if !defined(_WIN32) && !defined (__APPLE__)
+#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
 			strcpy(sendername, senderName.c_str());
 #else
 			strcpy_s(sendername, maxsize, senderName.c_str());
@@ -454,7 +455,7 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 		&& !NDIsenders.empty()
 		&& NDIsenders.at(index).size() > 0) {
 // TODO - CHECK
-#if !defined(_WIN32) && !defined (__APPLE__)
+#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
 		strcpy(sendername, NDIsenders.at(index).c_str());
 #else
 		strcpy_s(sendername, maxsize, NDIsenders.at(index).c_str());
