@@ -38,11 +38,12 @@
 			 - TODO - use TARGET_LINUX_ARM for SSE functions?
 	05.12.19 - Clean all functions
 			 - justify targets with compiler definitions
+	07.12.19 - changed rgba_bgra to use more portable known-size types
+			   unsigned __int32 > uint32_t (https://github.com/IDArnhem/ofxNDI)
 
 
 */
 #include "ofxNDIutils.h"
-
 
 // _rotl replacement
 // Other solutions possible
@@ -68,11 +69,12 @@ namespace ofxNDIutils {
 	}
 #endif
 
-#if defined(_WIN32) || defined (__APPLE__)
+#if defined(TARGET_WIN32) || defined (TARGET_OSX)
 
 	// movsd requires 4 byte aligned data
 	void memcpy_movsd(void* dst, const void* src, size_t Size)
 	{
+		// one DWORD per rep move
 		const unsigned long *pSrc = static_cast<const unsigned long *>(src); // Source buffer
 		unsigned long *pDst = static_cast<unsigned long *>(dst); // Dest buffer
 		__movsd(pDst, pSrc, Size >> 2); //Size divided by 4 (4 bytes per rep move)
@@ -152,7 +154,6 @@ namespace ofxNDIutils {
 		unsigned int y = 0;
 		__m128i brMask = _mm_set1_epi32(0x00ff00ff); // argb
 
-		// std::cout << "rgba_bgra_sse2" << std::endl;
 	    for (y = 0; y < height; y++) {
 
   			// Start of buffer
@@ -177,7 +178,7 @@ namespace ofxNDIutils {
 				//        & 0x00ff00ff  : r g b . > . b . r
 				// rgbapix & 0xff00ff00 : a r g b > a . g .
 				// result of or			:           a b g r
-				#if defined(_WIN32)
+				#if defined(TARGET_WIN32)
 				// _rotl is available
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
 				#else
@@ -202,7 +203,7 @@ namespace ofxNDIutils {
 			for (; x < width; x++) {
 				rgbapix = src[x];
 
-				#if defined(_WIN32)
+				#if defined(TARGET_WIN32)
 				// _rotl is available
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
 				#else
@@ -220,8 +221,8 @@ namespace ofxNDIutils {
 		for (unsigned int y = 0; y < height; y++) {
 
 			// Start of buffer
-			auto source = static_cast<const unsigned __int32 *>(rgba_source);; // unsigned int = 4 bytes
-			auto dest = static_cast<unsigned __int32 *>(bgra_dest);
+			auto source = static_cast<const uint32_t *>(rgba_source); // unsigned int = 4 bytes
+			auto dest = static_cast<uint32_t *>(bgra_dest);
 
 			// Increment to current line
 			if (bInvert) {
@@ -236,7 +237,7 @@ namespace ofxNDIutils {
 
 			for (unsigned int x = 0; x < width; x++) {
 				auto rgbapix = source[x];
-				#if defined(_WIN32)
+				#if defined(TARGET_WIN32)
 				// _rotl is available
 				dest[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
 				#else
@@ -262,7 +263,7 @@ namespace ofxNDIutils {
 
 		for (unsigned int y = 0; y<height; y++) {
 			// @zilog no SSE stuff for aarch64 build
-			#if defined(_WIN32) || defined (__APPLE__)
+			#if defined(TARGET_WIN32) || defined (TARGET_OSX)
 			if (width <= 512 || height <= 512) // too small for assembler
 				memcpy((void *)(To + line_t), (void *)(From + line_s), pitch);
 			else if ((pitch % 16) == 0) // use sse assembler function
@@ -291,7 +292,7 @@ namespace ofxNDIutils {
 		
 		// user requires bgra->rgba or rgba->bgra conversion from source to dest
 		if(bSwapRB) {
-			#if defined(_WIN32) || defined (__APPLE__)
+			#if defined(TARGET_WIN32) || defined (TARGET_OSX)
 			rgba_bgra_sse2((const void *)source, (void *)dest, width, height, bInvert);
 			#else
 			rgba_bgra((const void *)source, (void *)dest, width, height, bInvert);
@@ -303,7 +304,7 @@ namespace ofxNDIutils {
 			FlipBuffer(source, dest, width, height);
 		}
 		else {
-			#if defined(_WIN32) || defined (__APPLE__)
+			#if defined(TARGET_WIN32) || defined (TARGET_OSX)
 			// Small image just use memcpy
 			if (width < 512 || height < 256) {
 				memcpy((void *)dest, (const void *)source, height*stride);

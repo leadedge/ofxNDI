@@ -27,26 +27,25 @@
 	16.10.16 - Create file
 	11.06.18 - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
 	06.12.19 - Remove SSE functions for Linux
+	07.12.19 - remove includes emmintrin.h, xmmintrin.h, iostream, cstdint
 
 */
 #pragma once
 #ifndef __ofxNDI_
 #define __ofxNDI_
 
-// #include <emmintrin.h> // for SSE2
-#include <iostream> // for cout
+#include "ofxNDIplatforms.h" // Openframeworks platform definitions
+#include <stdint.h> // ints of known sizes, standard library
 #include <stdlib.h>
-#include <cstdint>
 #include <string.h>
 
 // TODO : test includes for OSX
-#if defined(__APPLE__)
+#if defined(TARGET_OSX)
 #include <x86intrin.h> // for _movsd
-#elif defined(_WIN32)
+#elif defined(TARGET_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
-#else // Linux
-#include <xmmintrin.h>
+// #else // Linux
 #endif
 
 #include <cstring>
@@ -57,7 +56,7 @@ namespace ofxNDIutils {
 				   unsigned int width, unsigned int height, unsigned int stride,
 				   bool bSwapRB = false, bool bInvert = false);
 // TODO : check it works for OSX
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(TARGET_WIN32) || defined(TARGET_OSX)
 	void memcpy_sse2(void* dst, const void* src, size_t Size);
 	void memcpy_movsd(void* dst, const void* src, size_t Size);
 	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert = false);
