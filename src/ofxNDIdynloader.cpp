@@ -31,6 +31,10 @@
 	03-12-19	- Create files
 	04-12-19	- Added licencing
 	06-12.19	- Revise for cross-platform without OF dependence
+	07-12-19	- Use Openframeworks platform definitions in ofxNDIplatforms.h
+				- Repeat library load guard if not nullptr
+				- FindRuntime() function used for Linux/OSX
+				- "using namespace std" not used due to previous advice
 
 */
 
@@ -39,7 +43,7 @@
 ofxNDIdynloader::ofxNDIdynloader()
 {
 	p_NDILib = nullptr;
-#if defined(_WIN32)
+#if defined(TARGET_WIN32)
 	m_hNDILib = NULL;
 #endif
 }
@@ -47,14 +51,19 @@ ofxNDIdynloader::ofxNDIdynloader()
 ofxNDIdynloader::~ofxNDIdynloader()
 {
 	if (p_NDILib) p_NDILib->destroy();
-#if defined(_WIN32)
+#if defined(TARGET_WIN32)
 	if (m_hNDILib) FreeLibrary(m_hNDILib);
 #endif
 }
 
-#if defined(_WIN32)
+
+#if defined(TARGET_WIN32)
 const NDIlib_v4* ofxNDIdynloader::Load()
 {
+	// Guard against reloading
+	if(p_NDILib)
+		return p_NDILib;
+
 	std::string ndi_path;
 
 	// First look in the executable folder for the dlls
@@ -141,26 +150,24 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 	}
 
 	return p_NDILib;
+
 }
-#elif defined(__APPLE__) || defined(__linux__)
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 // OSX and LINUX
 const NDIlib_v4* ofxNDIdynloader::Load()
 {
  
-	std::string ndi_path;
-	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
-	cout << "NDI runtime location " << p_NDI_runtime_folder << endl;
-	if (p_NDI_runtime_folder) {
-		ndi_path = p_NDI_runtime_folder;
-		ndi_path += NDILIB_LIBRARY_NAME;
-	}
-	else
-		ndi_path = NDILIB_LIBRARY_NAME;
+	// Guard against reloading
+	if (p_NDILib)
+		return p_NDILib;
+
+    std::string ndi_path = FindRuntime();
+    OUTS << "NDI runtime location " << ndi_path << endl;
 
     // attempt to load the library and get a handle to it
     void *m_hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
     if (!m_hNDILib) {
-		cout << "Couldn't load dynamic library at: " << ndi_path << enld;
+        ERRS << "Couldn't load dynamic library at: " << ndi_path << endl;
         return nullptr;
     }
 
@@ -176,15 +183,34 @@ const NDIlib_v4* ofxNDIdynloader::Load()
             dlclose(m_hNDILib);
 			m_hNDILib = NULL;
         }
-		cout << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application" << endl;
+        WARNS << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application" << endl;
         return nullptr;
     }
 
     p_NDILib = lib_load(); // this loads the library and returns a pointer to the dynamic binding
 
+	return p_NDILib;
+}
+
+const std::string ofxNDIdynloader::FindRuntime() {
+	std::string rt;
+
+	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
+	if (p_NDI_runtime_folder)
+	{
+		rt = p_NDI_runtime_folder;
+		rt += NDILIB_LIBRARY_NAME;
+	}
+	else rt = NDILIB_LIBRARY_NAME;
+
+	return rt;
+}
+
+#else
+const NDIlib_v4* ofxNDIdynloader::Load()
+{
     return p_NDILib;
 }
-#else
-return nullptr;
 #endif
+
 
