@@ -71,6 +71,8 @@
 	16.11.19	- Protect against loading the NDI dll again
 	04.12.19	- Revise for ARM port
 			    - Cleanup
+	07.12.19	- Use Openframeworks platform target definitions in ofxNDIplatforms.h
+
 
 */
 #include "ofxNDIsend.h"
@@ -103,10 +105,9 @@ ofxNDIsend::ofxNDIsend()
 
 	// Find and load the Newtek NDI dll
     p_NDILib = libloader.Load();
-	if(p_NDILib) {
+	if(p_NDILib)
 		m_bNDIinitialized = true;
-		std::cout << "NDI runtime has been initialized..." << std::endl;
-	}
+
 }
 
 
@@ -116,7 +117,7 @@ ofxNDIsend::~ofxNDIsend()
 	if (bSenderInitialized)
 		ReleaseSender();
 	bSenderInitialized = false;
-	// Library is released in ofxNDIdynloaderer
+	// Library is released in ofxNDIdynloader
 	m_bNDIinitialized = false;
 
 }

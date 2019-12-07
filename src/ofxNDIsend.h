@@ -48,7 +48,6 @@
 
 #include <stdio.h>
 #include <string>
-#include <iostream> // for cout
 
 #include "ofxNDIdynloader.h" // NDI library loader
 #include "Processing.NDI.Lib.h" // NDI SDK
