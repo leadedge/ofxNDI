@@ -45,8 +45,6 @@
 #elif defined(_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
-#else // Linux
-#include <xmmintrin.h>
 #endif
 
 #include <cstring>
