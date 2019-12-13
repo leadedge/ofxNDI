@@ -220,15 +220,22 @@ public:
 private:
 
 	ofxNDIsend NDIsender; // Basic sender functions
-	bool m_bReadback; // Asynchronous readback of pixels from FBO using two PBOs
+	std::string m_SenderName; // current sender name
+
 	ofPixels ndiBuffer[2]; // Two pixel buffers for async sending
 	int m_idx; // Index used for async buffer swapping
+
+
+	bool m_bReadback; // Asynchronous readback of pixels from FBO using two PBOs
+	/*
+	// ===============================================================
 	GLuint ndiPbo[2]; // PBOs used for asynchronous read-back from fbo
 	int PboIndex; // Index used for asynchronous read-back from fbo
 	int NextPboIndex;
-	std::string m_SenderName; // current sender name
-
 	ofFbo ndiFbo; // Utility Fbo
+	// ===============================================================
+	*/
+
 
 	// Read pixels from fbo to buffer
 	void ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);
@@ -236,11 +243,13 @@ private:
 	// Read pixels from texture to buffer
 	void ReadPixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data);
 
+	/*
 	// Asynchronous fbo pixel readback
 	bool ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);
 
 	// Asynchronous texture pixel readback
 	bool ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data);
+	*/
 
 
 };

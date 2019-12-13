@@ -39,16 +39,37 @@
 	04.12.19 - Revise for ARM port (https://github.com/IDArnhem/ofxNDI)
 			   Cleanup
 
+	13.12.19 - Temporary changes to disable pbo functions 
+			   to enable compile for Raspberry PI
+
+
 */
 #include "ofxNDIsender.h"
 
 
 ofxNDIsender::ofxNDIsender()
 {
+
+	// DEBUG - report ARM target
+#ifdef TARGET_LINUX
+	printf("TARGET_LINUX\n");
+#ifdef TARGET_LINUX_ARM
+	printf("TARGET_LINUX_ARM\n");
+#endif
+#else
+	printf("Not Linux\n");
+#endif
+
+	m_SenderName = "";
+
+	/*
+	// ===============================================================
 	m_bReadback = false; // Asynchronous fbo pixel data readback option
 	ndiPbo[0] = 0;
 	ndiPbo[1] = 0;
-	m_SenderName = "";
+	// ===============================================================
+	*/
+
 }
 
 
@@ -69,6 +90,9 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 	ndiBuffer[1].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
 	m_idx = 0;
 
+
+	/*
+	// ===============================================================
 	// Initialize OpenGL pbos for asynchronous readback of fbo data
 	glGenBuffers(2, ndiPbo);
 	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[0]);
@@ -80,6 +104,10 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 
 	// Allocate utility fbo
 	ndiFbo.allocate(width, height, GL_RGBA);
+	// ===============================================================
+	*/
+
+
 
 	if (NDIsender.CreateSender(sendername, width, height)) {
 		m_SenderName = sendername;
@@ -94,11 +122,14 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 // Update sender dimensions
 bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 {
+
 	// Re-initialize pixel buffers
 	ndiBuffer[0].allocate(width, height, 4);
 	ndiBuffer[1].allocate(width, height, 4);
 	m_idx = 0;
 
+	/*
+	// ===============================================================
 	// Delete and re-initialize OpenGL pbos
 	if (ndiPbo[0])	glDeleteBuffers(2, ndiPbo);
 	glGenBuffers(2, ndiPbo);
@@ -111,6 +142,9 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 
 	// Re-initialize utility fbo
 	ndiFbo.allocate(width, height, GL_RGBA);
+	// ===============================================================
+	*/
+
 
 	return NDIsender.UpdateSender(width, height);
 }
@@ -122,11 +156,15 @@ void ofxNDIsender::ReleaseSender()
 	if (ndiBuffer[0].isAllocated())	ndiBuffer[0].clear();
 	if (ndiBuffer[1].isAllocated())	ndiBuffer[1].clear();
 
+	/*
+	// ===============================================================
 	// Delete fbo readback pbos
 	if (ndiPbo[0]) glDeleteBuffers(2, ndiPbo);
 
 	// Release utility fbo
 	if (ndiFbo.isAllocated()) ndiFbo.clear();
+	// ===============================================================
+	*/
 
 	// Release sender
 	NDIsender.ReleaseSender();
@@ -440,21 +478,31 @@ std::string ofxNDIsender::GetNDIversion()
 // Read pixels from fbo to buffer
 void ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data)
 {
+	/*
+	// ===============================================================
 	if (m_bReadback) // Asynchronous readback using two pbos
 		ReadFboPixels(fbo, width, height, ndiBuffer[m_idx].getData());
 	else // Read fbo directly
+	// ===============================================================
+	*/
 		fbo.readToPixels(ndiBuffer[m_idx]);
 }
 
 // Read pixels from texture to buffer
 void ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data)
 {
+	/*
+	// ===============================================================
 	if (m_bReadback)
 		ReadTexturePixels(tex, width, height, ndiBuffer[m_idx].getData());
 	else
+	// ===============================================================
+	*/
 		tex.readToPixels(ndiBuffer[m_idx]);
 }
 
+/*
+// ===============================================================
 //
 // Asynchronous fbo pixel Read-back
 //
@@ -556,3 +604,5 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 	return true;
 
 }
+// ===============================================================
+*/
