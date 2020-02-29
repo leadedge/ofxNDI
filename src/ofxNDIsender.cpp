@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -38,9 +38,10 @@
 			   ofFbo, ofTexture, ofPixels or pixel data mst be RGBA
 	04.12.19 - Revise for ARM port (https://github.com/IDArnhem/ofxNDI)
 			   Cleanup
-
 	13.12.19 - Temporary changes to disable pbo functions 
 			   to enable compile for Raspberry PI
+	27.02.20 - Restored PBO functions
+			   TODO disable using #ifdef TARGET_RASPBERRY_PI ?
 
 
 */
@@ -53,22 +54,37 @@ ofxNDIsender::ofxNDIsender()
 	// DEBUG - report ARM target
 #ifdef TARGET_LINUX
 	printf("TARGET_LINUX\n");
+#endif
+
 #ifdef TARGET_LINUX_ARM
 	printf("TARGET_LINUX_ARM\n");
 #endif
-#else
-	printf("Not Linux\n");
+
+#ifdef TARGET_OPENGLES
+	printf("TARGET_OPENGLES\n");
+#endif
+	
+#ifdef TARGET_LINUX_ARM
+	printf("TARGET_LINUX_ARM\n");
 #endif
 
-	m_SenderName = "";
+#ifdef TARGET_RASPBERRY_PI
+	printf("TARGET_RASPBERRY_PI\n");
+#endif
 
-	/*
-	// ===============================================================
+#ifdef GL_ES_VERSION_3_0
+	printf("gles3 version\n);
+#endif
+
+#ifdef GL_ES_VERSION_2_0
+	printf("gles2 version\n);
+#endif
+
+
+	m_SenderName = "";
 	m_bReadback = false; // Asynchronous fbo pixel data readback option
 	ndiPbo[0] = 0;
 	ndiPbo[1] = 0;
-	// ===============================================================
-	*/
 
 }
 
@@ -90,9 +106,6 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 	ndiBuffer[1].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
 	m_idx = 0;
 
-
-	/*
-	// ===============================================================
 	// Initialize OpenGL pbos for asynchronous readback of fbo data
 	glGenBuffers(2, ndiPbo);
 	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[0]);
@@ -105,9 +118,6 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 	// Allocate utility fbo
 	ndiFbo.allocate(width, height, GL_RGBA);
 	// ===============================================================
-	*/
-
-
 
 	if (NDIsender.CreateSender(sendername, width, height)) {
 		m_SenderName = sendername;
@@ -128,8 +138,6 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 	ndiBuffer[1].allocate(width, height, 4);
 	m_idx = 0;
 
-	/*
-	// ===============================================================
 	// Delete and re-initialize OpenGL pbos
 	if (ndiPbo[0])	glDeleteBuffers(2, ndiPbo);
 	glGenBuffers(2, ndiPbo);
@@ -142,9 +150,6 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 
 	// Re-initialize utility fbo
 	ndiFbo.allocate(width, height, GL_RGBA);
-	// ===============================================================
-	*/
-
 
 	return NDIsender.UpdateSender(width, height);
 }
@@ -156,15 +161,11 @@ void ofxNDIsender::ReleaseSender()
 	if (ndiBuffer[0].isAllocated())	ndiBuffer[0].clear();
 	if (ndiBuffer[1].isAllocated())	ndiBuffer[1].clear();
 
-	/*
-	// ===============================================================
 	// Delete fbo readback pbos
 	if (ndiPbo[0]) glDeleteBuffers(2, ndiPbo);
 
 	// Release utility fbo
 	if (ndiFbo.isAllocated()) ndiFbo.clear();
-	// ===============================================================
-	*/
 
 	// Release sender
 	NDIsender.ReleaseSender();
@@ -478,31 +479,21 @@ std::string ofxNDIsender::GetNDIversion()
 // Read pixels from fbo to buffer
 void ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data)
 {
-	/*
-	// ===============================================================
 	if (m_bReadback) // Asynchronous readback using two pbos
 		ReadFboPixels(fbo, width, height, ndiBuffer[m_idx].getData());
 	else // Read fbo directly
-	// ===============================================================
-	*/
 		fbo.readToPixels(ndiBuffer[m_idx]);
 }
 
 // Read pixels from texture to buffer
 void ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data)
 {
-	/*
-	// ===============================================================
 	if (m_bReadback)
 		ReadTexturePixels(tex, width, height, ndiBuffer[m_idx].getData());
 	else
-	// ===============================================================
-	*/
 		tex.readToPixels(ndiBuffer[m_idx]);
 }
 
-/*
-// ===============================================================
 //
 // Asynchronous fbo pixel Read-back
 //
@@ -604,5 +595,3 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 	return true;
 
 }
-// ===============================================================
-*/

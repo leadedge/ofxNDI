@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -49,6 +49,7 @@
 	15.11.19 - Change to dynamic load of Newtek NDI dlls
 	19.11.19 - Add conditional audio receive
 	06.12.19 - Add dynamic load class (https://github.com/IDArnhem/ofxNDI)
+	27.02.20 - Add std::chrono functions for fps timing
 
 */
 #pragma once
@@ -89,13 +90,11 @@
 
 // Linux
 // https://github.com/hugoaboud/ofxNDI
-#if !defined(TARGET_WIN32) && !defined(TARGET_OSX)
+#if !defined(TARGET_WIN32)
 typedef struct {
 	long long QuadPart;
 } LARGE_INTEGER;
-
 typedef unsigned int DWORD;
-
 #endif
 
 
@@ -246,7 +245,7 @@ public:
 	std::string GetNDIversion();
 
 	// Timed received frame rate
-	double GetFps();
+	int GetFps();
 
 	// ====================================================================
 
@@ -278,10 +277,13 @@ private:
 	uint32_t dwElapsedTime;
 
 	// For received frame fps calculations
-	double startTime, lastTime, frameTime, frameRate, fps, PCFreq;
+	double PCFreq;
 	int64_t CounterStart;
+	double startTime, lastTime;
 	void StartCounter();
 	double GetCounter();
+	double frameRate, fps;
+	double frameTimeTotal, frameTimeNumber, lastFrame;
 	void UpdateFps();
 
 	// Metadata

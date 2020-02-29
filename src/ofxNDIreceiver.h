@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -187,7 +187,7 @@ public:
 	std::string GetNDIversion();
 
 	// Timed received frame rate
-	double GetFps();
+	int GetFps();
 
 	// Basic receiver functions
 	ofxNDIreceive NDIreceiver;

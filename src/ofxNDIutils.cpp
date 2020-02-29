@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -38,7 +38,7 @@
 			 - TODO - use TARGET_LINUX_ARM for SSE functions?
 	05.12.19 - Clean all functions
 			 - justify targets with compiler definitions
-	07.12.19 - changed rgba_bgra to use more portable known-size types
+	07.12.19 - rgba_bgra use more portable known-size types
 			   unsigned __int32 > uint32_t (https://github.com/IDArnhem/ofxNDI)
 
 

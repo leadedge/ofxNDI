@@ -2,6 +2,7 @@
 #define ofxNDIdynloader_H
 
 #include "ofxNDIplatforms.h"
+#include "Processing.NDI.Lib.h" // NDI SDK
 
 #if defined(TARGET_WIN32)
 #include <windows.h>
@@ -18,7 +19,6 @@ typedef NDIlib_v4* (*NDIlib_v4_load_)(void);
 #include <string>
 #include <vector>
 #include <iostream> // for cout
-#include "Processing.NDI.Lib.h" // NDI SDK
 
 class ofxNDIdynloader
 {

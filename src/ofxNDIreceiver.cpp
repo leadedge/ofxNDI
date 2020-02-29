@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -53,7 +53,7 @@
 			   See further : ofxNDIreceive.cpp
 	04.12.19 - Revise for ARM port (https://github.com/IDArnhem/ofxNDI)
 			   Cleanup
-
+	29.02.20 - Change GetFps from double to int
 
 */
 #include "ofxNDIreceiver.h"
@@ -461,7 +461,7 @@ std::string ofxNDIreceiver::GetNDIversion()
 }
 
 // Return the received frame rate
-double ofxNDIreceiver::GetFps()
+int ofxNDIreceiver::GetFps()
 {
 	return NDIreceiver.GetFps();
 }

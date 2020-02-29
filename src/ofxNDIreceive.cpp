@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -108,14 +108,19 @@
 			   Cleanup
 	06.12.19 - Change all DWORD to uint32_t
 	07.12.19 - Use Openframeworks platform target definitions in ofxNDIplatforms.h
+	27.02.20 - Remove !defined(TARGET_OSX) condition for counter variables, functions, strcpy_s and TimeGetTime
+	28.02.20 - Move NDIlib_frame_type_none, NDIlib_frame_type_error inside switch
+			 - Add NDIlib_frame_type_status_change to switch
+	29.02.20 - Move rounding from UpdateFps to GetFps
+			 - Change from math foor to std::floor
+			 - Change GetFps from double to int
 
 */
 #include "ofxNDIreceive.h"
 
 // Linux
 // https://github.com/hugoaboud/ofxNDI
-#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
-
+#if !defined(TARGET_WIN32)
 double timeGetTime() {
 	struct timeval now;
 	gettimeofday(&now, NULL);
@@ -153,7 +158,6 @@ bool QueryPerformanceCounter(LARGE_INTEGER *performance_count)
 }
 #endif
 
-
 ofxNDIreceive::ofxNDIreceive()
 {
 	p_NDILib = NULL;
@@ -175,9 +179,11 @@ ofxNDIreceive::ofxNDIreceive()
 	m_bAudioFrame = false;
 
 	// For received frame fps calculations
-	frameTime = 0.0;
-	fps = frameRate = 1.0; // starting value
 	startTime = lastTime = (double)timeGetTime();
+	fps = frameRate = 1.0; // starting values
+	frameTimeTotal = 0.0; // damping
+	frameTimeNumber = 0.0;
+	lastFrame = 0.0;
 
 	m_bandWidth = NDIlib_recv_bandwidth_highest;
 
@@ -438,8 +444,7 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 	if (userindex < 0) {
 		// If there is an existing name, return it
 		if (!senderName.empty()) {
-// TODO - CHECK
-#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
+#if !defined(TARGET_WIN32)
 			strcpy(sendername, senderName.c_str());
 #else
 			strcpy_s(sendername, maxsize, senderName.c_str());
@@ -454,8 +459,7 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 		&& (unsigned int)index < NDIsenders.size()
 		&& !NDIsenders.empty()
 		&& NDIsenders.at(index).size() > 0) {
-// TODO - CHECK
-#if !defined(TARGET_WIN32) && !defined (TARGET_OSX)
+#if !defined(TARGET_WIN32)
 		strcpy(sendername, NDIsenders.at(index).c_str());
 #else
 		strcpy_s(sendername, maxsize, NDIsenders.at(index).c_str());
@@ -758,15 +762,6 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
-		// Is no data received or the connection lost ?
-		if (NDI_frame_type == NDIlib_frame_type_none)
-			return false;
-
-		if (NDI_frame_type == NDIlib_frame_type_error) {
-			printf("ReceiveImage : NDI_frame_type_error\n");
-			return false;
-		}
-
 		// Set frame type for external access
 		m_FrameType = NDI_frame_type;
 
@@ -780,6 +775,20 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 		m_bAudioFrame = false;
 
 		switch (NDI_frame_type) {
+
+			// No data received or the connection lost
+			case NDIlib_frame_type_none:
+				bRet = false;
+				break;
+
+			case NDIlib_frame_type_error:
+				bRet = false;
+				break;
+
+			// The settings on this input have changed
+			case NDIlib_frame_type_status_change:
+				bRet = false;
+				break;
 
 			case NDIlib_frame_type_metadata:
 				// printf("Metadata\n");
@@ -915,17 +924,6 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
-		// Is no data received or the connection lost ?
-		if (NDI_frame_type == NDIlib_frame_type_none) {
-			// printf("ReceiveImage : NDI_frame_type_none\n");
-			return false;
-		}
-		
-		if (NDI_frame_type == NDIlib_frame_type_error) {
-			printf("ReceiveImage : NDI_frame_type_error\n");
-			return false;
-		}
-
 		// Set frame type for external access
 		m_FrameType = NDI_frame_type;
 
@@ -939,6 +937,20 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		m_bAudioFrame = false;
 
 		switch (NDI_frame_type) {
+
+			// No data received or the connection lost
+			case NDIlib_frame_type_none:
+				bRet = false;
+				break;
+
+			case NDIlib_frame_type_error:
+				bRet = false;
+				break;
+
+			// The settings on this input have changed
+			case NDIlib_frame_type_status_change:
+				bRet = false;
+				break;
 
 			// Metadata
 			case NDIlib_frame_type_metadata :
@@ -994,7 +1006,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 					UpdateFps();
 
 					// Only return true for video data
-					return true;
+					bRet = true;
 				}
 				else {
 					// No video data - no sender
@@ -1009,7 +1021,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		bReceiverConnected = false;
 	}
 
-	return false;
+	return bRet;
 }
 
 // Get the video type received
@@ -1049,9 +1061,9 @@ std::string ofxNDIreceive::GetNDIversion()
 }
 
 // Get the received frame rate
-double ofxNDIreceive::GetFps()
+int ofxNDIreceive::GetFps()
 {
-	return fps;
+	return static_cast<int>(std::floor(fps + 0.5));
 }
 
 //
@@ -1079,18 +1091,16 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 
 }
 
+
 // Received fps is independent of the application draw rate
 void ofxNDIreceive::UpdateFps() {
-
 	// Calculate the actual received fps
 	lastTime = startTime;
 	startTime = GetCounter();
-	frameTime = (startTime - lastTime) / 1000.0; // in seconds
-
-	if (frameTime  > 0.000001) {
-		frameRate = floor(1.0 / frameTime + 0.5);
-		// damping from a starting fps value
-		fps *= 0.95;
+	double frametime = (startTime - lastTime) / 1000.0; // in seconds
+	if (frametime  > 0.000001) {
+		frameRate = 1.0 / frametime; // frames per second
+		fps *= 0.95; // damping from a starting fps value
 		fps += 0.05*frameRate;
 	}
 
@@ -1106,11 +1116,9 @@ void ofxNDIreceive::StartCounter()
 		printf("QueryPerformanceFrequency failed!\n");
 		return;
 	}
-
 	PCFreq = double(li.QuadPart) / 1000.0;
 	QueryPerformanceCounter(&li);
 	CounterStart = li.QuadPart;
-
 	// Reset starting frame rate value
 	fps = frameRate = 1.0;
 }
