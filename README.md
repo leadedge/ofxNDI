@@ -1,6 +1,10 @@
 ﻿## ofxNDI
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
+Your support will help the project continue and develop.
+
+[![](https://www.paypalobjects.com/en_AU/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=P4P4QJZBT87PJ)  
+
 ## Updates
 31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3"\
 (Note changes to function argument variable types to match with Version 3.)\
