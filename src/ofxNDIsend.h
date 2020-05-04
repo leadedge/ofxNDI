@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -46,26 +46,12 @@
 #ifndef __ofxNDIsend__
 #define __ofxNDIsend__
 
-#if defined(_WIN32)
-#include <windows.h>
-#include <intrin.h> // for _movsd
-#endif
-
-#if defined(__APPLE__)
-#include <x86intrin.h> // for _movsd
-#endif
-
 #include <stdio.h>
 #include <string>
-#include <iostream> // for cout
-#include <shlwapi.h>  // for path functions
-#include <Shellapi.h> // for shellexecute
 
+#include "ofxNDIdynloader.h" // NDI library loader
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
-
-#pragma comment(lib, "shlwapi.lib")  // for path functions
-#pragma comment(lib, "Shell32.lib")  // for shellexecute
 
 class ofxNDIsend {
 
@@ -73,8 +59,6 @@ public:
 
 	ofxNDIsend();
 	~ofxNDIsend();
-
-	bool LoadNDI();
 
 	// Create an RGBA sender
 	// - sendername | name for the sender
@@ -202,11 +186,12 @@ public:
 	// Get the current NDI SDK version
 	std::string GetNDIversion();
 
-
 private:
 
-	HMODULE hNDILib;
 	const NDIlib_v4* p_NDILib;
+	bool m_bNDIinitialized;
+
+	ofxNDIdynloader libloader;
 
 	NDIlib_send_create_t NDI_send_create_desc;
 	NDIlib_send_instance_t pNDI_send;
@@ -226,7 +211,6 @@ private:
 	bool m_bProgressive; // Progressive output flag
 	bool m_bClockVideo; // Clock video flag
 	bool m_bAsync; // NDI asynchronous sender
-	bool m_bNDIinitialized; // NDI initialized
 
 	// Audio
 	bool m_bAudio;

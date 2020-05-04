@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -25,41 +25,45 @@
 	=========================================================================
 
 	16.10.16 - Create file
-	11.06.18 - - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
-
+	11.06.18 - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
+	06.12.19 - Remove SSE functions for Linux
+	07.12.19 - remove includes emmintrin.h, xmmintrin.h, iostream, cstdint
 
 */
 #pragma once
 #ifndef __ofxNDI_
 #define __ofxNDI_
 
-// #include <emmintrin.h> // for SSE2
-#include <iostream> // for cout
+#include "ofxNDIplatforms.h" // Openframeworks platform definitions
+#include <stdint.h> // ints of known sizes, standard library
+#include <stdlib.h>
+#include <string.h>
 
 // TODO : test includes for OSX
-#if defined(__APPLE__)
+#if defined(TARGET_OSX)
 #include <x86intrin.h> // for _movsd
-#include <stdlib.h>
-#include <cstdint>
-#include <string.h>
-#else
+#elif defined(TARGET_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
+// #else // Linux
 #endif
 
 #include <cstring>
 #include <climits>
 
 namespace ofxNDIutils {
-
 	void CopyImage(const unsigned char *source, unsigned char *dest, 
 				   unsigned int width, unsigned int height, unsigned int stride,
 				   bool bSwapRB = false, bool bInvert = false);
+// TODO : check it works for OSX
+#if defined(TARGET_WIN32) || defined(TARGET_OSX)
 	void memcpy_sse2(void* dst, const void* src, size_t Size);
+	void memcpy_movsd(void* dst, const void* src, size_t Size);
 	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert = false);
+#endif
+	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert = false);
 	void FlipBuffer(const unsigned char *src, unsigned char *dst, unsigned int width, unsigned int height);
 	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride);
-
 }
 
 

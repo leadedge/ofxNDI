@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -34,17 +34,15 @@
 
 #include "ofMain.h"
 
-#if defined(_WIN32)
-#include <windows.h>
-#include <intrin.h> // for _movsd
-#include <gl\GL.h>
-#include <mmsystem.h> // for timegettime if ofMain is included
-#pragma comment(lib, "Winmm.lib") // for timegettime
-#endif
-
-#if defined(__APPLE__)
-#include <x86intrin.h> // for _movsd
-#include <sys/time.h>
+#if defined(TARGET_WIN32)
+    #include <windows.h>
+    #include <intrin.h> // for _movsd
+    #include <gl\GL.h>
+    #include <mmsystem.h> // for timegettime if ofMain is included
+    #pragma comment(lib, "Winmm.lib") // for timegettime
+#elif defined(TARGET_OSX)
+    #include <x86intrin.h> // for _movsd
+    #include <sys/time.h>
 #endif
 
 #include <string>
@@ -189,7 +187,7 @@ public:
 	std::string GetNDIversion();
 
 	// Timed received frame rate
-	double GetFps();
+	int GetFps();
 
 	// Basic receiver functions
 	ofxNDIreceive NDIreceiver;

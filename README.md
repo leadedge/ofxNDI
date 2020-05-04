@@ -1,10 +1,6 @@
 ﻿## ofxNDI
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
-Your support will help the project continue and develop.
-
-[![](https://www.paypalobjects.com/en_AU/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=P4P4QJZBT87PJ)  
-
 ## Updates
 31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3"\
 (Note changes to function argument variable types to match with Version 3.)\
@@ -13,7 +9,8 @@ Your support will help the project continue and develop.
 10.11.19 - Updated for NDI SDK Vers 4.0\
 15.11.19 - Change to dynamic load of NDI dlls\
 16.11.19 - Reconfigure folders and include make files for the project generator\
-(as per [pull request](https://github.com/leadedge/ofxNDI/pull/11) by prisonerjohn).
+(as per [pull request](https://github.com/leadedge/ofxNDI/pull/11) by prisonerjohn).\
+04.05.20 - Updated for NDI SDK Vers 4.5
 
 With update to NDI 4.0, shaders have been removed. All buffers need to be RGBA or BGRA and, for a sender, conversion to other formats are handled by the NDI API. Default receiving format is BGRA, and conversion to RGBA is made within the ofxNDIreceiver class. Experimental audio functions are included but not tested.
 
@@ -50,7 +47,7 @@ Refer to the example code for options available.
 ofxNDI with help from [Harvey Buchan](https://github.com/Harvey3141).
 
 ## Copyrights
-ofxNDI - Copyright (C) 2016-2019 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
+ofxNDI - Copyright (C) 2016-2020 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser  General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details. You should have received a copy of the GNU Lesser General Public License along with this program.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses).
 

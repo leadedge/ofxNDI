@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -36,6 +36,13 @@
 	10.11.19 - Remove shaders and create an RGBA sender
 			   to let the NDI system perform data conversion.
 			   ofFbo, ofTexture, ofPixels or pixel data mst be RGBA
+	04.12.19 - Revise for ARM port (https://github.com/IDArnhem/ofxNDI)
+			   Cleanup
+	13.12.19 - Temporary changes to disable pbo functions 
+			   to enable compile for Raspberry PI
+	27.02.20 - Restored PBO functions
+			   TODO disable using #ifdef TARGET_RASPBERRY_PI ?
+
 
 */
 #include "ofxNDIsender.h"
@@ -43,10 +50,42 @@
 
 ofxNDIsender::ofxNDIsender()
 {
+
+	// DEBUG - report ARM target
+#ifdef TARGET_LINUX
+	printf("TARGET_LINUX\n");
+#endif
+
+#ifdef TARGET_LINUX_ARM
+	printf("TARGET_LINUX_ARM\n");
+#endif
+
+#ifdef TARGET_OPENGLES
+	printf("TARGET_OPENGLES\n");
+#endif
+	
+#ifdef TARGET_LINUX_ARM
+	printf("TARGET_LINUX_ARM\n");
+#endif
+
+#ifdef TARGET_RASPBERRY_PI
+	printf("TARGET_RASPBERRY_PI\n");
+#endif
+
+#ifdef GL_ES_VERSION_3_0
+	printf("gles3 version\n);
+#endif
+
+#ifdef GL_ES_VERSION_2_0
+	printf("gles2 version\n);
+#endif
+
+
+	m_SenderName = "";
 	m_bReadback = false; // Asynchronous fbo pixel data readback option
 	ndiPbo[0] = 0;
 	ndiPbo[1] = 0;
-	m_SenderName = "";
+
 }
 
 
@@ -78,6 +117,7 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 
 	// Allocate utility fbo
 	ndiFbo.allocate(width, height, GL_RGBA);
+	// ===============================================================
 
 	if (NDIsender.CreateSender(sendername, width, height)) {
 		m_SenderName = sendername;
@@ -92,6 +132,7 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 // Update sender dimensions
 bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 {
+
 	// Re-initialize pixel buffers
 	ndiBuffer[0].allocate(width, height, 4);
 	ndiBuffer[1].allocate(width, height, 4);

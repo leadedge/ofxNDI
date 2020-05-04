@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -48,57 +48,54 @@
 			   To be tested
 	15.11.19 - Change to dynamic load of Newtek NDI dlls
 	19.11.19 - Add conditional audio receive
+	06.12.19 - Add dynamic load class (https://github.com/IDArnhem/ofxNDI)
+	27.02.20 - Add std::chrono functions for fps timing
 
 */
 #pragma once
 #ifndef __ofxNDIreceive__
 #define __ofxNDIreceive__
 
-#if defined(_WIN32)
-#include <windows.h>
-#include <intrin.h> // for _movsd
-#include <gl\GL.h>
-#include <mmsystem.h> // for timegettime if ofMain is included
-#pragma comment(lib, "Winmm.lib") // for timegettime
-#endif
-
-#if defined(__APPLE__)
-#include <x86intrin.h> // for _movsd
-#include <sys/time.h>
-#endif
-
-
 #include <string>
 #include <iostream>
 #include <vector>
-#include <iostream> // for cout
-#include <shlwapi.h>  // for path functions
-#include <Shellapi.h> // for shellexecute
+#include <assert.h>
 
+#include "ofxNDIdynloader.h" // NDI library loader
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 
+#if defined(TARGET_WIN32)
+#include <windows.h>
+#include <intrin.h> // for _movsd
+#include <math.h> ////
+#include <gl\GL.h>
+#include <mmsystem.h> // for timegettime if ofMain is included
+#include <shlwapi.h>  // for path functions
+#include <Shellapi.h> // for shellexecute
+#pragma comment(lib, "Winmm.lib") // for timegettime
 #pragma comment(lib, "shlwapi.lib")  // for path functions
 #pragma comment(lib, "Shell32.lib")  // for shellexecute
-
-// Linux
-#if !defined(_WIN32) && !defined (__APPLE__)
+#elif defined(__APPLE__)
+#include <x86intrin.h> // for _movsd
+#include <sys/time.h>
+#else // Linux
 #include <sys/time.h>
 #include <cstring>
 #include <cmath>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <assert.h>
+#endif
 
+// Linux
+// https://github.com/hugoaboud/ofxNDI
+#if !defined(TARGET_WIN32)
 typedef struct {
 	long long QuadPart;
 } LARGE_INTEGER;
-
 typedef unsigned int DWORD;
-
 #endif
-
 
 
 class ofxNDIreceive {
@@ -108,9 +105,8 @@ public:
 	ofxNDIreceive();
 	~ofxNDIreceive();
 
-	bool LoadNDI();
-
-	// Create a BGRA receiver
+	// Create a receiver
+	// Default format RGBA (x64) or BGRA (Win32)
 	// - index | index in the sender list to connect to
 	//   -1 - connect to the selected sender
 	//        if none selected, connect to the first sender
@@ -249,13 +245,13 @@ public:
 	std::string GetNDIversion();
 
 	// Timed received frame rate
-	double GetFps();
+	int GetFps();
 
 	// ====================================================================
 
 private:
 
-	HMODULE hNDILib;
+	ofxNDIdynloader libloader;
 	const NDIlib_v4* p_NDILib;
 
 	const NDIlib_source_t* p_sources;
@@ -277,14 +273,17 @@ private:
 	bool bSenderSelected; // Sender index has been changed by the user
 	NDIlib_recv_bandwidth_e m_bandWidth; // Bandwidth receive option
 
-	DWORD dwStartTime; // For timing delay
-	DWORD dwElapsedTime;
+	uint32_t dwStartTime; // For timing delay
+	uint32_t dwElapsedTime;
 
 	// For received frame fps calculations
-	double startTime, lastTime, frameTime, frameRate, fps, PCFreq;
+	double PCFreq;
 	int64_t CounterStart;
+	double startTime, lastTime;
 	void StartCounter();
 	double GetCounter();
+	double frameRate, fps;
+	double frameTimeTotal, frameTimeNumber, lastFrame;
 	void UpdateFps();
 
 	// Metadata
@@ -309,6 +308,5 @@ private:
 
 
 };
-
 
 #endif

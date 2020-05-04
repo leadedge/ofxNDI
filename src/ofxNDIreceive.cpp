@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -103,13 +103,25 @@
 	16.11.19 - Protect against loading the NDI dll again
 			 - Initialize m_AudioData to nullptr and check null for access
 	19.11.19 - Add conditional audio receive
+	04.12.19 - Revise for ARM port
+			   Check targets for Linux and OSX - not tested
+			   Cleanup
+	06.12.19 - Change all DWORD to uint32_t
+	07.12.19 - Use Openframeworks platform target definitions in ofxNDIplatforms.h
+	27.02.20 - Remove !defined(TARGET_OSX) condition for counter variables, functions, strcpy_s and TimeGetTime
+	28.02.20 - Move NDIlib_frame_type_none, NDIlib_frame_type_error inside switch
+			 - Add NDIlib_frame_type_status_change to switch
+	29.02.20 - Move rounding from UpdateFps to GetFps
+			 - Change from math foor to std::floor
+			 - Change GetFps from double to int
 
 */
 #include "ofxNDIreceive.h"
 
 // Linux
-#if !defined(_WIN32) && !defined (__APPLE__)
-unsigned int timeGetTime() {
+// https://github.com/hugoaboud/ofxNDI
+#if !defined(TARGET_WIN32)
+double timeGetTime() {
 	struct timeval now;
 	gettimeofday(&now, NULL);
 	return now.tv_usec / 1000;
@@ -125,10 +137,8 @@ bool QueryPerformanceFrequency(LARGE_INTEGER *frequency)
 {
 	// Sanity check.
 	assert(frequency != NULL);
-
 	// gettimeofday reports to microsecond accuracy.
 	frequency->QuadPart = usec_per_sec;
-
 	return true;
 }
 
@@ -148,10 +158,8 @@ bool QueryPerformanceCounter(LARGE_INTEGER *performance_count)
 }
 #endif
 
-
 ofxNDIreceive::ofxNDIreceive()
 {
-	hNDILib = NULL;
 	p_NDILib = NULL;
 	pNDI_find = NULL;
 	pNDI_recv = NULL;
@@ -171,14 +179,18 @@ ofxNDIreceive::ofxNDIreceive()
 	m_bAudioFrame = false;
 
 	// For received frame fps calculations
-	frameTime = 0.0;
-	fps = frameRate = 1.0; // starting value
 	startTime = lastTime = (double)timeGetTime();
+	fps = frameRate = 1.0; // starting values
+	frameTimeTotal = 0.0; // damping
+	frameTimeNumber = 0.0;
+	lastFrame = 0.0;
 
 	m_bandWidth = NDIlib_recv_bandwidth_highest;
 
 	// Find and load the NDI dll
-	LoadNDI();
+	p_NDILib = libloader.Load();
+	if (p_NDILib)
+		bNDIinitialized = true;
 
 }
 
@@ -188,132 +200,8 @@ ofxNDIreceive::~ofxNDIreceive()
 	FreeAudioData();
 	if(pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
 	if(pNDI_find) p_NDILib->find_destroy(pNDI_find);
-	if (p_NDILib) p_NDILib->destroy();
-	if (hNDILib) FreeLibrary(hNDILib);
+	// Library is released in ofxNDIdynloader
 }
-
-
-// Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files 
-bool ofxNDIreceive::LoadNDI()
-{
-	// Protect against loading the NDI dll again
-	if (bNDIinitialized)
-		return true;
-
-	std::string ndi_path = "";
-
-#ifdef _WIN32
-	// First look in the executable folder for the dlls
-	// in case they are distributed with the application.
-	char path[MAX_PATH];
-	DWORD dwSize = GetModuleFileNameA(NULL, path, sizeof(path));
-	if (dwSize > 0) {
-		PathRemoveFileSpecA(path); // Remove executable name
-		strcat_s(path, MAX_PATH, "\\");
-		strcat_s(path, MAX_PATH, NDILIB_LIBRARY_NAME);
-		// Does the dll file exist in the executable folder ?
-		if (PathFileExistsA(path)) {
-			// Use the exe path
-			ndi_path = path;
-		}
-		else {
-			// The dll does not exist in exe folder
-			// Check whether the NDI run-time is installed
-			char *p_ndi_runtime_v4 = NULL;
-			size_t nchars;
-			_dupenv_s((char **)&p_ndi_runtime_v4, &nchars, NDILIB_REDIST_FOLDER);
-			if (!p_ndi_runtime_v4) {
-				// The NDI run-time is not yet installed. Let the user know and take them to the download URL.
-				MessageBoxA(NULL, "The NewTek NDI run-time is not yet installed\nPlease install it to use this application", "Warning.", MB_OK);
-				ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-				return false;
-			}
-			// Get the full path of the installed dll
-			ndi_path = p_ndi_runtime_v4;
-			ndi_path += "\\" NDILIB_LIBRARY_NAME;
-			free(p_ndi_runtime_v4); // free the buffer allocated by _dupenv_s
-		}
-		// Now we have the DLL path
-		// printf("Path [%s]\n", ndi_path.c_str());
-	}
-
-	// Try to load the library
-	hNDILib = LoadLibraryA(ndi_path.c_str());
-	if (!hNDILib) {
-		MessageBoxA(NULL, "NDI library failed to load", "Warning", MB_OK);
-		return false;
-	}
-
-	// The main NDI entry point for dynamic loading if we got the library
-	const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
-	*((FARPROC*)&NDIlib_v4_load) = GetProcAddress(hNDILib, "NDIlib_v4_load");
-
-	// If we failed to load the library then we tell people to re-install it
-	if (!NDIlib_v4_load)
-	{	// Unload the DLL if we loaded it
-		if (hNDILib)
-			FreeLibrary(hNDILib);
-		// The NDI run-time is not installed correctly. Let the user know and take them to the download URL.
-		MessageBoxA(NULL, "Failed to find Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
-		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-		return false;
-	}
-#else
-	// TODO : to be tested
-	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
-	if (p_NDI_runtime_folder)
-	{
-		ndi_path = p_NDI_runtime_folder;
-		ndi_path += NDILIB_LIBRARY_NAME;
-	}
-	else ndi_path = NDILIB_LIBRARY_NAME;
-
-	// Try to load the library
-	void *hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
-
-	// The main NDI entry point for dynamic loading if we got the library
-	const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
-	if (hNDILib)
-		*((void**)&NDIlib_v4_load) = dlsym(hNDILib, "NDIlib_v4_load");
-
-	// If we failed to load the library then we tell people to re-install it
-	if (!NDIlib_v4_load)
-	{	// Unload the library if we loaded it
-		if (hNDILib)
-			dlclose(hNDILib);
-		printf("Please re-install the NewTek NDI Runtimes from " NDILIB_REDIST_URL " to use this application");
-		return false;
-	}
-#endif
-
-	// Get all of the DLL entry points
-	p_NDILib = NDIlib_v4_load();
-	if (!p_NDILib) {
-		MessageBoxA(NULL, "Failed to load Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
-		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-		return false;
-	}
-
-	// Check cpu compatibility
-	if (!p_NDILib->is_supported_CPU()) {
-		MessageBoxA(NULL, "CPU does not support NDI NDILib requires SSE4.1 NDIreceiver", "Warning", MB_OK);
-		if (hNDILib)
-			FreeLibrary(hNDILib);
-		return false;
-	}
-	else {
-		if (!p_NDILib->initialize()) {
-			MessageBoxA(NULL, "Cannot run NDI - NDILib initialization failed", "Warning", MB_OK);
-			if (hNDILib)
-				FreeLibrary(hNDILib);
-			return false;
-		}
-		bNDIinitialized = true;
-	}
-
-	return true;
-}
-
 
 
 // Create a finder to look for a sources on the network
@@ -556,11 +444,11 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 	if (userindex < 0) {
 		// If there is an existing name, return it
 		if (!senderName.empty()) {
-			#if !defined(_WIN32) && !defined (__APPLE__)
+#if !defined(TARGET_WIN32)
 			strcpy(sendername, senderName.c_str());
-			#else
+#else
 			strcpy_s(sendername, maxsize, senderName.c_str());
-			#endif
+#endif
 			return true;
 		}
 		// Otherwise use the existing index
@@ -571,11 +459,11 @@ bool ofxNDIreceive::GetSenderName(char *sendername, int maxsize, int userindex)
 		&& (unsigned int)index < NDIsenders.size()
 		&& !NDIsenders.empty()
 		&& NDIsenders.at(index).size() > 0) {
-		#if !defined(_WIN32) && !defined (__APPLE__)
+#if !defined(TARGET_WIN32)
 		strcpy(sendername, NDIsenders.at(index).c_str());
-		#else
+#else
 		strcpy_s(sendername, maxsize, NDIsenders.at(index).c_str());
-		#endif
+#endif
 		return true;
 	}
 
@@ -711,14 +599,20 @@ void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, 
 
 
 // Create a receiver
-// Default NDI format is BGRA
-// If the application format is RGBA, data is converted
-// to RGBA during copy from the video frame buffer.
+// If the NDI format is BGRA and the application format is RGBA,
+// data is converted from BGRA to RGBA during copy from the video frame buffer.
 bool ofxNDIreceive::CreateReceiver(int userindex)
 {
-	// NDI 4.0 > VERSION 4.1.3 BETA required for RGBA preferred
+	// NDI 4.0 > VERSION 4.1.3
+	// NDI bug to be resolved.
+	// 64 bit required for RGBA preferred
+	// 32 bit returns BGRA even if RGBA preferred.
+	// If you find the received result is BGRA, set the receiver to prefer BGRA
+#if defined(_WIN64)
 	return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
-	// return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
+#else
+	return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
+#endif
 }
 
 // Create a receiver with preferred colour format
@@ -868,15 +762,6 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
-		// Is no data received or the connection lost ?
-		if (NDI_frame_type == NDIlib_frame_type_none)
-			return false;
-
-		if (NDI_frame_type == NDIlib_frame_type_error) {
-			printf("ReceiveImage : NDI_frame_type_error\n");
-			return false;
-		}
-
 		// Set frame type for external access
 		m_FrameType = NDI_frame_type;
 
@@ -890,6 +775,20 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 		m_bAudioFrame = false;
 
 		switch (NDI_frame_type) {
+
+			// No data received or the connection lost
+			case NDIlib_frame_type_none:
+				bRet = false;
+				break;
+
+			case NDIlib_frame_type_error:
+				bRet = false;
+				break;
+
+			// The settings on this input have changed
+			case NDIlib_frame_type_status_change:
+				bRet = false;
+				break;
 
 			case NDIlib_frame_type_metadata:
 				// printf("Metadata\n");
@@ -1025,17 +924,6 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
-		// Is no data received or the connection lost ?
-		if (NDI_frame_type == NDIlib_frame_type_none) {
-			// printf("ReceiveImage : NDI_frame_type_none\n");
-			return false;
-		}
-		
-		if (NDI_frame_type == NDIlib_frame_type_error) {
-			printf("ReceiveImage : NDI_frame_type_error\n");
-			return false;
-		}
-
 		// Set frame type for external access
 		m_FrameType = NDI_frame_type;
 
@@ -1049,6 +937,20 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		m_bAudioFrame = false;
 
 		switch (NDI_frame_type) {
+
+			// No data received or the connection lost
+			case NDIlib_frame_type_none:
+				bRet = false;
+				break;
+
+			case NDIlib_frame_type_error:
+				bRet = false;
+				break;
+
+			// The settings on this input have changed
+			case NDIlib_frame_type_status_change:
+				bRet = false;
+				break;
 
 			// Metadata
 			case NDIlib_frame_type_metadata :
@@ -1104,7 +1006,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 					UpdateFps();
 
 					// Only return true for video data
-					return true;
+					bRet = true;
 				}
 				else {
 					// No video data - no sender
@@ -1119,7 +1021,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		bReceiverConnected = false;
 	}
 
-	return false;
+	return bRet;
 }
 
 // Get the video type received
@@ -1159,9 +1061,9 @@ std::string ofxNDIreceive::GetNDIversion()
 }
 
 // Get the received frame rate
-double ofxNDIreceive::GetFps()
+int ofxNDIreceive::GetFps()
 {
-	return fps;
+	return static_cast<int>(std::floor(fps + 0.5));
 }
 
 //
@@ -1189,18 +1091,16 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 
 }
 
+
 // Received fps is independent of the application draw rate
 void ofxNDIreceive::UpdateFps() {
-
 	// Calculate the actual received fps
 	lastTime = startTime;
 	startTime = GetCounter();
-	frameTime = (startTime - lastTime) / 1000.0; // in seconds
-
-	if (frameTime  > 0.000001) {
-		frameRate = floor(1.0 / frameTime + 0.5);
-		// damping from a starting fps value
-		fps *= 0.95;
+	double frametime = (startTime - lastTime) / 1000.0; // in seconds
+	if (frametime  > 0.000001) {
+		frameRate = 1.0 / frametime; // frames per second
+		fps *= 0.95; // damping from a starting fps value
 		fps += 0.05*frameRate;
 	}
 
@@ -1216,11 +1116,9 @@ void ofxNDIreceive::StartCounter()
 		printf("QueryPerformanceFrequency failed!\n");
 		return;
 	}
-
 	PCFreq = double(li.QuadPart) / 1000.0;
 	QueryPerformanceCounter(&li);
 	CounterStart = li.QuadPart;
-
 	// Reset starting frame rate value
 	fps = frameRate = 1.0;
 }

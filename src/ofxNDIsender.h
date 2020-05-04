@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -25,6 +25,7 @@
 	=========================================================================
 
 	08.07.18 - Use ofxNDIsend class
+	07.12.19 - remove iostream
 
 */
 #pragma once
@@ -33,18 +34,17 @@
 
 #include "ofMain.h"
 
-#if defined(_WIN32)
+#if defined(TARGET_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
-#endif
-
-#if defined(__APPLE__)
+#elif defined(TARGET_OSX)
 #include <x86intrin.h> // for _movsd
+#elif defined(TARGET_LINUX)
+//// TODO - what? - Check
 #endif
 
 #include <stdio.h>
 #include <string>
-#include <iostream> // for cout
 #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIsend.h" // basic sender functions
 #include "ofxNDIutils.h" // buffer copy utilities
@@ -220,14 +220,15 @@ public:
 private:
 
 	ofxNDIsend NDIsender; // Basic sender functions
-	bool m_bReadback; // Asynchronous readback of pixels from FBO using two PBOs
+	std::string m_SenderName; // current sender name
+
 	ofPixels ndiBuffer[2]; // Two pixel buffers for async sending
 	int m_idx; // Index used for async buffer swapping
+
+	bool m_bReadback; // Asynchronous readback of pixels from FBO using two PBOs
 	GLuint ndiPbo[2]; // PBOs used for asynchronous read-back from fbo
 	int PboIndex; // Index used for asynchronous read-back from fbo
 	int NextPboIndex;
-	std::string m_SenderName; // current sender name
-
 	ofFbo ndiFbo; // Utility Fbo
 
 	// Read pixels from fbo to buffer
