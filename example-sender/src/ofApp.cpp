@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -106,7 +106,7 @@ void ofApp::setup(){
 	ofDisableArbTex(); // needed for textures to work
 	textureImage.load("NDI_Box.png"); // Load a texture image for the demo
 	// Workaround for mirrored texture with ofDrawBox and ofBoxPrimitive for Openframeworks 10.
-#if OF_VERSION_MINOR == 10
+#if OF_VERSION_MINOR >= 10
 	textureImage.mirror(false, true);
 #endif
 
@@ -130,10 +130,12 @@ void ofApp::draw() {
 	ofBackground(0);
 	ofColor(255);
 
+	// Pixel data extraction from fbo or texture
+	// is optimised using ndiSender.SetReadback()
+	// which uses two OpenGL pixel buffers (pbo's)
+
 	// Option 1 : Send ofFbo
 	// ofFbo and ofTexture must be RGBA
-	// Pixel data extraction from fbo or texture
-	// is optimised using ndiSender.SetReadback();
 	DrawGraphics();
 	ndiSender.SendImage(ndiFbo);
 

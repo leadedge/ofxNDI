@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -53,6 +53,8 @@
 	06.08.18 - Include all receiving options in example
 	27.03.19 - Add example of using ReceiverCreated, ReceiverConnected and GetSenderFps
 	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
+	28.02.20 - Remove initial texture clear.
+			   Add received fps to on-screen display
 
 */
 #include "ofApp.h"
@@ -77,6 +79,7 @@ void ofApp::setup(){
 
 	// ofFbo
 	ndiFbo.allocate(ofGetWidth(), ofGetHeight(), GL_RGBA);
+
 	// Clear the fbo so the first frame draw is black
 	ndiFbo.begin();
 	ofClear(0, 0, 0, 0);
@@ -84,8 +87,6 @@ void ofApp::setup(){
 
 	// ofTexture
 	ndiTexture.allocate(ofGetWidth(), ofGetHeight(), GL_RGBA);
-	// Clear the texture so the first frame draw is black
-	glClearTexImage(ndiTexture.getTextureData().textureID, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
 	// ofImage
 	ndiImage.allocate(ofGetWidth(), ofGetHeight(), OF_IMAGE_COLOR_ALPHA);
@@ -151,10 +152,9 @@ void ofApp::draw(){
 			ndiImage.update();
 		}
 	}
-	*/
-
 	// Draw whether received or not
 	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	*/
 
 	// Show what it is receiving
 	ShowInfo();
@@ -170,8 +170,8 @@ void ofApp::ShowInfo() {
 
 		if (ndiReceiver.ReceiverCreated()) {
 			if (ndiReceiver.ReceiverConnected()) {
-				// Show received sender information
-				sprintf_s(str, 256, "[%s] (%dx%d/%4.2fp)", ndiReceiver.GetSenderName().c_str(), ndiReceiver.GetSenderWidth(), ndiReceiver.GetSenderHeight(), ndiReceiver.GetSenderFps());
+				// Show received sender information and received fps
+				sprintf_s(str, 256, "[%s] (%dx%d/%4.2fp) (fps %2.0f)", ndiReceiver.GetSenderName().c_str(), ndiReceiver.GetSenderWidth(), ndiReceiver.GetSenderHeight(), ndiReceiver.GetSenderFps(), ndiReceiver.GetFps());
 			}
 			else {
 				// Nothing received
