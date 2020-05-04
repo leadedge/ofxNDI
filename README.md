@@ -13,7 +13,8 @@ Use this branch for testing modifications to ofxNDI before incorporating in the 
 15.11.19 - Change to dynamic load of NDI dlls\
 16.11.19 - Reconfigure folders and include make files for the project generator\
 (as per [pull request](https://github.com/leadedge/ofxNDI/pull/11) by prisonerjohn).\
-04.05.20 - Updated for NDI SDK Vers 4.5
+04.05.20 - Updated for NDI SDK Vers 4.5\
+04.05.20 - Merged testing branch changes for dynamic loader and Linux to master
 
 With update to NDI 4.0, shaders have been removed. All buffers need to be RGBA or BGRA and, for a sender, conversion to other formats are handled by the NDI API. Default receiving format is BGRA, and conversion to RGBA is made within the ofxNDIreceiver class. Experimental audio functions are included but not tested.
 
