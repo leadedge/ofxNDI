@@ -171,11 +171,11 @@ void ofApp::ShowInfo() {
 		if (ndiReceiver.ReceiverCreated()) {
 			if (ndiReceiver.ReceiverConnected()) {
 				// Show received sender information and received fps
-				sprintf_s(str, 256, "[%s] (%dx%d/%4.2fp) (fps %2.0f)", ndiReceiver.GetSenderName().c_str(), ndiReceiver.GetSenderWidth(), ndiReceiver.GetSenderHeight(), ndiReceiver.GetSenderFps(), ndiReceiver.GetFps());
+//				sprintf_s(str, 256, "[%s] (%dx%d/%4.2fp) (fps %2.0f)", ndiReceiver.GetSenderName().c_str(), ndiReceiver.GetSenderWidth(), ndiReceiver.GetSenderHeight(), ndiReceiver.GetSenderFps(), ndiReceiver.GetFps());
 			}
 			else {
 				// Nothing received
-				sprintf_s(str, 256, "Connecting to [%s]", ndiReceiver.GetSenderName().c_str());
+//				sprintf_s(str, 256, "Connecting to [%s]", ndiReceiver.GetSenderName().c_str());
 			}
 		}
 		ofDrawBitmapString(str, 20, 30);
@@ -184,7 +184,7 @@ void ofApp::ShowInfo() {
 			ofDrawBitmapString("1 network source", 20, ofGetHeight() - 20);
 		}
 		else {
-			sprintf_s(str, 256, "%d network sources", nsenders);
+//			sprintf_s(str, 256, "%d network sources", nsenders);
 			ofDrawBitmapString(str, 20, ofGetHeight() - 40);
 			ofDrawBitmapString("'SPACE' to list senders", 20, ofGetHeight() - 20);
 		}

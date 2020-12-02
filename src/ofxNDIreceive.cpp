@@ -117,7 +117,7 @@
 
 */
 #include "ofxNDIreceive.h"
-
+#include <math.h>
 // Linux
 // https://github.com/hugoaboud/ofxNDI
 #if !defined(TARGET_WIN32)
@@ -1063,7 +1063,7 @@ std::string ofxNDIreceive::GetNDIversion()
 // Get the received frame rate
 int ofxNDIreceive::GetFps()
 {
-	return static_cast<int>(std::floor(fps + 0.5));
+	return static_cast<int>(floor(fps + 0.5));
 }
 
 //
