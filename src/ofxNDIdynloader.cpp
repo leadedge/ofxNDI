@@ -183,7 +183,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
             dlclose(m_hNDILib);
 			m_hNDILib = NULL;
         }
-        WARNS << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application" << endl::endl;
+        WARNS << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application" << std::endl;
         return nullptr;
     }
 
