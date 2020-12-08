@@ -55,6 +55,7 @@
 	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
 	28.02.20 - Remove initial texture clear.
 			   Add received fps to on-screen display
+	08.12.20 - Change from sprintf to std::string for on-screen display
 
 */
 #include "ofApp.h"
@@ -74,7 +75,7 @@ void ofApp::setup(){
 	cout << "\nofxNDI example receiver - 32 bit" << endl;
 #endif // _WIN64
 
-	cout << ndiReceiver.GetNDIversion() << " (http://ndi.tv/)" << endl;
+	cout << ndiReceiver.GetNDIversion() << " (https://www.ndi.tv/)" << endl;
 	cout << "Press 'SPACE' to list NDI senders" << endl;
 
 	// ofFbo
@@ -163,7 +164,7 @@ void ofApp::draw(){
 
 void ofApp::ShowInfo() {
 
-	char str[256];
+	std::string str;
 
 	int nsenders = ndiReceiver.GetSenderCount();
 	if (nsenders > 0) {
@@ -171,11 +172,15 @@ void ofApp::ShowInfo() {
 		if (ndiReceiver.ReceiverCreated()) {
 			if (ndiReceiver.ReceiverConnected()) {
 				// Show received sender information and received fps
-				sprintf_s(str, 256, "[%s] (%dx%d/%4.2fp) (fps %2.0f)", ndiReceiver.GetSenderName().c_str(), ndiReceiver.GetSenderWidth(), ndiReceiver.GetSenderHeight(), ndiReceiver.GetSenderFps(), ndiReceiver.GetFps());
-			}
-			else {
-				// Nothing received
-				sprintf_s(str, 256, "Connecting to [%s]", ndiReceiver.GetSenderName().c_str());
+				str = "["; str += ndiReceiver.GetSenderName(); str += "] (";
+				str += to_string(ndiReceiver.GetSenderWidth()); str += "x";
+				str += to_string(ndiReceiver.GetSenderHeight()); str += ")/";
+				float fps = ndiReceiver.GetSenderFps();
+				str += to_string((int)fps); str += ".";
+				str += to_string((int)(fps * 100) - (int)fps * 100); str += "fps) (at fps ";
+				fps = ndiReceiver.GetFps();
+				str += to_string((int)fps); str += ".";
+				str += to_string((int)(fps * 100) - (int)fps * 100); str += ")";
 			}
 		}
 		ofDrawBitmapString(str, 20, 30);
@@ -184,7 +189,8 @@ void ofApp::ShowInfo() {
 			ofDrawBitmapString("1 network source", 20, ofGetHeight() - 20);
 		}
 		else {
-			sprintf_s(str, 256, "%d network sources", nsenders);
+			str = to_string(nsenders);
+			str += " network sources";
 			ofDrawBitmapString(str, 20, ofGetHeight() - 40);
 			ofDrawBitmapString("'SPACE' to list senders", 20, ofGetHeight() - 20);
 		}

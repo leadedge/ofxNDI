@@ -112,8 +112,10 @@
 	28.02.20 - Move NDIlib_frame_type_none, NDIlib_frame_type_error inside switch
 			 - Add NDIlib_frame_type_status_change to switch
 	29.02.20 - Move rounding from UpdateFps to GetFps
-			 - Change from math foor to std::floor
+			 - Change from math floor to std::floor
 			 - Change GetFps from double to int
+	03.12.20 - Change NULL to nullptr for pointers
+			 - Change back from from std::floor to math floor due to compatibility problems
 
 */
 #include "ofxNDIreceive.h"
@@ -160,10 +162,10 @@ bool QueryPerformanceCounter(LARGE_INTEGER *performance_count)
 
 ofxNDIreceive::ofxNDIreceive()
 {
-	p_NDILib = NULL;
-	pNDI_find = NULL;
-	pNDI_recv = NULL;
-	p_sources = NULL;
+	p_NDILib = nullptr;
+	pNDI_find = nullptr;
+	pNDI_recv = nullptr;
+	p_sources = nullptr;
 	no_sources = 0;
 	bNDIinitialized = false;
 	bReceiverCreated = false;
@@ -212,7 +214,7 @@ void ofxNDIreceive::CreateFinder()
 	if (pNDI_find) p_NDILib->find_destroy(pNDI_find);
 	const NDIlib_find_create_t NDI_find_create_desc = { true, NULL, NULL }; // Version 2
 	pNDI_find = p_NDILib->find_create_v2(&NDI_find_create_desc);
-	p_sources = NULL;
+	p_sources = nullptr;
 	no_sources = 0;
 	nsenders = 0;
 
@@ -224,8 +226,8 @@ void ofxNDIreceive::ReleaseFinder()
 	if(!bNDIinitialized) return;
 
 	if (pNDI_find) p_NDILib->find_destroy(pNDI_find);
-	pNDI_find = NULL;
-	p_sources = NULL;
+	pNDI_find = nullptr;
+	p_sources = nullptr;
 	no_sources = 0;
 
 }
@@ -737,7 +739,7 @@ void ofxNDIreceive::ReleaseReceiver()
 	m_Width = 0;
 	m_Height = 0;
 	senderName.empty();
-	pNDI_recv = NULL;
+	pNDI_recv = nullptr;
 	bReceiverCreated = false;
 	bReceiverConnected = false;
 	bSenderSelected = false;
@@ -1074,20 +1076,20 @@ int ofxNDIreceive::GetFps()
 // Replacement for deprecated NDIlib_find_get_sources
 // If no timeout specified, return the sources that exist right now
 // For a timeout, wait for that timeout and return the sources that exist then
-// If that fails, return NULL
+// If that fails, return nullptr
 const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_instance,
 	uint32_t* p_no_sources,
 	uint32_t timeout_in_ms)
 {
 	if (!p_instance)
-		return NULL;
+		return nullptr;
 
 	if ((!timeout_in_ms) || (p_NDILib->find_wait_for_sources(p_instance, timeout_in_ms))) {
 		// Recover the current set of sources (i.e. the ones that exist right this second)
 		return p_NDILib->find_get_current_sources(p_instance, p_no_sources);
 	}
 
-	return NULL;
+	return nullptr;
 
 }
 
