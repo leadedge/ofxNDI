@@ -116,8 +116,10 @@
 			 - Change GetFps from double to int
 	03.12.20 - Change NULL to nullptr for pointers
 			 - Change back from from std::floor to math floor due to compatibility problems
+	15.12.20 - Add more checks for p_NDILib
 
 */
+
 #include "ofxNDIreceive.h"
 #include <math.h>
 // Linux
@@ -200,8 +202,8 @@ ofxNDIreceive::ofxNDIreceive()
 ofxNDIreceive::~ofxNDIreceive()
 {
 	FreeAudioData();
-	if(pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
-	if(pNDI_find) p_NDILib->find_destroy(pNDI_find);
+	if(p_NDILib && pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
+	if(p_NDILib && pNDI_find) p_NDILib->find_destroy(pNDI_find);
 	// Library is released in ofxNDIdynloader
 }
 
@@ -760,6 +762,8 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 	m_FrameType = NDIlib_frame_type_none;
 	bool bRet = false;
 
+	if (!bNDIinitialized) return false;
+
 	if (pNDI_recv) {
 
 		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
@@ -922,6 +926,8 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 	m_FrameType = NDIlib_frame_type_none;
 	bool bRet = false;
 
+	if (!bNDIinitialized) return false;
+
 	if (pNDI_recv) {
 
 		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
@@ -1041,7 +1047,7 @@ unsigned char *ofxNDIreceive::GetVideoData()
 // Free NDI video frame buffers
 void ofxNDIreceive::FreeVideoData()
 {
-	if (video_frame.p_data) 
+	if (p_NDILib && video_frame.p_data)
 		p_NDILib->recv_free_video_v2(pNDI_recv, &video_frame);
 }
 
@@ -1059,7 +1065,10 @@ void ofxNDIreceive::FreeAudioData()
 // Get NDI dll version number
 std::string ofxNDIreceive::GetNDIversion()
 {
-	return p_NDILib->version();
+	if (p_NDILib)
+		return p_NDILib->version();
+	else
+		return "";
 }
 
 // Get the received frame rate
@@ -1081,6 +1090,8 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 	uint32_t* p_no_sources,
 	uint32_t timeout_in_ms)
 {
+	if (!bNDIinitialized) return false;
+
 	if (!p_instance)
 		return nullptr;
 

@@ -73,6 +73,7 @@
 			    - Cleanup
 	07.12.19	- Use Openframeworks platform target definitions in ofxNDIplatforms.h
 	03.12.20	- Change NULL to nullptr for pointers
+	15.12.20	- Add more checks for p_NDILib
 
 
 */
@@ -126,6 +127,7 @@ ofxNDIsend::~ofxNDIsend()
 // Create an RGBA sender
 bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsigned int height)
 {
+	if (!m_bNDIinitialized) return false;
 
 	if (width == 0 || height == 0)
 		return false;
@@ -225,6 +227,8 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 // Update sender dimensions
 bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 {
+	if (!m_bNDIinitialized) return false;
+
 	if(pNDI_send && m_bAsync) {
 		// Because one buffer is in flight we need to make sure that 
 		// there is no chance that we might free it before NDI is done with it. 
@@ -281,6 +285,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
+	if (!m_bNDIinitialized) return false;
 
 	if (pNDI_send && bSenderInitialized && pixels && width > 0 && height > 0) {
 
@@ -357,6 +362,8 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 void ofxNDIsend::ReleaseSender()
 {
 	bSenderInitialized = false; // Do this now so no more frames are sent
+
+	if (!m_bNDIinitialized) return;
 
 	// Destroy the NDI sender
 	if (pNDI_send != nullptr) {

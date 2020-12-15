@@ -1,5 +1,5 @@
 #pragma once
-#include <cstddef>
+
 // NOTE : The following MIT license applies to this file ONLY and not to the SDK as a whole. Please review the SDK documentation 
 // for the description of the full license terms, which are also provided in the file "NDI License Agreement.pdf" within the SDK or 
 // online at http://new.tk/ndisdk_license/. Your use of any part of this SDK is acknowledgment that you agree to the SDK license 
