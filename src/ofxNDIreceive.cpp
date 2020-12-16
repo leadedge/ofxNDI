@@ -117,6 +117,9 @@
 	03.12.20 - Change NULL to nullptr for pointers
 			 - Change back from from std::floor to math floor due to compatibility problems
 	15.12.20 - Add more checks for p_NDILib
+			 - Correct FindGetSources return false to nullptr if not initialized
+	16.12.20 - Update to 4.5 : recv_capture_v3, NDIlib_audio_frame_v3_t, recv_free_audio_v3 
+
 
 */
 
@@ -758,7 +761,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 {
 	NDIlib_frame_type_e NDI_frame_type;
 	NDIlib_metadata_frame_t metadata_frame;
-	NDIlib_audio_frame_v2_t audio_frame;
+	// Update to 4.5
+	// NDIlib_audio_frame_v2_t audio_frame;
+	NDIlib_audio_frame_v3_t audio_frame;
 	m_FrameType = NDIlib_frame_type_none;
 	bool bRet = false;
 
@@ -766,7 +771,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 	if (pNDI_recv) {
 
-		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		// Update to 4.5
+		// NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		NDI_frame_type = p_NDILib->recv_capture_v3(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
 		// Set frame type for external access
 		m_FrameType = NDI_frame_type;
@@ -827,7 +834,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-						p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						// U9date for 4.5
+						// p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
@@ -922,7 +931,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 {
 	NDIlib_frame_type_e NDI_frame_type;
 	NDIlib_metadata_frame_t metadata_frame;
-	NDIlib_audio_frame_v2_t audio_frame;
+	// Update to 4.5
+	// NDIlib_audio_frame_v2_t audio_frame;
+	NDIlib_audio_frame_v3_t audio_frame;
 	m_FrameType = NDIlib_frame_type_none;
 	bool bRet = false;
 
@@ -930,7 +941,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 	if (pNDI_recv) {
 
-		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		// Update to 4.5
+		// NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		NDI_frame_type = p_NDILib->recv_capture_v3(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0); 
 
 		// Set frame type for external access
 		m_FrameType = NDI_frame_type;
@@ -987,7 +1000,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-						p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						// Update to 4.5
+						// p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
@@ -1090,7 +1105,8 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 	uint32_t* p_no_sources,
 	uint32_t timeout_in_ms)
 {
-	if (!bNDIinitialized) return false;
+	if (!bNDIinitialized) 
+		return nullptr;
 
 	if (!p_instance)
 		return nullptr;
