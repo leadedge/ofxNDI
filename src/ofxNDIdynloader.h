@@ -1,6 +1,7 @@
 #ifndef ofxNDIdynloader_H
 #define ofxNDIdynloader_H
 
+#include <cstddef> // to avoid NULL definition problem
 #include "ofxNDIplatforms.h"
 #include "Processing.NDI.Lib.h" // NDI SDK
 

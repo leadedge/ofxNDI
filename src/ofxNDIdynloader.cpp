@@ -35,6 +35,8 @@
 				- Repeat library load guard if not nullptr
 				- FindRuntime() function used for Linux/OSX
 				- "using namespace std" not used due to previous advice
+	03.12.20	- Change NULL to nullptr for all pointers
+				- #include <cstddef> in header to avoid NULL definition problem
 
 */
 
@@ -82,7 +84,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 		else {
 			// The dll does not exist in exe folder
 			// Check whether the NDI run-time is installed
-			char *p_ndi_runtime_v4 = NULL;
+			char *p_ndi_runtime_v4 = nullptr;
 			size_t nchars;
 			_dupenv_s((char **)&p_ndi_runtime_v4, &nchars, NDILIB_REDIST_FOLDER);
 			if (!p_ndi_runtime_v4) {
@@ -108,7 +110,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 	}
 
 	// The main NDI entry point for dynamic loading if we got the library
-	const NDIlib_v4* (*NDIlib_v4_load)(void) = NULL;
+	const NDIlib_v4* (*NDIlib_v4_load)(void) = nullptr;
 	*((FARPROC*)&NDIlib_v4_load) = GetProcAddress(m_hNDILib, "NDIlib_v4_load");
 
 	// If we failed to load the library then we tell people to re-install it
@@ -183,7 +185,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
             dlclose(m_hNDILib);
 			m_hNDILib = NULL;
         }
-        WARNS << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application" << endl::endl;
+        WARNS << "Please re-install the NewTek NDI Runtimes from " << NDILIB_REDIST_URL << " to use this application" << std::endl;
         return nullptr;
     }
 

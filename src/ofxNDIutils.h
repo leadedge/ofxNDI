@@ -38,6 +38,7 @@
 #include <stdint.h> // ints of known sizes, standard library
 #include <stdlib.h>
 #include <string.h>
+#include <iostream> // for cout
 
 // TODO : test includes for OSX
 #if defined(TARGET_OSX)

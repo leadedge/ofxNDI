@@ -112,12 +112,22 @@
 	28.02.20 - Move NDIlib_frame_type_none, NDIlib_frame_type_error inside switch
 			 - Add NDIlib_frame_type_status_change to switch
 	29.02.20 - Move rounding from UpdateFps to GetFps
-			 - Change from math foor to std::floor
+			 - Change from math floor to std::floor
 			 - Change GetFps from double to int
+	03.12.20 - Change NULL to nullptr for pointers
+			 - Change back from from std::floor to math floor due to compatibility problems
+	15.12.20 - Add more checks for p_NDILib
+			 - Correct FindGetSources return false to nullptr if not initialized
+	16.12.20 - Update to 4.5 : recv_capture_v3, NDIlib_audio_frame_v3_t, recv_free_audio_v3 
+	18.12.20 - CreateReceiver : Attempt to prevent EXC_BAD_ACCESS when building for macOS Release
+			   (https://github.com/leadedge/ofxNDI/issues/19)
+			   by explicitly setting descriptor fields (result was no change)
+			   Clean up for update from testing to master
 
 */
-#include "ofxNDIreceive.h"
 
+#include "ofxNDIreceive.h"
+#include <math.h>
 // Linux
 // https://github.com/hugoaboud/ofxNDI
 #if !defined(TARGET_WIN32)
@@ -160,10 +170,10 @@ bool QueryPerformanceCounter(LARGE_INTEGER *performance_count)
 
 ofxNDIreceive::ofxNDIreceive()
 {
-	p_NDILib = NULL;
-	pNDI_find = NULL;
-	pNDI_recv = NULL;
-	p_sources = NULL;
+	p_NDILib = nullptr;
+	pNDI_find = nullptr;
+	pNDI_recv = nullptr;
+	p_sources = nullptr;
 	no_sources = 0;
 	bNDIinitialized = false;
 	bReceiverCreated = false;
@@ -198,8 +208,8 @@ ofxNDIreceive::ofxNDIreceive()
 ofxNDIreceive::~ofxNDIreceive()
 {
 	FreeAudioData();
-	if(pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
-	if(pNDI_find) p_NDILib->find_destroy(pNDI_find);
+	if(p_NDILib && pNDI_recv) p_NDILib->recv_destroy(pNDI_recv);
+	if(p_NDILib && pNDI_find) p_NDILib->find_destroy(pNDI_find);
 	// Library is released in ofxNDIdynloader
 }
 
@@ -212,7 +222,7 @@ void ofxNDIreceive::CreateFinder()
 	if (pNDI_find) p_NDILib->find_destroy(pNDI_find);
 	const NDIlib_find_create_t NDI_find_create_desc = { true, NULL, NULL }; // Version 2
 	pNDI_find = p_NDILib->find_create_v2(&NDI_find_create_desc);
-	p_sources = NULL;
+	p_sources = nullptr;
 	no_sources = 0;
 	nsenders = 0;
 
@@ -224,8 +234,8 @@ void ofxNDIreceive::ReleaseFinder()
 	if(!bNDIinitialized) return;
 
 	if (pNDI_find) p_NDILib->find_destroy(pNDI_find);
-	pNDI_find = NULL;
-	p_sources = NULL;
+	pNDI_find = nullptr;
+	p_sources = nullptr;
 	no_sources = 0;
 
 }
@@ -619,7 +629,6 @@ bool ofxNDIreceive::CreateReceiver(int userindex)
 bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int userindex)
 {
 	std::string name;
-	int nsources = 0;
 
 	if (!bNDIinitialized) 
 		return false;
@@ -666,15 +675,17 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			if (bReceiverCreated) 
 				ReleaseReceiver();
 
-			// We tell it that we prefer the passed format
-			// NDIlib_recv_create_t NDI_recv_create_desc = {
+			// Set the descriptor for the source of the receiving index.
+			// We tell it that we prefer the passed format (NDIlib_recv_color_format_e)
+			// and bandwidth setting (Changed by SetLowBandwidth, default NDIlib_recv_bandwidth_highest)
+			// Do not allow video fields.
 			// Vers 3.5
-			NDIlib_recv_create_v3_t NDI_recv_create_desc = {
-				p_sources[index],
-				colorFormat,
-				m_bandWidth, // Changed by SetLowBandwidth, default NDIlib_recv_bandwidth_highest
-				false, // true // allow_video_fields false : TODO - test
-				NULL }; // no name specified
+			NDIlib_recv_create_v3_t NDI_recv_create_desc;
+			NDI_recv_create_desc.source_to_connect_to = p_sources[index];
+			NDI_recv_create_desc.color_format = colorFormat;
+			NDI_recv_create_desc.bandwidth = m_bandWidth;
+			NDI_recv_create_desc.allow_video_fields = false;
+			NDI_recv_create_desc.p_ndi_recv_name = NULL;
 
 			// Create the receiver
 			// Deprecated version sets bandwidth to highest and allow fields to true.
@@ -737,7 +748,7 @@ void ofxNDIreceive::ReleaseReceiver()
 	m_Width = 0;
 	m_Height = 0;
 	senderName.empty();
-	pNDI_recv = NULL;
+	pNDI_recv = nullptr;
 	bReceiverCreated = false;
 	bReceiverConnected = false;
 	bSenderSelected = false;
@@ -754,13 +765,19 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 {
 	NDIlib_frame_type_e NDI_frame_type;
 	NDIlib_metadata_frame_t metadata_frame;
-	NDIlib_audio_frame_v2_t audio_frame;
+	// NDIlib_audio_frame_v2_t audio_frame;
+	// 4.5
+	NDIlib_audio_frame_v3_t audio_frame;
 	m_FrameType = NDIlib_frame_type_none;
 	bool bRet = false;
 
+	if (!bNDIinitialized) return false;
+
 	if (pNDI_recv) {
 
-		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		// NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		// Vers 4.5
+		NDI_frame_type = p_NDILib->recv_capture_v3(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
 		// Set frame type for external access
 		m_FrameType = NDI_frame_type;
@@ -821,7 +838,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-						p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						// p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						// Vers 4.5
+						p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
@@ -916,13 +935,19 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 {
 	NDIlib_frame_type_e NDI_frame_type;
 	NDIlib_metadata_frame_t metadata_frame;
-	NDIlib_audio_frame_v2_t audio_frame;
+	// NDIlib_audio_frame_v2_t audio_frame;
+	// Vers 4.5
+	NDIlib_audio_frame_v3_t audio_frame;
 	m_FrameType = NDIlib_frame_type_none;
 	bool bRet = false;
 
+	if (!bNDIinitialized) return false;
+
 	if (pNDI_recv) {
 
-		NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		// NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
+		// Vers 4.5
+		NDI_frame_type = p_NDILib->recv_capture_v3(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
 		// Set frame type for external access
 		m_FrameType = NDI_frame_type;
@@ -979,7 +1004,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-						p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						// p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
+						// Vers 4.5
+						p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
@@ -1039,7 +1066,7 @@ unsigned char *ofxNDIreceive::GetVideoData()
 // Free NDI video frame buffers
 void ofxNDIreceive::FreeVideoData()
 {
-	if (video_frame.p_data) 
+	if (p_NDILib && video_frame.p_data)
 		p_NDILib->recv_free_video_v2(pNDI_recv, &video_frame);
 }
 
@@ -1057,13 +1084,16 @@ void ofxNDIreceive::FreeAudioData()
 // Get NDI dll version number
 std::string ofxNDIreceive::GetNDIversion()
 {
-	return p_NDILib->version();
+	if (p_NDILib)
+		return p_NDILib->version();
+	else
+		return "";
 }
 
 // Get the received frame rate
 int ofxNDIreceive::GetFps()
 {
-	return static_cast<int>(std::floor(fps + 0.5));
+	return static_cast<int>(floor(fps + 0.5));
 }
 
 //
@@ -1074,20 +1104,23 @@ int ofxNDIreceive::GetFps()
 // Replacement for deprecated NDIlib_find_get_sources
 // If no timeout specified, return the sources that exist right now
 // For a timeout, wait for that timeout and return the sources that exist then
-// If that fails, return NULL
+// If that fails, return nullptr
 const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_instance,
 	uint32_t* p_no_sources,
 	uint32_t timeout_in_ms)
 {
+	if (!bNDIinitialized) 
+		return nullptr;
+
 	if (!p_instance)
-		return NULL;
+		return nullptr;
 
 	if ((!timeout_in_ms) || (p_NDILib->find_wait_for_sources(p_instance, timeout_in_ms))) {
 		// Recover the current set of sources (i.e. the ones that exist right this second)
 		return p_NDILib->find_get_current_sources(p_instance, p_no_sources);
 	}
 
-	return NULL;
+	return nullptr;
 
 }
 

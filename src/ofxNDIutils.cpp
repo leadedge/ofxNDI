@@ -147,8 +147,8 @@ namespace ofxNDIutils {
 	//
 	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert)
 	{
-		uint32_t *src = NULL;
-		uint32_t *dst = NULL;
+		uint32_t *src = nullptr;
+		uint32_t *dst = nullptr;
 		uint32_t rgbapix; // 32bit rgba pixel
 		unsigned int x = 0;
 		unsigned int y = 0;

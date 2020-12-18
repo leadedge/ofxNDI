@@ -42,8 +42,9 @@
 			   to enable compile for Raspberry PI
 	27.02.20 - Restored PBO functions
 			   TODO disable using #ifdef TARGET_RASPBERRY_PI ?
+	08.12.20 - Corrected from ReadPixels(fbo.getTexture(), to ReadPixels(fbo) for SendImage fbo
 
-
+	
 */
 #include "ofxNDIsender.h"
 
@@ -217,7 +218,7 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 	if (GetAsync())
 		m_idx = (m_idx + 1) % 2;
 	
-	ReadPixels(fbo.getTexture(), width, height, ndiBuffer[m_idx].getData());
+	ReadPixels(fbo, width, height, ndiBuffer[m_idx].getData());
 	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
 }
@@ -245,6 +246,7 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 		m_idx = (m_idx + 1) % 2;
 
 	ReadPixels(tex, width, height, ndiBuffer[m_idx].getData());
+
 	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
 }

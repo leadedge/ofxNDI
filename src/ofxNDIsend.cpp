@@ -72,6 +72,8 @@
 	04.12.19	- Revise for ARM port
 			    - Cleanup
 	07.12.19	- Use Openframeworks platform target definitions in ofxNDIplatforms.h
+	03.12.20	- Change NULL to nullptr for pointers
+	15.12.20	- Add more checks for p_NDILib
 
 
 */
@@ -80,9 +82,9 @@
 
 ofxNDIsend::ofxNDIsend()
 {
-	p_NDILib = NULL;
-	pNDI_send = NULL;
-	p_frame = NULL;
+	p_NDILib = nullptr;
+	pNDI_send = nullptr;
+	p_frame = nullptr;
 	m_frame_rate_N = 60000; // 60 fps default : 30000 - 29.97 fps
 	m_frame_rate_D = 1000; // 1001 - 29.97 fps
 	m_horizontal_aspect = 1; // source aspect ratio by default
@@ -101,7 +103,7 @@ ofxNDIsend::ofxNDIsend()
 	m_AudioChannels = 1; // Default mono
 	m_AudioSamples = 1602; // Default up to 1602 samples for NTSC 29.97, can be changed on the fly
 	m_AudioTimecode = NDIlib_send_timecode_synthesize; // Timecode (synthesized for us !)
-	m_AudioData = NULL; // Audio buffer
+	m_AudioData = nullptr; // Audio buffer
 
 	// Find and load the Newtek NDI dll
     p_NDILib = libloader.Load();
@@ -125,6 +127,7 @@ ofxNDIsend::~ofxNDIsend()
 // Create an RGBA sender
 bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsigned int height)
 {
+	if (!m_bNDIinitialized) return false;
 
 	if (width == 0 || height == 0)
 		return false;
@@ -132,7 +135,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 	// Create an NDI source that is clocked to the video.
 	// unless async sending has been selected.
 	NDI_send_create_desc.p_ndi_name = sendername;
-	NDI_send_create_desc.p_groups = NULL;
+	NDI_send_create_desc.p_groups = nullptr;
 
 	if (m_bAsync)
 		m_bClockVideo = false;
@@ -181,7 +184,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		
 		// We are going to create an non-interlaced frame at 60fps
 		if(p_frame) free((void *)p_frame);
-		p_frame = NULL; // invert  buffer
+		p_frame = nullptr; // invert  buffer
 
 		video_frame.xres = (int)width;
 		video_frame.yres = (int)height;
@@ -196,7 +199,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		else video_frame.frame_format_type = NDIlib_frame_format_type_interleaved;
 		// The timecode of this frame in 100ns intervals
 		video_frame.timecode = NDIlib_send_timecode_synthesize; // 0LL; // Let the API fill in the timecodes for us.
-		video_frame.p_data = NULL;
+		video_frame.p_data = nullptr;
 		video_frame.line_stride_in_bytes = (int)width*4; // The stride of a line BGRA
 
 		// Keep the sender dimensions locally
@@ -224,19 +227,21 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 // Update sender dimensions
 bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 {
+	if (!m_bNDIinitialized) return false;
+
 	if(pNDI_send && m_bAsync) {
 		// Because one buffer is in flight we need to make sure that 
 		// there is no chance that we might free it before NDI is done with it. 
 		// You can ensure this either by sending another frame, or just by
 		// sending a frame with a NULL pointer, which will wait for any 
 		// unscheduled asynchronous frames to be completed before returning.
-		p_NDILib->send_send_video_async_v2(pNDI_send, NULL);
+		p_NDILib->send_send_video_async_v2(pNDI_send, nullptr);
 	}
 
 	// Free the local invert buffer, it is re-created in SendImage if invert is needed
 	if(p_frame) free((void *)p_frame);
-	p_frame = NULL;
-	video_frame.p_data = NULL;
+	p_frame = nullptr;
+	video_frame.p_data = nullptr;
 
 	// Update the sender dimensions
 	m_Width  = width;
@@ -280,6 +285,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
+	if (!m_bNDIinitialized) return false;
 
 	if (pNDI_send && bSenderInitialized && pixels && width > 0 && height > 0) {
 
@@ -291,7 +297,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 			// Release pframe for invert because the size is different
 			// It will be re-created at the correct size
 			if (p_frame) free((void *)p_frame);
-			p_frame = NULL;
+			p_frame = nullptr;
 		}
 
 		if (bSwapRB || bInvert) {
@@ -317,7 +323,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		// and 29.97 fps, an alternating sample number is used.
 		// Do this in the application using SetAudioSamples(nSamples);
 		// General reference : http://jacklinstudios.com/docs/post-primer.html
-		if (m_bAudio && m_audio_frame.p_data != NULL) {
+		if (m_bAudio && m_audio_frame.p_data != nullptr) {
 			p_NDILib->send_send_audio_v2(pNDI_send, &m_audio_frame);
 		}
 
@@ -357,8 +363,10 @@ void ofxNDIsend::ReleaseSender()
 {
 	bSenderInitialized = false; // Do this now so no more frames are sent
 
+	if (!m_bNDIinitialized) return;
+
 	// Destroy the NDI sender
-	if (pNDI_send != NULL) {
+	if (pNDI_send != nullptr) {
 		p_NDILib->send_destroy(pNDI_send);
 	}
 
@@ -367,8 +375,8 @@ void ofxNDIsend::ReleaseSender()
 		free((void*)p_frame);
 	}
 
-	p_frame = NULL;
-	pNDI_send = NULL;
+	p_frame = nullptr;
+	pNDI_send = nullptr;
 
 	// Reset sender dimensions
 	m_Width = m_Height = 0;
