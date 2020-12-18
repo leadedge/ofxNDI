@@ -626,7 +626,7 @@ bool ofxNDIreceive::CreateReceiver(int userindex)
 bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int userindex)
 {
 	std::string name;
-	int nsources = 0;
+	// int nsources = 0;
 
 	if (!bNDIinitialized) 
 		return false;
@@ -676,12 +676,30 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			// We tell it that we prefer the passed format
 			// NDIlib_recv_create_t NDI_recv_create_desc = {
 			// Vers 3.5
-			NDIlib_recv_create_v3_t NDI_recv_create_desc = {
-				p_sources[index],
-				colorFormat,
-				m_bandWidth, // Changed by SetLowBandwidth, default NDIlib_recv_bandwidth_highest
-				false, // true // allow_video_fields false : TODO - test
-				NULL }; // no name specified
+			// NDIlib_recv_create_v3_t NDI_recv_create_desc = {
+				// p_sources[index],
+				// colorFormat,
+				// m_bandWidth, // Changed by SetLowBandwidth, default NDIlib_recv_bandwidth_highest
+				// false, // true // allow_video_fields false : TODO - test
+				// NULL }; // no name specified
+
+			// Attempt to prevent EXC_BAD_ACCESS when building for macOS Release 
+			// Explicitly set descriptor fields
+
+			NDIlib_recv_create_v3_t NDI_recv_create_desc;
+			NDI_recv_create_desc.source_to_connect_to = p_sources[index];
+			NDI_recv_create_desc.color_format = colorFormat;
+			NDI_recv_create_desc.bandwidth = m_bandWidth;
+			NDI_recv_create_desc.allow_video_fields = FALSE;
+			NDI_recv_create_desc.p_ndi_recv_name = NULL;
+
+			// printf("CreateReceiver : p_sources = 0x%.7X\n", PtrToUint(p_sources));
+			// printf("source index %d\n", index); 
+			// printf("source name [%s]\n", p_sources[index].p_ndi_name);
+			// printf("source IP  [%s]\n", p_sources[index].p_ip_address);
+			// printf("source URL [%s]\n", p_sources[index].p_url_address);
+			// printf("color_format = %d\n", (int)colorFormat);
+			// printf("bandwidth = %d\n", (int)m_bandWidth);
 
 			// Create the receiver
 			// Deprecated version sets bandwidth to highest and allow fields to true.
@@ -834,7 +852,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-						// U9date for 4.5
+						// Update for 4.5
 						// p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
 						p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 						m_bAudioFrame = true;
