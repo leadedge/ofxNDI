@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2021 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -43,7 +43,7 @@
 	27.02.20 - Restored PBO functions
 			   TODO disable using #ifdef TARGET_RASPBERRY_PI ?
 	08.12.20 - Corrected from ReadPixels(fbo.getTexture(), to ReadPixels(fbo) for SendImage fbo
-
+	24.12.20 - Changed ReadPixels from unsigned char to ofPixels
 	
 */
 #include "ofxNDIsender.h"
@@ -218,7 +218,8 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 	if (GetAsync())
 		m_idx = (m_idx + 1) % 2;
 	
-	ReadPixels(fbo, width, height, ndiBuffer[m_idx].getData());
+	ReadPixels(fbo, width, height, ndiBuffer[m_idx]);
+
 	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
 }
@@ -244,8 +245,7 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 
 	if (GetAsync())
 		m_idx = (m_idx + 1) % 2;
-
-	ReadPixels(tex, width, height, ndiBuffer[m_idx].getData());
+	ReadPixels(tex, width, height, ndiBuffer[m_idx]);
 
 	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
@@ -478,23 +478,25 @@ std::string ofxNDIsender::GetNDIversion()
 // =========== Private functions ===========
 //
 
-// Read pixels from fbo to buffer
-void ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data)
-{
-	if (m_bReadback) // Asynchronous readback using two pbos
-		ReadFboPixels(fbo, width, height, ndiBuffer[m_idx].getData());
-	else // Read fbo directly
-		fbo.readToPixels(ndiBuffer[m_idx]);
-}
 
 // Read pixels from texture to buffer
-void ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data)
+void ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int height, ofPixels &buffer)
 {
 	if (m_bReadback)
-		ReadTexturePixels(tex, width, height, ndiBuffer[m_idx].getData());
+		ReadTexturePixels(tex, width, height, buffer.getData());
 	else
-		tex.readToPixels(ndiBuffer[m_idx]);
+		tex.readToPixels(buffer);
 }
+
+// Read pixels from fbo to buffer
+void ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, ofPixels &buffer)
+{
+	if (m_bReadback) // Asynchronous readback using two pbos
+		ReadFboPixels(fbo, width, height, buffer.getData());
+	else // Read fbo directly
+		fbo.readToPixels(buffer);
+}
+
 
 //
 // Asynchronous fbo pixel Read-back
