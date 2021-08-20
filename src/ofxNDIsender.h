@@ -45,7 +45,7 @@
 
 #include <stdio.h>
 #include <string>
-#include "Processing.NDI.Lib.h" // NDI SDK
+// #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIsend.h" // basic sender functions
 #include "ofxNDIutils.h" // buffer copy utilities
 
@@ -231,16 +231,16 @@ private:
 	int NextPboIndex;
 	ofFbo ndiFbo; // Utility Fbo
 
-	// Read pixels from fbo to buffer
-	void ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);
+	// Read pixels from fbo to pixel buffer
+	void ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, ofPixels &buffer);
 
-	// Read pixels from texture to buffer
-	void ReadPixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data);
+	// Read pixels from texture to pixel buffer
+	void ReadPixels(ofTexture tex, unsigned int width, unsigned int height, ofPixels &buffer);
 
-	// Asynchronous fbo pixel readback
+	// Asynchronous fbo pixel data readback
 	bool ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);
 
-	// Asynchronous texture pixel readback
+	// Asynchronous texture pixel data readback
 	bool ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data);
 
 

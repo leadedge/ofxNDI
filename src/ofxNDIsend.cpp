@@ -127,10 +127,15 @@ ofxNDIsend::~ofxNDIsend()
 // Create an RGBA sender
 bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsigned int height)
 {
-	if (!m_bNDIinitialized) return false;
-
-	if (width == 0 || height == 0)
+	if (!m_bNDIinitialized) {
+		printf("ofxNDIsend::CreateSender - not initialized\n");
 		return false;
+	}
+
+	if (width == 0 || height == 0) {
+		printf("ofxNDIsend::CreateSender - no width or height\n");
+		return false;
+	}
 
 	// Create an NDI source that is clocked to the video.
 	// unless async sending has been selected.
@@ -221,6 +226,8 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		return true;
 	}
 
+	printf("ofxNDIsend::CreateSender - no pNDI_send\n");
+
 	return false;
 }
 
@@ -285,7 +292,8 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
-	if (!m_bNDIinitialized) return false;
+	if (!m_bNDIinitialized)
+		return false;
 
 	if (pNDI_send && bSenderInitialized && pixels && width > 0 && height > 0) {
 
@@ -301,6 +309,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		}
 
 		if (bSwapRB || bInvert) {
+
 			// Local memory buffer is only needed for rgba to bgra or invert
 			if (!p_frame) {
 				p_frame = (uint8_t*)malloc(width*height * 4 * sizeof(unsigned char));
