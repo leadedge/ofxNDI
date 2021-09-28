@@ -4,7 +4,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2019-2020
+	Copyright (C) 2019-2021
 
 	Luis Rodil-Fernandez
 	https://github.com/IDArnhem/ofxNDI
@@ -37,6 +37,8 @@
 				- "using namespace std" not used due to previous advice
 	03.12.20	- Change NULL to nullptr for all pointers
 				- #include <cstddef> in header to avoid NULL definition problem
+	28-09-21	- Update to NDI 5 SDK 5.0.3
+				- Change MessageBox in Load() to  YESNO for runtime install
 
 */
 
@@ -89,8 +91,10 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 			_dupenv_s((char **)&p_ndi_runtime_v4, &nchars, NDILIB_REDIST_FOLDER);
 			if (!p_ndi_runtime_v4) {
 				// The NDI run-time is not yet installed. Let the user know and take them to the download URL.
-				MessageBoxA(NULL, "The NewTek NDI run-time is not yet installed\nPlease install it to use this application", "Warning.", MB_OK);
-				ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
+				// MessageBoxA(NULL, "The NewTek NDI run-time is not yet installed\nPlease install it to use this application", "Warning.", MB_OK);
+				if (MessageBoxA(NULL, "The NewTek NDI run-time is not yet installed\nDo you want to install it now?", "Warning.", MB_YESNO) == IDYES) {
+					ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
+				}
 				return nullptr;
 			}
 			// Get the full path of the installed dll

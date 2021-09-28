@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2021 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -74,7 +74,12 @@
 	07.12.19	- Use Openframeworks platform target definitions in ofxNDIplatforms.h
 	03.12.20	- Change NULL to nullptr for pointers
 	15.12.20	- Add more checks for p_NDILib
-
+	22.08.21	- SendImage overloads
+				    Previous version compatibility with rgba<>bgra and invert options
+					Same size as dest with invert option 
+					Line-by-line with source and dest pitch
+				- SetFormat(NDIlib_FourCC_video_type_e format)
+				    Sets NDI output video frame format (replaces CPU rgba<>bgra)
 
 */
 #include "ofxNDIsend.h"
@@ -93,6 +98,7 @@ ofxNDIsend::ofxNDIsend()
 	m_bProgressive = true; // progressive default
 	m_bClockVideo = true; // clock video default
 	m_bAsync = false;
+	m_Format = NDIlib_FourCC_video_type_RGBA; // Default output format
 	m_bNDIinitialized = false;
 	m_Width = m_Height = 0;
 	bSenderInitialized = false;
@@ -190,10 +196,9 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		// We are going to create an non-interlaced frame at 60fps
 		if(p_frame) free((void *)p_frame);
 		p_frame = nullptr; // invert  buffer
-
 		video_frame.xres = (int)width;
 		video_frame.yres = (int)height;
-		video_frame.FourCC = NDIlib_FourCC_type_RGBA;
+		video_frame.FourCC = m_Format;
 		video_frame.frame_rate_N = m_frame_rate_N; // (default 60fps)
 		video_frame.frame_rate_D = m_frame_rate_D;
 		video_frame.picture_aspect_ratio = m_picture_aspect_ratio; // default source (width/height)
@@ -258,7 +263,7 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 	video_frame.xres = (int)width;
 	video_frame.yres = (int)height;
 	video_frame.line_stride_in_bytes = (int)width * 4;
-	video_frame.FourCC = NDIlib_FourCC_type_RGBA;
+	video_frame.FourCC = m_Format;
 
 	// Reset frame rate
 	video_frame.frame_rate_N = m_frame_rate_N;
@@ -286,9 +291,13 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 	return true;
 }
 
-
 // Send image pixels
-bool ofxNDIsend::SendImage(const unsigned char * pixels, 
+// - image | pixel data BGRA or RGBA
+// - width | image width
+// - height | image height
+// - bSwapRB | swap red and blue components - default false
+// - bInvert | flip the image - default false
+bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
@@ -309,7 +318,6 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		}
 
 		if (bSwapRB || bInvert) {
-
 			// Local memory buffer is only needed for rgba to bgra or invert
 			if (!p_frame) {
 				p_frame = (uint8_t*)malloc(width*height * 4 * sizeof(unsigned char));
@@ -367,6 +375,104 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	return false;
 }
 
+
+// Send image pixels
+// - image | pixel data BGRA or RGBA
+// - width | image width
+// - height | image height
+// - bInvert | flip the image - default false
+bool ofxNDIsend::SendImage(const unsigned char * pixels, 
+	unsigned int width, unsigned int height, bool bInvert)
+{
+	return SendImage(pixels, width, height, width*4, bInvert);
+}
+
+// Send image pixels allowing for source buffer pitch
+// - image | pixel data BGRA or RGBA
+// - width | image width
+// - height | image height
+// - pitch | source buffer pitch
+// - bInvert | flip the image - default false
+bool ofxNDIsend::SendImage(const unsigned char * pixels,
+	unsigned int width, unsigned int height,
+	unsigned int sourcePitch, bool bInvert)
+{
+	if (!m_bNDIinitialized)
+		return false;
+
+	if (pNDI_send && bSenderInitialized && pixels && width > 0 && height > 0) {
+
+		// Allow for forgotten UpdateSender
+		if (video_frame.xres != (int)width || video_frame.yres != (int)height) {
+			video_frame.xres = (int)width;
+			video_frame.yres = (int)height;
+			video_frame.FourCC = m_Format;
+			video_frame.line_stride_in_bytes = width * 4; // No padding
+			// Free pframe for invert because the size is different
+			// It is re-created in SendImage if invert is needed
+			if (p_frame) free((void *)p_frame);
+			p_frame = nullptr;
+		}
+
+		if (bInvert) {
+			// Local memory buffer is only needed for invert
+			if (!p_frame) {
+				p_frame = (uint8_t*)malloc(width*height * 4 * sizeof(unsigned char));
+				if (!p_frame) {
+					printf("Out of memory in SendImage\n");
+					return false;
+				}
+			}
+			// Flip from the sending buffer to the invert buffer
+			ofxNDIutils::FlipBuffer(pixels, p_frame, width, height);
+			// Use the invert buffer as the source of video data
+			video_frame.p_data = (uint8_t*)p_frame;
+		}
+		else {
+			// No invert, so use the source pointer directly
+			video_frame.p_data = (uint8_t*)pixels;
+		}
+
+		// Submit the audio buffer first.
+		// Refer to the NDI SDK example where for 48000 sample rate
+		// and 29.97 fps, an alternating sample number is used.
+		// Do this in the application using SetAudioSamples(nSamples);
+		// General reference : http://jacklinstudios.com/docs/post-primer.html
+		if (m_bAudio && m_audio_frame.p_data != nullptr) {
+			p_NDILib->send_send_audio_v2(pNDI_send, &m_audio_frame);
+		}
+
+		// Metadata
+		if (m_bMetadata && !m_metadataString.empty()) {
+			metadata_frame.length = (int)m_metadataString.size();
+			metadata_frame.timecode = NDIlib_send_timecode_synthesize;
+			metadata_frame.p_data = (char *)m_metadataString.c_str(); // XML message format
+			p_NDILib->send_send_metadata(pNDI_send, &metadata_frame);
+		}
+
+		if (m_bAsync) {
+			// Submit the frame asynchronously. This means that this call will return 
+			// immediately and the  API will "own" the memory location until there is
+			// a synchronizing event. A synchronouzing event is one of : 
+			// NDIlib_send_send_video_async, NDIlib_send_send_video, NDIlib_send_destroy.
+			// NDIlib_send_send_video_async_v2 will wait for the previous frame to finish before
+			// submitting the current one.
+			// printf("NDIlib_send_send_video_async_v2 %x, %x, %dx%d\n", pNDI_send, video_frame.p_data, video_frame.xres, video_frame.yres);
+			p_NDILib->send_send_video_async_v2(pNDI_send, &video_frame);
+		}
+		else {
+			// Submit the frame. Note that this call will be clocked
+			// so that we end up submitting at exactly the predetermined fps.
+			// printf("NDIlib_send_send_video_v2 %x, %x, %dx%d\n", pNDI_send, video_frame.p_data, video_frame.xres, video_frame.yres);
+			p_NDILib->send_send_video_v2(pNDI_send, &video_frame);
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 // Close sender and release resources
 void ofxNDIsend::ReleaseSender()
 {
@@ -380,11 +486,10 @@ void ofxNDIsend::ReleaseSender()
 	}
 
 	// Release the invert buffer
-	if (p_frame) {
+	if (p_frame)
 		free((void*)p_frame);
-	}
-
 	p_frame = nullptr;
+
 	pNDI_send = nullptr;
 
 	// Reset sender dimensions
@@ -408,6 +513,14 @@ unsigned int ofxNDIsend::GetWidth()
 unsigned int ofxNDIsend::GetHeight()
 {
 	return m_Height;
+}
+
+// Set video frame format
+//  Default NDIlib_FourCC_video_type_RGBA
+//  Can be NDIlib_FourCC_video_type_BGRA to match texture format
+void ofxNDIsend::SetFormat(NDIlib_FourCC_video_type_e format)
+{
+	m_Format = format;
 }
 
 // Set frame rate - frames per second whole number

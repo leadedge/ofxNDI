@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2021 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -53,9 +53,30 @@
 #include <climits>
 
 namespace ofxNDIutils {
-	void CopyImage(const unsigned char *source, unsigned char *dest, 
-				   unsigned int width, unsigned int height, unsigned int stride,
-				   bool bSwapRB = false, bool bInvert = false);
+
+	// Copy rgba source image to dest.
+	// Images must be the same size with no line padding.
+	// Option flip image vertically (invert).
+	void CopyImage(const unsigned char *source, unsigned char *dest,
+		unsigned int width, unsigned int height,
+		bool bInvert = false);
+
+	// Copy rgba source image to dest.
+	// Source line pitch (unused).
+	// Option convert bgra<>rgba.
+	// Option flip image vertically (invert).
+	void CopyImage(const unsigned char *source, unsigned char *dest,
+		unsigned int width, unsigned int height, unsigned int stride,
+		bool bSwapRB = false, bool bInvert = false);
+
+	// Copy rgba image buffers line by line.
+	// Allow for both source and destination line pitch.
+	// Option flip image vertically (invert).
+	void CopyImage(const void* source, void* dest,
+		unsigned int width, unsigned int height,
+		unsigned int sourcePitch, unsigned int destPitch,
+		bool bInvert = false);
+
 // TODO : check it works for OSX
 #if defined(TARGET_WIN32) || defined(TARGET_OSX)
 	void memcpy_sse2(void* dst, const void* src, size_t Size);

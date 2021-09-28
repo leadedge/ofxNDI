@@ -80,6 +80,23 @@ public:
 	bool SendImage(const unsigned char *image, unsigned int width, unsigned int height,
 		bool bSwapRB = false, bool bInvert = false);
 
+	// Send image pixels
+	// - image | pixel data BGRA or RGBA
+	// - width | image width
+	// - height | image height
+	// - bInvert | flip the image - default false
+	bool SendImage(const unsigned char *image, unsigned int width, unsigned int height,	bool bInvert = false);
+
+	// Send image pixels allowing for source buffer pitch
+	// - image | pixel data BGRA or RGBA
+	// - width | image width
+	// - height | image height
+	// - pitch | source buffer pitch
+	// - bInvert | flip the image - default false
+	bool SendImage(const unsigned char *image,
+		unsigned int width, unsigned int height, 
+		unsigned int sourcePitch, bool bInvert = false);
+
 	// Close sender and release resources
 	void ReleaseSender();
 
@@ -91,6 +108,9 @@ public:
 
 	// Return current sender height
 	unsigned int GetHeight();
+
+	// Set output format
+	void SetFormat(NDIlib_FourCC_video_type_e format);
 
 	// Set frame rate
 	// - framerate - frames per second
@@ -211,6 +231,7 @@ private:
 	bool m_bProgressive; // Progressive output flag
 	bool m_bClockVideo; // Clock video flag
 	bool m_bAsync; // NDI asynchronous sender
+	NDIlib_FourCC_video_type_e m_Format; // Output format. Default RGBA. May also be BGRA.
 
 	// Audio
 	bool m_bAudio;
