@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2021 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -40,7 +40,10 @@
 			 - justify targets with compiler definitions
 	07.12.19 - rgba_bgra use more portable known-size types
 			   unsigned __int32 > uint32_t (https://github.com/IDArnhem/ofxNDI)
-
+	22.08.21 - CopyImage overloads 
+			     Previous version compatibility with rgba<>bgra and invert options
+				 Same size as dest with invert option
+				 Line-by-line with source and dest pitch
 
 */
 #include "ofxNDIutils.h"
@@ -154,14 +157,14 @@ namespace ofxNDIutils {
 		unsigned int y = 0;
 		__m128i brMask = _mm_set1_epi32(0x00ff00ff); // argb
 
-	    for (y = 0; y < height; y++) {
+		for (y = 0; y < height; y++) {
 
-  			// Start of buffer
+			// Start of buffer
 			src = (uint32_t*)source; // unsigned int = 4 bytes
 			dst = (uint32_t*)dest;
-	
+
 			// Increment to current line
-			if(bInvert) {
+			if (bInvert) {
 				src += (uint32_t)(width*height); // end of rgba buffer
 				src -= (uint32_t)width;          // beginning of the last rgba line
 				src -= (uint32_t)y*width;        // current line
@@ -178,13 +181,13 @@ namespace ofxNDIutils {
 				//        & 0x00ff00ff  : r g b . > . b . r
 				// rgbapix & 0xff00ff00 : a r g b > a . g .
 				// result of or			:           a b g r
-				#if defined(TARGET_WIN32)
-				// _rotl is available
+#if defined(TARGET_WIN32)
+// _rotl is available
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-				#else
-				// _rotl replacement
+#else
+// _rotl replacement
 				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-				#endif
+#endif
 			}
 
 			for (; x + 3 < width; x += 4) {
@@ -203,13 +206,13 @@ namespace ofxNDIutils {
 			for (; x < width; x++) {
 				rgbapix = src[x];
 
-				#if defined(TARGET_WIN32)
+#if defined(TARGET_WIN32)
 				// _rotl is available
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-				#else
+#else
 				// _rotl replacement
 				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-				#endif
+#endif
 			}
 		}
 	} // end rgba_bgra_sse2
@@ -237,23 +240,23 @@ namespace ofxNDIutils {
 
 			for (unsigned int x = 0; x < width; x++) {
 				auto rgbapix = source[x];
-				#if defined(TARGET_WIN32)
+#if defined(TARGET_WIN32)
 				// _rotl is available
 				dest[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-				#else
+#else
 				// _rotl replacement
 				dest[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
-				#endif
+#endif
 			}
 		}
 	} // end rgba_bgra
 
 
 	// Flip a buffer in place
-	void FlipBuffer(const unsigned char *src, 
-					unsigned char *dst,
-					unsigned int width,
-					unsigned int height)
+	void FlipBuffer(const unsigned char *src,
+		unsigned char *dst,
+		unsigned int width,
+		unsigned int height)
 	{
 		const unsigned char * From = src;
 		unsigned char * To = dst;
@@ -261,9 +264,9 @@ namespace ofxNDIutils {
 		unsigned int line_s = 0;
 		unsigned int line_t = (height - 1)*pitch;
 
-		for (unsigned int y = 0; y<height; y++) {
+		for (unsigned int y = 0; y < height; y++) {
 			// @zilog no SSE stuff for aarch64 build
-			#if defined(TARGET_WIN32) || defined (TARGET_OSX)
+#if defined(TARGET_WIN32) || defined (TARGET_OSX)
 			if (width <= 512 || height <= 512) // too small for assembler
 				memcpy((void *)(To + line_t), (void *)(From + line_s), pitch);
 			else if ((pitch % 16) == 0) // use sse assembler function
@@ -271,7 +274,7 @@ namespace ofxNDIutils {
 			else if ((pitch % 4) == 0) // use 4 byte move assembler function
 				memcpy_movsd((unsigned long *)(To + line_t), (unsigned long *)(From + line_s), pitch);
 			else
-			#endif
+#endif
 				memcpy((void *)(To + line_t), (void *)(From + line_s), pitch);
 
 			line_s += pitch;
@@ -279,24 +282,81 @@ namespace ofxNDIutils {
 		}
 	} // end FlipBuffer
 
+	//
+	// Flip an image vertically
+	//
+	// http://www.codeproject.com/Questions/369873/How-can-i-flip-the-image-Vertically-using-cplusplu
+	//
+	bool FlipVertical(unsigned char *inbuf, long widthBytes, long height)
+	{
+		unsigned char *tb1;
+		unsigned char *tb2;
+		long bufsize;
+		long row_cnt;
+		long off1 = 0;
+		long off2 = 0;
 
-	//
-	// Copy source image to dest, optionally converting bgra<>rgba or inverting
-	//
-	void CopyImage(const unsigned char *source, unsigned char *dest, 
-				   unsigned int width, unsigned int height, unsigned int stride,
-				   bool bSwapRB, bool bInvert)
+		if (inbuf == NULL)
+			return false;
+
+		bufsize = widthBytes * 4;
+
+		tb1 = (unsigned char *)malloc(bufsize);
+		if (tb1 == NULL) {
+			return false;
+		}
+
+		tb2 = (unsigned char *)malloc(bufsize);
+		if (tb2 == NULL) {
+			free((void *)tb1);
+			return false;
+		}
+
+		for (row_cnt = 0; row_cnt < (height + 1) / 2; row_cnt++)
+		{
+			off1 = row_cnt * bufsize;
+			off2 = ((height - 1) - row_cnt)*bufsize;
+			// CopyMemory - very slight speed advantage over memcpy
+			CopyMemory(tb1, inbuf + off1, bufsize * sizeof(unsigned char));
+			CopyMemory(tb2, inbuf + off2, bufsize * sizeof(unsigned char));
+			CopyMemory(inbuf + off1, tb2, bufsize * sizeof(unsigned char));
+			CopyMemory(inbuf + off2, tb1, bufsize * sizeof(unsigned char));
+		}
+
+		free((void*)tb1);
+		free((void*)tb2);
+
+		return true;
+	}
+
+	// Copy rgba source image to dest.
+	// Images must be the same size with no line padding.
+	// Option flip image vertically (invert).
+	void CopyImage(const unsigned char *source, unsigned char *dest,
+		unsigned int width, unsigned int height, bool bInvert)
+	{
+		CopyImage(source, dest,	width, height, width*4, false, bInvert);
+
+	} // end CopyImage
+
+	// Copy rgba source image to dest.
+	// Source line pitch (unused).
+	// Option convert bgra<>rgba.
+	// Option flip image vertically (invert).
+	void CopyImage(const unsigned char *source, unsigned char *dest,
+		unsigned int width, unsigned int height, unsigned int stride,
+		bool bSwapRB, bool bInvert)
 	{
 		if (source == nullptr || dest == nullptr)
 			return;
-		
+
 		// user requires bgra->rgba or rgba->bgra conversion from source to dest
-		if(bSwapRB) {
-			#if defined(TARGET_WIN32) || defined (TARGET_OSX)
+		if (bSwapRB) {
+#if defined(TARGET_WIN32) || defined (TARGET_OSX)
 			rgba_bgra_sse2((const void *)source, (void *)dest, width, height, bInvert);
-			#else
+#else
 			rgba_bgra((const void *)source, (void *)dest, width, height, bInvert);
-			#endif
+#endif
 			return;
 		}
 
@@ -304,7 +364,7 @@ namespace ofxNDIutils {
 			FlipBuffer(source, dest, width, height);
 		}
 		else {
-			#if defined(TARGET_WIN32) || defined (TARGET_OSX)
+#if defined(TARGET_WIN32) || defined (TARGET_OSX)
 			// Small image just use memcpy
 			if (width < 512 || height < 256) {
 				memcpy((void *)dest, (const void *)source, height*stride);
@@ -315,12 +375,43 @@ namespace ofxNDIutils {
 			else if ((stride % 4) == 0) { // 4 byte aligned
 				memcpy_movsd((void*)dest, (const void *)source, height*stride);
 			}
-			#else
+#else
 			// @zilog no SSE stuff for aarch64 build
 			memcpy((void *)dest, (const void *)source, height*stride);
-			#endif
+#endif
 		}
 	} // end CopyImage
+
+
+	// Copy rgba image buffers line by line.
+	// Allow for both source and destination line pitch.
+	// Option flip image vertically (invert).
+	void CopyImage(const void* rgba_source, void* rgba_dest,
+		unsigned int width, unsigned int height,
+		unsigned int sourcePitch, unsigned int destPitch,
+		bool bInvert)
+	{
+		// For all rows
+		for (unsigned int y = 0; y < height; y++) {
+			// Start of buffers
+			auto source = static_cast<const unsigned __int32 *>(rgba_source); // unsigned int = 4 bytes
+			auto dest = static_cast<unsigned __int32 *>(rgba_dest);
+			// Increment to current line
+			// Pitch is line length in bytes. Divide by 4 to get the width in rgba pixels.
+			if (bInvert) {
+				source += (unsigned long)((height - 1 - y)*sourcePitch / 4);
+				dest   += (unsigned long)(y * destPitch / 4); // dest is not inverted
+			}
+			else {
+				source += (unsigned long)(y * sourcePitch / 4);
+				dest   += (unsigned long)(y * destPitch / 4);
+			}
+
+			// Copy the line
+			memcpy((void *)dest, (const void *)source, width * 4);
+		}
+	}
+
 
 	//
 	//        YUV422_to_RGBA
