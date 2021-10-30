@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2020 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -24,8 +24,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	=========================================================================
 
-
-	Function additions see ofxReceive.cpp
+	Function additions see ofxNDIreceive.cpp
 
 	16.10.16 - common buffer copy utilities
 	09.02.17 - Changes for NDI SDK Version 2
@@ -190,11 +189,14 @@ public:
 	// Get the index of a sender name
 	bool GetSenderIndex(std::string sendername, int &index);
 
+	// Set a sender name to receive from
+	void SetSenderName(std::string sendername);
+
 	// Return the name string of a sender index
 	std::string GetSenderName(int index = -1);
 
 	// Get the name characters of a sender index
-	// For back-compatibility only
+	// For back-compatibility
 	bool GetSenderName(char *sendername);
 	bool GetSenderName(char *sendername, int index);
 	bool GetSenderName(char *sendername, int maxsize, int index);

@@ -54,6 +54,7 @@
 	04.12.19 - Revise for ARM port (https://github.com/IDArnhem/ofxNDI)
 			   Cleanup
 	29.02.20 - Change GetFps from double to int
+	30.10.21 - Add SetSenderName
 
 */
 #include "ofxNDIreceiver.h"
@@ -172,6 +173,7 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 
 		// Get NDI pixel data from the video frame
 		return GetPixelData(texture);
+
 	}
 
 	return false;
@@ -365,6 +367,18 @@ int ofxNDIreceiver::GetSenderCount()
 	return NDIreceiver.GetSenderCount();
 }
 
+// Set a sender name to receive from
+void ofxNDIreceiver::SetSenderName(std::string sendername)
+{
+	NDIreceiver.SetSenderName(sendername);
+}
+
+// Return the name string of a sender index
+std::string ofxNDIreceiver::GetSenderName(int userindex)
+{
+	return NDIreceiver.GetSenderName(userindex);
+}
+
 // Return the name characters of a sender index
 // For back-compatibility only
 // Char functions replaced with string versions
@@ -384,12 +398,6 @@ bool ofxNDIreceiver::GetSenderName(char *sendername, int index)
 bool ofxNDIreceiver::GetSenderName(char *sendername, int maxsize, int userindex)
 {
 	return NDIreceiver.GetSenderName(sendername, maxsize, userindex);
-}
-
-// Return the name string of a sender index
-std::string ofxNDIreceiver::GetSenderName(int userindex)
-{
-	return NDIreceiver.GetSenderName(userindex);
 }
 
 // Return the current sender width

@@ -60,6 +60,7 @@ public:
 	ofxNDIreceiver();
 	~ofxNDIreceiver();
 
+
 	// Create a receiver
 	// - index | index in the sender list to connect to
 	//   -1 - connect to the selected sender
@@ -140,13 +141,17 @@ public:
 	// The index of a sender name
 	bool GetSenderIndex(char *sendername, int &index);
 
-	// Name characters of a sender index
-	bool GetSenderName(char *sendername);
-	bool GetSenderName(char *sendername, int index);
-	bool GetSenderName(char *sendername, int maxsize, int index);
+	// Set a sender name to receive from
+	void SetSenderName(std::string sendername);
 
 	// Name string of a sender index
 	std::string GetSenderName(int index = -1);
+
+	// Name characters of a sender index
+	// For back-compatibility
+	bool GetSenderName(char *sendername);
+	bool GetSenderName(char *sendername, int index);
+	bool GetSenderName(char *sendername, int maxsize, int index);
 
 	// Sender width
 	unsigned int GetSenderWidth();

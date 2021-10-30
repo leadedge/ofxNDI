@@ -123,6 +123,8 @@
 			   (https://github.com/leadedge/ofxNDI/issues/19)
 			   by explicitly setting descriptor fields (result was no change)
 			   Clean up for update from testing to master
+	30.10.21 - Add SetSenderName
+			   Modify CreateReceiver to use the set sender name
 
 */
 
@@ -496,6 +498,12 @@ bool ofxNDIreceive::GetSenderIndex(std::string sendername, int &index)
 	return false;
 }
 
+// Set a sender name to receive from
+void ofxNDIreceive::SetSenderName(std::string sendername)
+{
+	senderName = sendername;
+}
+
 // Get the name string of a sender index
 std::string ofxNDIreceive::GetSenderName(int userindex)
 {
@@ -507,8 +515,9 @@ std::string ofxNDIreceive::GetSenderName(int userindex)
 	// If no index has been specified, use the currently selected index
 	if (userindex < 0) {
 		// If there is an existing name, return it
-		if (!senderName.empty())
+		if (!senderName.empty()) {
 			return senderName;
+		}
 		// Otherwise use the existing index
 		index = senderIndex;
 	}
@@ -520,7 +529,7 @@ std::string ofxNDIreceive::GetSenderName(int userindex)
 		return NDIsenders.at(index);
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 // Return current sender width
@@ -636,7 +645,6 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 	int index = userindex;
 
 	// printf("ofxNDIreceive::CreateReceiver - format = %d, user index (%d)\n", colorFormat, userindex);
-
 	if (!pNDI_recv) {
 
 		// The continued check in FindSenders is for a network change and
@@ -674,6 +682,19 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			// Release the receiver if not done already
 			if (bReceiverCreated) 
 				ReleaseReceiver();
+
+			// Provide of a user requested sender (SetSenderName)
+			if (!senderName.empty()) {
+				// Check the name against the current index
+				if (senderName != NDIsenders.at(index)) {
+					// If the name is different, does the sender exist ?
+					if (!GetSenderIndex(senderName, index)) {
+						// A sender name name has been specified so wait for it
+						return false;
+					}
+					// If the index is retrieved, the required sender is running
+				}
+			}
 
 			// Set the descriptor for the source of the receiving index.
 			// We tell it that we prefer the passed format (NDIlib_recv_color_format_e)
@@ -747,13 +768,17 @@ void ofxNDIreceive::ReleaseReceiver()
 
 	m_Width = 0;
 	m_Height = 0;
-	senderName.empty();
+
 	pNDI_recv = nullptr;
 	bReceiverCreated = false;
 	bReceiverConnected = false;
 	bSenderSelected = false;
 	FreeVideoData();
 	FreeAudioData();
+
+	// Don't clear the sender name
+	// It can be used with SetSenderName 
+	// to specify as sender to receive from
 
 }
 
@@ -965,16 +990,13 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 			// No data received or the connection lost
 			case NDIlib_frame_type_none:
-				bRet = false;
 				break;
 
 			case NDIlib_frame_type_error:
-				bRet = false;
 				break;
 
 			// The settings on this input have changed
 			case NDIlib_frame_type_status_change:
-				bRet = false;
 				break;
 
 			// Metadata
@@ -1016,7 +1038,12 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 				break;
 
 			case NDIlib_frame_type_video :
+
 				if (video_frame.p_data) {
+
+					// The caller can check whether a frame has been received
+					bReceiverConnected = true;
+
 					if (m_Width != (unsigned int)video_frame.xres || m_Height != (unsigned int)video_frame.yres) {
 						m_Width = (unsigned int)video_frame.xres;
 						m_Height = (unsigned int)video_frame.yres;
@@ -1036,7 +1063,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 					bRet = true;
 				}
 				else {
-					// No video data - no sender
+					// No video data
 					bReceiverConnected = false;
 				}
 				break; // endif NDIlib_frame_type_video
@@ -1136,10 +1163,6 @@ void ofxNDIreceive::UpdateFps() {
 		fps *= 0.95; // damping from a starting fps value
 		fps += 0.05*frameRate;
 	}
-
-	// Only called when connected
-	bReceiverConnected = true;
-
 }
 
 void ofxNDIreceive::StartCounter()
