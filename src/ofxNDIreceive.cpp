@@ -125,6 +125,7 @@
 			   Clean up for update from testing to master
 	30.10.21 - Add SetSenderName
 			   Modify CreateReceiver to use the set sender name
+	31.10.21 - Add more comments to CreateReceiver
 
 */
 
@@ -642,6 +643,8 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 	if (!bNDIinitialized) 
 		return false;
 
+	// The index passed in can be the required sender which has been selected by the user
+	// from a list of senders currently running, or -1 if no index has been selected.
 	int index = userindex;
 
 	// printf("ofxNDIreceive::CreateReceiver - format = %d, user index (%d)\n", colorFormat, userindex);
@@ -661,11 +664,14 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 
 		if (p_sources && no_sources > 0) {
 
-			// Quit if the user index is greater than the number of sources
+			// Quit if the user selected index is greater than the number of sources
+			// Unlikely but safety.
 			if (userindex > (int)no_sources - 1)
 				return false;
 
 			// If no index has been specified (-1), use the currently set index
+			// "senderIndex" is either initialized as "0", the first sender,
+			// or it is still set to the previous sender index.
 			if (userindex < 0)
 				index = senderIndex;
 
@@ -683,7 +689,28 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			if (bReceiverCreated) 
 				ReleaseReceiver();
 
-			// Provide of a user requested sender (SetSenderName)
+			//
+			// Check for a user requested sender set by SetSenderName().
+			// (the global string "senderName" is not cleared by ReleaseReceiver above).
+			//
+			// Only applies for inital sender connection when the program starts.
+			//
+			// This check is normally skipped when the program starts, because the name
+			// is intially empty and the first sender in the list is selected (index 0).
+			//
+			// But if a sender has been specified for intial connection, the check is performed.
+			//
+			//  o If the sender is running at index zero, the check immediately passes.
+			//  o If the sender is running but with a different index, that index is retrieved.
+			//  o If the sender is not in the name list, the check returns to wait for it.
+			//
+			// After the required sender is connected, operation is as usual.
+			// That is, if the connected sender closes, the program waits for it to open again.
+			// This allows for network outages.
+			//
+			// If the user picks a sender from the list, the name is derived from the selected index.
+			//
+
 			if (!senderName.empty()) {
 				// Check the name against the current index
 				if (senderName != NDIsenders.at(index)) {
@@ -692,7 +719,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 						// A sender name name has been specified so wait for it
 						return false;
 					}
-					// If the index is retrieved, the required sender is running
+					// If the required sender is running and it's index is now matched.
 				}
 			}
 
@@ -722,13 +749,13 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 				return false;
 			}
 
-			// Reset the current sender name
+			// Reset the current sender name given the index
 			senderName = NDIsenders.at(index);
 
-			// Reset the sender index
+			// Reset the current index value
 			senderIndex = index;
 
-			// Start counter for frame fps calculations
+			// Start the counter for frame fps calculations
 			StartCounter();
 
 			// on_program = true, on_preview = false

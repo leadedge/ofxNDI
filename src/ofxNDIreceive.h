@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2021 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -190,6 +190,7 @@ public:
 	bool GetSenderIndex(std::string sendername, int &index);
 
 	// Set a sender name to receive from
+	// Only applies for inital sender connection.
 	void SetSenderName(std::string sendername);
 
 	// Return the name string of a sender index
@@ -268,7 +269,7 @@ private:
 	std::vector<std::string> NDIsenders; // List of sender names
 	int nsenders;// Sender count
 	int senderIndex; // Current sender index
-	std::string senderName; // current sender name
+	std::string senderName; // Current sender name
 	bool bNDIinitialized; // Is NDI initialized properly
 	bool bReceiverCreated; // Is the receiver created
 	bool bReceiverConnected; // Is the receiver connected and receiving frames
