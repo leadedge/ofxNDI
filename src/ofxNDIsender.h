@@ -226,10 +226,10 @@ private:
 	int m_idx; // Index used for async buffer swapping
 
 	bool m_bReadback; // Asynchronous readback of pixels from FBO using two PBOs
-	GLuint ndiPbo[2]; // PBOs used for asynchronous read-back from fbo
+	GLuint m_pbo[2]; // PBOs used for asynchronous read-back from fbo
+	GLuint m_fbo; // Untility fbo used for data transfer
 	int PboIndex; // Index used for asynchronous read-back from fbo
 	int NextPboIndex;
-	ofFbo ndiFbo; // Utility Fbo
 
 	// Read pixels from fbo to pixel buffer
 	void ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, ofPixels &buffer);
@@ -237,12 +237,8 @@ private:
 	// Read pixels from texture to pixel buffer
 	void ReadPixels(ofTexture tex, unsigned int width, unsigned int height, ofPixels &buffer);
 
-	// Asynchronous fbo pixel data readback
-	bool ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);
-
-	// Asynchronous texture pixel data readback
-	bool ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data);
-
+	// Asynchronous texture pixel readback
+	bool ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data, GLuint HostFBO = 0);
 
 };
 

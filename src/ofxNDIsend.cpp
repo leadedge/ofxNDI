@@ -231,6 +231,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		return true;
 	}
 
+	// Error
 	printf("ofxNDIsend::CreateSender - no pNDI_send\n");
 
 	return false;

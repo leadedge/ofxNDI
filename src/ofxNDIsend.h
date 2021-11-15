@@ -247,7 +247,6 @@ private:
 	NDIlib_metadata_frame_t metadata_frame; // The frame that will be sent
 	std::string m_metadataString; // XML message format string NULL terminated - application provided
 
-
 };
 
 

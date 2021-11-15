@@ -44,6 +44,7 @@
 			     Previous version compatibility with rgba<>bgra and invert options
 				 Same size as dest with invert option
 				 Line-by-line with source and dest pitch
+	15.11.21 - Add timing functions
 
 */
 #include "ofxNDIutils.h"
@@ -58,6 +59,12 @@
 
 namespace ofxNDIutils {
 
+#ifdef USE_CHRONO
+	// Timing counters
+	std::chrono::steady_clock::time_point start;
+	std::chrono::steady_clock::time_point end;
+#endif
+
 #if defined (__APPLE__)
 	static inline void *__movsd(void *d, const void *s, size_t n) {
 		asm volatile ("rep movsb"
@@ -71,6 +78,7 @@ namespace ofxNDIutils {
 		return d;
 	}
 #endif
+
 
 #if defined(TARGET_WIN32) || defined (TARGET_OSX)
 
@@ -472,7 +480,22 @@ namespace ofxNDIutils {
 			yuv += width*2; // half width source data
 			yuv += padding; // if any
 		}
+	}  // end YUV422_to_RGBA
+
+#ifdef USE_CHRONO
+	// Timing functions
+	void StartTiming() {
+		start = std::chrono::steady_clock::now();
 	}
 
-} // end YUV422_to_RGBA
+	double EndTiming() {
+		end = std::chrono::steady_clock::now();
+		double elapsed = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
+		// printf("    elapsed [%06.2f] msec\n", elapsed / 1000.0);
+		// printf("elapsed [%.3f] u/sec\n", elapsed);
+		return elapsed / 1000.0; // msec
+	}
+#endif
+
+} // end namespace
 

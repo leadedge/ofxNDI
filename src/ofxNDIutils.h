@@ -52,6 +52,23 @@
 #include <cstring>
 #include <climits>
 
+//
+// C++11 timer is only available for MS Visual Studio 2015 and above.
+//
+// Note that _MSC_VER may not correspond correctly if an earlier platform toolset
+// is selected for a later compiler e.g. Visual Studio 2010 platform toolset for
+// a Visual studio 2017 compiler. "#include <chrono>" will then fail.
+// If this is a problem, remove _MSC_VER_ and manually enable/disable the USE_CHRONO define.
+//
+#if _MSC_VER >= 1900
+#define USE_CHRONO
+#endif
+
+#ifdef USE_CHRONO
+#include <chrono> // c++11 timer
+#include <thread>
+#endif
+
 namespace ofxNDIutils {
 
 	// Copy rgba source image to dest.
@@ -86,6 +103,15 @@ namespace ofxNDIutils {
 	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert = false);
 	void FlipBuffer(const unsigned char *src, unsigned char *dst, unsigned int width, unsigned int height);
 	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride);
+
+#ifdef USE_CHRONO
+	// Start timing period
+	void StartTiming();
+	// Stop timing and return microseconds elapsed.
+	// Code console output can be enabled for quick timing tests.
+	double EndTiming();
+#endif
+
 }
 
 
