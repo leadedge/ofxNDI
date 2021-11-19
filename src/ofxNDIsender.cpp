@@ -45,7 +45,9 @@
 	08.12.20 - Corrected from ReadPixels(fbo.getTexture(), to ReadPixels(fbo) for SendImage fbo
 	24.12.20 - Changed ReadPixels from unsigned char to ofPixels
 	15.11.21 - Revise ReadTexturePixels
-	
+	18.11.21 - Revise ReadTexturePixels further due to missing glBufferStorage extension for MacOS
+			   Change ReadPixels from void to bool
+
 */
 #include "ofxNDIsender.h"
 
@@ -85,10 +87,10 @@ ofxNDIsender::ofxNDIsender()
 	m_SenderName = "";
 	m_bReadback = false; // Asynchronous fbo pixel data readback option
 	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
-	PboIndex = NextPboIndex = 0;
-	m_fbo = 0;
+
 
 }
+
 
 ofxNDIsender::~ofxNDIsender()
 {
@@ -106,12 +108,14 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 	ndiBuffer[0].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
 	ndiBuffer[1].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
 	m_idx = 0;
-	// pbos for asynchronous readback
-	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
-	PboIndex = NextPboIndex = 0;
+
+	// Initialize OpenGL pbos for asynchronous readback of fbo data
+	glGenBuffers(3, m_pbo);
+	PboIndex = NextPboIndex = 0; // index used for asynchronous fbo readback
+
 	// Allocate utility fbo
-	if(m_fbo == 0)
-		glGenFramebuffers(1, &m_fbo);
+	ndiFbo.allocate(width, height, GL_RGBA);
+	// ===============================================================
 
 	if (NDIsender.CreateSender(sendername, width, height)) {
 		m_SenderName = sendername;
@@ -126,15 +130,19 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 // Update sender dimensions
 bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 {
+
 	// Re-initialize pixel buffers
 	ndiBuffer[0].allocate(width, height, 4);
 	ndiBuffer[1].allocate(width, height, 4);
 	m_idx = 0;
 
-	// Delete pbos for re-allocation
+	// Delete and re-initialize OpenGL pbos
 	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
-	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
+	glGenBuffers(3, m_pbo);
 	PboIndex = NextPboIndex = 0; // reset index used for asynchronous fbo readback
+
+	// Re-initialize utility fbo
+	ndiFbo.allocate(width, height, GL_RGBA);
 
 	return NDIsender.UpdateSender(width, height);
 }
@@ -149,11 +157,9 @@ void ofxNDIsender::ReleaseSender()
 	// Delete readback pbos
 	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
 	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
-	PboIndex = NextPboIndex = 0;
 
 	// Release utility fbo
-	if (m_fbo > 0) glDeleteFramebuffers(1, &m_fbo);
-	m_fbo = 0;
+	if (ndiFbo.isAllocated()) ndiFbo.clear();
 
 	// Release sender
 	NDIsender.ReleaseSender();
@@ -214,18 +220,15 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 // Send ofTexture
 bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 {
-	if (!tex.isAllocated()) {
+	if (!tex.isAllocated())
 		return false;
-	}
 
-	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated()) {
+	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
 		return false;
-	}
 
 	// Quit if the texture is not RGBA
-	if (tex.getTextureData().glInternalFormat != GL_RGBA) {
+	if (tex.getTextureData().glInternalFormat != GL_RGBA)
 		return false;
-	}
 
 	unsigned int width = (unsigned int)tex.getWidth();
 	unsigned int height = (unsigned int)tex.getHeight();
@@ -470,127 +473,132 @@ std::string ofxNDIsender::GetNDIversion()
 
 
 // Read pixels from texture to buffer
-void ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int height, ofPixels &buffer)
+bool ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int height, ofPixels &buffer)
 {
-	// ofxNDIutils::StartTiming();
-
 	if (m_bReadback)
-		ReadTexturePixels(tex, width, height, buffer.getData());
+		return ReadTexturePixels(tex, width, height, buffer.getData());
 	else
 		tex.readToPixels(buffer);
-
+	return true;
 }
 
 // Read pixels from fbo to buffer
-void ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, ofPixels &buffer)
+bool ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, ofPixels &buffer)
 {
-	if (m_bReadback) // Asynchronous readback using two pbos TODO - testing
-		ReadTexturePixels(fbo.getTexture(), width, height, buffer.getData(), fbo.getId());
+	if (m_bReadback) // Asynchronous readback using two pbos
+		return ReadFboPixels(fbo, width, height, buffer.getData());
 	else // Read fbo directly
 		fbo.readToPixels(buffer);
-
+	return true;
 }
 
+
 //
-// Asynchronous texture pixel Read-back via pbo
+// Asynchronous fbo pixel Read-back
 //
 // adapted from : http://www.songho.ca/opengl/gl_pbo.html
 //
-bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data, GLuint HostFBO)
+bool ofxNDIsender::ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data)
 {
-	if (!data) {
+	if (!data || m_pbo[0] == 0)
 		return false;
-	}
 
 	void *pboMemory = nullptr;
-	unsigned int pitch = width * 4; // RGBA pitch
-
-	if (m_fbo == 0) {
-		glGenFramebuffers(1, &m_fbo);
-	}
-
-	// Create pbos if not already
-	if (m_pbo[0] == 0) {
-		glGenBuffers(3, m_pbo);
-		PboIndex = 0;
-		NextPboIndex = 0;
-	}
 
 	PboIndex = (PboIndex + 1) % 3;
 	NextPboIndex = (PboIndex + 1) % 3;
 
-	// If Texture ID is zero, the texture is already attached to the Host Fbo
-	// and we do nothing. If not we need to create an fbo and attach the user texture.
-	// If Texture ID is zero, the texture is already attached to the Host Fbo
-	// and we do nothing. If not we need to create an fbo and attach the user texture
-	if (tex.texData.textureID > 0) {
-		// Attach the texture to point 0
-		glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-			tex.texData.textureTarget, tex.texData.textureID, 0);
-		// Set the target framebuffer to read
-		glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-	}
-	else if (HostFBO == 0) {
-		// If no texture ID, a Host FBO must be provided
-		return false;
-	}
+	// Bind the fbo passed in
+	fbo.bind();
 
-	// Bind the PBO
+	// Set the target framebuffer to read
+	glReadBuffer(GL_FRONT);
+
+	// Bind the current PBO
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[PboIndex]);
 
-	// Check it's size
-	GLint buffersize = 0;
-	glGetBufferParameteriv(GL_PIXEL_PACK_BUFFER, GL_BUFFER_SIZE, &buffersize);
-	if (buffersize > 0 && buffersize != (int)(pitch * height)) {
-		// For a sender size change, all PBOs must be re-created.
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-		glBindFramebufferEXT(GL_FRAMEBUFFER, HostFBO);
-		glDeleteBuffers(3, m_pbo);
-		m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
-		return false;
-	}
+	// Null existing PBO data to avoid a stall
+	// This allocates memory for the PBO
+	glBufferDataARB(GL_PIXEL_PACK_BUFFER, width*height*4, 0, GL_STREAM_READ);
 
-	// Allocate pbo data buffer with glBufferStorage.
-	// The buffer is immutable and size is set for the lifetime of the object.
-	if (buffersize == 0) {
-		glBufferStorage(GL_PIXEL_PACK_BUFFER, pitch*height, 0, GL_MAP_READ_BIT);
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-		glBindFramebuffer(GL_FRAMEBUFFER, HostFBO);
-		return false; // No more for this round
-	}
-
-	// Read pixels from framebuffer to PBO - glReadPixels() should return immediately.
-	glPixelStorei(GL_PACK_ROW_LENGTH, pitch / 4); // row length in pixels
+	// Read pixels from framebuffer to the current PBO
+	// After a buffer is bound, glReadPixels() will pack(write) data into the Pixel Buffer Object.
+	// glReadPixels() should return immediately.
 	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
-	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 
-	// If there is data in the next pbo from the previous call, read it back.
+	// Map the previous PBO to process its data by CPU
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[NextPboIndex]);
-
-	// Map the PBO to process its data by CPU.
-	// Map the entire data store into the client's address space.
-	// glMapBufferRange may give improved performance over glMapBuffer.
-	// GL_MAP_READ_BIT indicates that the returned pointer may be used to read buffer object data.
-	pboMemory = glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, buffersize, GL_MAP_READ_BIT);
-
-	// glMapBuffer can return NULL when called the first time
-	// when the next pbo has not been filled with data yet.
-	// Remove the last error
-	glGetError();
-
-	// Update data directly from the mapped buffer.
-	// If no pbo data, skip the copy rather than return false.
+	pboMemory = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 	if (pboMemory) {
+		// Use SSE2 mempcy
 		ofxNDIutils::CopyImage((unsigned char *)pboMemory, data, width, height, width * 4);
 		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+	}
+	else {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		fbo.unbind();
+		return false;
 	}
 
 	// Back to conventional pixel operation
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
-	// Restore the previous fbo binding
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, HostFBO);
+	fbo.unbind();
+
+	return true;
+
+}
+
+// Asynchronous texture pixel Read-back via fbo
+bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data)
+{
+	if (!data || m_pbo[0] == 0)
+		return false;
+
+	void *pboMemory = nullptr;
+
+	PboIndex = (PboIndex + 1) % 3;
+	NextPboIndex = (PboIndex + 1) % 3;
+
+	// The local fbo will be the same size as the sender texture
+	ndiFbo.bind();
+
+	// Attach the texture passed in
+	ndiFbo.attachTexture(tex, GL_RGBA, 0);
+
+	// Set the target framebuffer to read
+	glReadBuffer(GL_FRONT);
+
+	// Bind the current PBO
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[PboIndex]);
+
+	// Null existing PBO data to avoid a stall
+	// This allocates memory for the PBO
+	glBufferDataARB(GL_PIXEL_PACK_BUFFER, width*height*4, 0, GL_STREAM_READ);
+
+	// Read pixels from framebuffer to the current PBO
+	// After a buffer is bound, glReadPixels() will pack(write) data into the Pixel Buffer Object.
+	// glReadPixels() should return immediately.
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
+
+	// Map the previous PBO to process its data by CPU
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[NextPboIndex]);
+	pboMemory = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+	if (pboMemory) {
+		// Use SSE2 mempcy
+		ofxNDIutils::CopyImage((unsigned char *)pboMemory, data, width, height, width * 4);
+		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+	}
+	else {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		ndiFbo.unbind();
+		return false;
+	}
+
+	// Back to conventional pixel operation
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+	ndiFbo.unbind();
 
 	return true;
 
