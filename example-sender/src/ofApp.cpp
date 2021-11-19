@@ -43,6 +43,7 @@
 	08.07.18 - Update for Openframeworks 10
 			 - Include all SendImage option examples
 	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
+	08.12.20 - Change from sprintf to std::string for on-screen display
 
 */
 #include "ofApp.h"
@@ -59,7 +60,7 @@ void ofApp::setup(){
 	cout << "\nofxNDI example sender - 32 bit" << endl;
 	#endif // _WIN64
 
-	cout << ndiSender.GetNDIversion() << " (http://ndi.tv/)" << endl;
+	cout << ndiSender.GetNDIversion() << " (https://www.ndi.tv/)" << endl;
 
 	// Set the dimensions of the sender output here
 	// This is independent of the size of the display window
@@ -69,8 +70,11 @@ void ofApp::setup(){
 	// Create an RGBA fbo for collection of data
 	ndiFbo.allocate(senderWidth, senderHeight, GL_RGBA);
 
-	// Optionally set fbo readback using OpenGL pixel buffers
-	ndiSender.SetReadback(); // Change to false to compare
+	// Optionally set readback
+	// Pixel data extraction from fbo or texture
+	// is optimised using two OpenGL pixel buffers (pbo's)
+	// Note that the speed can vary with different CPUs
+	// ndiSender.SetReadback();
 
 	// Optionally set NDI asynchronous sending
 	// instead of clocked at the specified frame rate (60fps default)
@@ -130,10 +134,6 @@ void ofApp::draw() {
 	ofBackground(0);
 	ofColor(255);
 
-	// Pixel data extraction from fbo or texture
-	// is optimised using ndiSender.SetReadback()
-	// which uses two OpenGL pixel buffers (pbo's)
-
 	// Option 1 : Send ofFbo
 	// ofFbo and ofTexture must be RGBA
 	DrawGraphics();
@@ -161,11 +161,16 @@ void ofApp::draw() {
 
 	// Show what it is sending
 	if (ndiSender.SenderCreated()) {
-		char str[256];
-		sprintf_s(str, 256, "Sending as : [%s] (%dx%d)", senderName, senderWidth, senderHeight);
+		std::string str;
+		str = "Sending as : ["; str += senderName; str += "] (";
+		str += to_string(senderWidth); str += "x"; str += to_string(senderHeight); str += ")";
 		ofDrawBitmapString(str, 20, 30);
-		// Show fps
-		sprintf_s(str, 256, "fps: %3.3d (%4.2f)", (int)ofGetFrameRate(), ndiSender.GetFps());
+		str = "fps: "; str += to_string((int)ofGetFrameRate()); str += " (";
+		double fps = ndiSender.GetFps();
+		str += to_string((int)fps); // whole part
+		str += ".";
+		str += to_string((int)(fps * 100) - (int)fps * 100); // decimal part
+		str += ")";
 		ofDrawBitmapString(str, ofGetWidth() - 140, 30);
 	}
 

@@ -51,7 +51,7 @@ void ofApp::setup(){
 #else // _WIN64
 	cout << "\nofxNDI example webcam sender - 32 bit" << endl;
 #endif // _WIN64	
-	cout << ndiSender.GetNDIversion() << " (http://ndi.tv/)" << endl;
+	cout << ndiSender.GetNDIversion() << " (https://www.ndi.tv/)" << endl;
 
 	// Set up webcam
 	vidGrabber.setDeviceID(0); // The first webcam
