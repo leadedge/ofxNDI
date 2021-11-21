@@ -41,7 +41,9 @@
     #include <mmsystem.h> // for timegettime if ofMain is included
     #pragma comment(lib, "Winmm.lib") // for timegettime
 #elif defined(TARGET_OSX)
-    #include <x86intrin.h> // for _movsd
+    #if not defined(__aarch64__)
+        #include <x86intrin.h> // for _movsd
+    #endif
     #include <sys/time.h>
 #endif
 
