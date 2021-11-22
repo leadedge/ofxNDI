@@ -76,7 +76,9 @@
 #pragma comment(lib, "shlwapi.lib")  // for path functions
 #pragma comment(lib, "Shell32.lib")  // for shellexecute
 #elif defined(__APPLE__)
+#if not defined(__aarch64__)
 #include <x86intrin.h> // for _movsd
+#endif
 #include <sys/time.h>
 #else // Linux
 #include <sys/time.h>

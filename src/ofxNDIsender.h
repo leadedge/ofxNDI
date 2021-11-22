@@ -38,7 +38,9 @@
 #include <windows.h>
 #include <intrin.h> // for _movsd
 #elif defined(TARGET_OSX)
+#if not defined(__aarch64__)
 #include <x86intrin.h> // for _movsd
+#endif
 #elif defined(TARGET_LINUX)
 //// TODO - what? - Check
 #endif

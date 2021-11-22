@@ -42,7 +42,11 @@
 
 // TODO : test includes for OSX
 #if defined(TARGET_OSX)
+#if defined(__aarch64__)
+#include "sse2neon.h"
+#else
 #include <x86intrin.h> // for _movsd
+#endif
 #elif defined(TARGET_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd

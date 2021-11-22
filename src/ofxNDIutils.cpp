@@ -71,6 +71,9 @@ namespace ofxNDIutils {
 #if defined (__APPLE__)
 
 	static inline void *__movsd(void *d, const void *s, size_t n) {
+#if defined(__aarch64__)
+        return memcpy(d, s, n);
+#else
 		asm volatile ("rep movsb"
 			: "=D" (d),
 			"=S" (s),
@@ -80,7 +83,8 @@ namespace ofxNDIutils {
 			"2" (n)
 			: "memory");
 		return d;
-	}
+#endif
+    }
 #endif
 
 
