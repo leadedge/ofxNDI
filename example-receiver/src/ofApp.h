@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2021 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -59,6 +59,5 @@ class ofApp : public ofBaseApp{
 		unsigned int senderWidth; // sender width and height needed to receive char pixels
 		unsigned int senderHeight;
 		void ShowInfo();
-
 
 };

@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2021 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -56,6 +56,7 @@
 	28.02.20 - Remove initial texture clear.
 			   Add received fps to on-screen display
 	08.12.20 - Change from sprintf to std::string for on-screen display
+	02.12,21 - Update pixel receive examples and comments
 
 */
 #include "ofApp.h"
@@ -125,10 +126,21 @@ void ofApp::draw(){
 	// ndiReceiver.ReceiveImage(ndiImage);
 	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 
+	//
+	// Receive to ofPixels or buffer would be used when pixels are required
+	// and the result is not drawn. There is an overhead in transferring the
+	// pixels to a texture for draw.
+	//
+
+	/*
 	// Receive ofPixels
-	// ndiReceiver.ReceiveImage(ndiPixels);
-	// ndiImage.setFromPixels(ndiPixels);
-	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	ndiReceiver.ReceiveImage(ndiPixels);
+	// Use setFromExternalPixels to avoid an extra data copy
+	ndiImage.getPixels().setFromExternalPixels(ndiPixels.getData(), ndiPixels.getWidth(), ndiPixels.getHeight(), 4);
+	// Update the image texture after setting pixels
+	ndiImage.update();
+	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	*/
 
 	/*
 	// Receive unsigned char pixel image

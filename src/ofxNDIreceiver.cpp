@@ -55,6 +55,8 @@
 			   Cleanup
 	29.02.20 - Change GetFps from double to int
 	30.10.21 - Add SetSenderName
+	02.12.21 - Use setFromPixels in Receive to ofPixels
+			   Ensure the NDI video buffer is freed on fail in GetPixelData()
 
 */
 #include "ofxNDIreceiver.h"
@@ -257,8 +259,11 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 
 		// Get the video frame buffer pointer
 		unsigned char *videoData = NDIreceiver.GetVideoData();
-		if (!videoData)
+		if (!videoData) {
+			// Ensure the video buffer is freed
+			NDIreceiver.FreeVideoData();
 			return false;
+		}
 
 		// Get the NDI frame pixel data into the pixel buffer
 		switch (NDIreceiver.GetVideoType()) {
@@ -272,12 +277,13 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 				break;
 			case NDIlib_FourCC_type_RGBA: // RGBA
 			case NDIlib_FourCC_type_RGBX: // RGBX
-				buffer.setFromExternalPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
+				// setFromPixels copies between buffers so that the videoData pointer can be freed
+				buffer.setFromPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
 				break;
 			case NDIlib_FourCC_type_BGRA: // BGRA
 			case NDIlib_FourCC_type_BGRX: // BGRX
 			default: // BGRA
-				buffer.setFromExternalPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
+				buffer.setFromPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
 				buffer.swapRgb();
 				break;
 		} // end switch received format
@@ -485,7 +491,8 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 	// Get the video frame buffer pointer
 	unsigned char *videoData = NDIreceiver.GetVideoData();
 	if (!videoData) {
-		printf("GetPixelData : No video data\n");
+		// Ensure the video buffer is freed
+		NDIreceiver.FreeVideoData();
 		return false;
 	}
 

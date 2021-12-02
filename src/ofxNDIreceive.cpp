@@ -126,6 +126,9 @@
 	30.10.21 - Add SetSenderName
 			   Modify CreateReceiver to use the set sender name
 	31.10.21 - Add more comments to CreateReceiver
+	02.12.21 - Intialize global video frame data pointer in constructor
+			   Null the video frame data pointer in FreeVideoData()
+			   Remove video data check in GetSenderFps
 
 */
 
@@ -190,6 +193,8 @@ ofxNDIreceive::ofxNDIreceive()
 	m_AudioData = nullptr;
 	m_bAudio = false;
 	m_bAudioFrame = false;
+	// Intialize global video frame data pointer
+	video_frame.p_data = nullptr;
 
 	// For received frame fps calculations
 	startTime = lastTime = (double)timeGetTime();
@@ -198,6 +203,10 @@ ofxNDIreceive::ofxNDIreceive()
 	frameTimeNumber = 0.0;
 	lastFrame = 0.0;
 
+	// For most uses you should specify NDIlib_recv_bandwidth_highest, which will
+	// result in the same stream that is being sent from the up-stream source to you.
+	// You may specify NDIlib_recv_bandwidth_lowest, which will provide you with a
+	// medium quality stream that takes significantly reduced bandwidth
 	m_bandWidth = NDIlib_recv_bandwidth_highest;
 
 	// Find and load the NDI dll
@@ -549,12 +558,9 @@ unsigned int ofxNDIreceive::GetSenderHeight()
 float ofxNDIreceive::GetSenderFps()
 {
 	float senderfps = 0.0f;
-	// If video frame has been received
-	if (video_frame.p_data) {
-		// Retrieve the current sender fps
-		if (video_frame.frame_rate_D > 0)
-			senderfps = (float)video_frame.frame_rate_N / (float)video_frame.frame_rate_D;
-	}
+	// Retrieve the current sender fps
+	if (video_frame.frame_rate_D > 0)
+		senderfps = (float)video_frame.frame_rate_N / (float)video_frame.frame_rate_D;
 	return senderfps;
 }
 
@@ -1101,7 +1107,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		// No video data - no sender
 		bReceiverConnected = false;
 	}
-
+	
 	return bRet;
 }
 
@@ -1120,8 +1126,16 @@ unsigned char *ofxNDIreceive::GetVideoData()
 // Free NDI video frame buffers
 void ofxNDIreceive::FreeVideoData()
 {
-	if (p_NDILib && video_frame.p_data)
+	if (p_NDILib && video_frame.p_data) {
 		p_NDILib->recv_free_video_v2(pNDI_recv, &video_frame);
+		// Check that the video frame data pointer is null
+		// because the function may not reset the pointer
+		// and we return video_frame.p_data in GetVideoData().
+		// A leak would occur here if the function fails
+		// but the data is not ours to free.
+		if (video_frame.p_data)
+			video_frame.p_data = nullptr;
+	}
 }
 
 // Free local audio frame buffer
