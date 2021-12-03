@@ -145,7 +145,7 @@ public:
 	// - width | received image width
 	// - height | received image height
 	bool ReceiveImage(unsigned int &width, unsigned int &height);
-
+	   
 	// Get the video type received
 	// The receiver should always receive RGBA.
 	// This function is backup only - no error checking.

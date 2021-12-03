@@ -167,6 +167,7 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 	// Receive a pixel image first
 	unsigned int width = (unsigned int)texture.getWidth();
 	unsigned int height = (unsigned int)texture.getHeight();
+
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
 		// Check for changed sender dimensions
@@ -179,6 +180,7 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 	}
 
 	return false;
+
 
 }
 

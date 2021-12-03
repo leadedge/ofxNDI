@@ -129,6 +129,8 @@
 	02.12.21 - Intialize global video frame data pointer in constructor
 			   Null the video frame data pointer in FreeVideoData()
 			   Remove video data check in GetSenderFps
+	03.12.21 - Fix audio_frame.p_data free in ReceiveImage
+			   Free captured metadata buffer
 
 */
 
@@ -866,19 +868,19 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 				break;
 
 			case NDIlib_frame_type_metadata:
-				// printf("Metadata\n");
 				if (metadata_frame.p_data) {
 					m_bMetadata = true;
 					m_metadataString = metadata_frame.p_data;
 					// ReceiveImage will return false
 					// Use IsMetadata() to determine whether metadata has been received
+					// Free the captured buffer
+					p_NDILib->recv_free_metadata(pNDI_recv, &metadata_frame);
 				}
 				break;
 
 			case NDIlib_frame_type_audio:
-				if (m_bAudio) {
-					// printf("Audio\n");
-					if (audio_frame.p_data) {
+				if (audio_frame.p_data) {
+					if (m_bAudio) {
 						// printf("Audio data received (%d samples).\n", audio_frame.no_samples);
 						// Copy the audio data to a local audio buffer
 						// Allocate only for sample size change
@@ -889,21 +891,19 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 							if (m_AudioData) free((void *)m_AudioData);
 							m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
 						}
-
 						// printf("Audio data received data = %x, samples = %d\n", (unsigned int)audio_frame.p_data, audio_frame.no_samples);
 						m_nAudioChannels = audio_frame.no_channels;
 						m_nAudioSamples = audio_frame.no_samples;
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-						// p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
-						// Vers 4.5
-						p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
 						// and GetAudioData to retrieve the sample buffer
 					}
+					// Vers 4.5
+					p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 				}
 				break;
 
@@ -1036,15 +1036,18 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 			case NDIlib_frame_type_metadata :
 				if (metadata_frame.p_data) {
 					m_bMetadata = true;
+					// Save the metadata string
 					m_metadataString = metadata_frame.p_data;
 					// ReceiveImage will return false
 					// Use IsMetadata() to determine whether metadata has been received
+					// Free the captured buffer
+					p_NDILib->recv_free_metadata(pNDI_recv, &metadata_frame);
 				}
 				break;
 
 			case NDIlib_frame_type_audio :
-				if (m_bAudio) {
-					if (audio_frame.p_data) {
+				if (audio_frame.p_data) {
+					if (m_bAudio) {
 						// Copy the audio data to a local audio buffer
 						// Allocate only for sample size change
 						if (m_nAudioSamples != audio_frame.no_samples
@@ -1059,14 +1062,13 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-						// p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
-						// Vers 4.5
-						p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
 						// and GetAudioData to retrieve the sample buffer
 					}
+					// Vers 4.5
+					p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 				}
 				break;
 
@@ -1111,6 +1113,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 	return bRet;
 }
 
+
 // Get the video type received
 NDIlib_FourCC_video_type_e ofxNDIreceive::GetVideoType()
 {
@@ -1133,8 +1136,9 @@ void ofxNDIreceive::FreeVideoData()
 		// and we return video_frame.p_data in GetVideoData().
 		// A leak would occur here if the function fails
 		// but the data is not ours to free.
-		if (video_frame.p_data)
+		if (video_frame.p_data) {
 			video_frame.p_data = nullptr;
+		}
 	}
 }
 
@@ -1197,9 +1201,10 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 void ofxNDIreceive::UpdateFps() {
 	// Calculate the actual received fps
 	lastTime = startTime;
-	startTime = GetCounter();
-	double frametime = (startTime - lastTime) / 1000.0; // in seconds
+	startTime = GetCounter(); // msec
+	double frametime = (startTime - lastTime); // msec
 	if (frametime  > 0.000001) {
+		frametime = frametime / 1000.0; // seconds
 		frameRate = 1.0 / frametime; // frames per second
 		fps *= 0.95; // damping from a starting fps value
 		fps += 0.05*frameRate;
