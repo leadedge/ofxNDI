@@ -147,7 +147,7 @@ double timeGetTime() {
 
 // Helpful conversion constants.
 static const unsigned usec_per_sec = 1000000;
-static const unsigned usec_per_msec = 1000;
+//static const unsigned usec_per_msec = 1000;
 
 // These functions are written to match the win32
 // signatures and behavior as closely as possible.
