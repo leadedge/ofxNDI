@@ -86,7 +86,7 @@ ofxNDIsender::ofxNDIsender()
 
 	m_SenderName = "";
 	m_bReadback = false; // Asynchronous fbo pixel data readback option
-	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
+	m_pbo[0] = m_pbo[1] = 0;
 
 
 }
@@ -156,7 +156,7 @@ void ofxNDIsender::ReleaseSender()
 
 	// Delete readback pbos
 	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
-	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
+	m_pbo[0] = m_pbo[1] = 0;
 
 	// Release utility fbo
 	if (ndiFbo.isAllocated()) ndiFbo.clear();
