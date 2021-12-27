@@ -1102,7 +1102,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 					bReceiverConnected = false;
 				}
 				break; // endif NDIlib_frame_type_video
-
+				
+			default :
+				break;
 		} // end switch frame type
 	} // endif pNDI_recv
 	else {
