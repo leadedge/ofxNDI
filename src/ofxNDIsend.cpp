@@ -174,7 +174,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 
 		// Provide a meta-data registration that allows people to know what we are. Note that this is optional.
 		// Note that it is possible for senders to also register their preferred video formats.
-		char* p_connection_string = "<ndi_product long_name=\"ofxNDI sender\" "
+		char* p_connection_string = (char*)"<ndi_product long_name=\"ofxNDI sender\" "
 												 "             short_name=\"ofxNDI Sender\" "
 												 "             manufacturer=\"spout@zeal.co\" "
 												 "             version=\"1.004.000\" "
