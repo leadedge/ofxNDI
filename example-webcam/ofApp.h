@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2019 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -37,18 +37,7 @@ class ofApp : public ofBaseApp {
 		void update();
 		void draw();
 
-		void keyPressed(int key);
-		void keyReleased(int key);
-		void mouseMoved(int x, int y);
-		void mouseDragged(int x, int y, int button);
-		void mousePressed(int x, int y, int button);
-		void mouseReleased(int x, int y, int button);
-		void windowResized(int w, int h);
-		void dragEvent(ofDragInfo dragInfo);
-		void gotMessage(ofMessage msg);
-
-		ofVideoGrabber vidGrabber; // Webcam
-		ofxNDIsender ndiSender;    // NDI sender object
-
+		ofVideoGrabber vidGrabber;     // Webcam
+		ofxNDIsender ndiSender;        // NDI sender object
 
 };

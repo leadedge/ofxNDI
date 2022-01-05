@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2018 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -37,19 +37,8 @@ class ofApp : public ofBaseApp{
 		void setup();
 		void update();
 		void draw();
+		void keyPressed(int key);
 
-		void keyPressed  (int key);
-		void keyReleased(int key);
-		void mouseMoved(int x, int y );
-		void mouseDragged(int x, int y, int button);
-		void mousePressed(int x, int y, int button);
-		void mouseReleased(int x, int y, int button);
-		void mouseEntered(int x, int y);
-		void mouseExited(int x, int y);
-		void windowResized(int w, int h);
-		void dragEvent(ofDragInfo dragInfo);
-		void gotMessage(ofMessage msg);
-		
 		ofxNDIreceiver ndiReceiver; // NDI receiver
 		ofFbo ndiFbo; // Fbo to receive
 		ofTexture ndiTexture; // Texture to receive
@@ -59,6 +48,5 @@ class ofApp : public ofBaseApp{
 		unsigned int senderWidth; // sender width and height needed to receive char pixels
 		unsigned int senderHeight;
 		void ShowInfo();
-
 
 };

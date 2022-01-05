@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -123,6 +123,17 @@
 			   (https://github.com/leadedge/ofxNDI/issues/19)
 			   by explicitly setting descriptor fields (result was no change)
 			   Clean up for update from testing to master
+	30.10.21 - Add SetSenderName
+			   Modify CreateReceiver to use the set sender name
+	31.10.21 - Add more comments to CreateReceiver
+	02.12.21 - Intialize global video frame data pointer in constructor
+			   Null the video frame data pointer in FreeVideoData()
+			   Remove video data check in GetSenderFps
+	03.12.21 - Fix audio_frame.p_data free in ReceiveImage
+			   Free captured metadata buffer
+	26.12.21 - Comment out unused usec_per_msec constant - PR #28 by dimitre
+	28.12.21 - Add default case break for NDI_frame_type in ReceiveImage - PR #31 by dimitre
+	04.01.22 - Add default case break for video_frame.FourCC in ReceiveImage
 
 */
 
@@ -139,7 +150,7 @@ double timeGetTime() {
 
 // Helpful conversion constants.
 static const unsigned usec_per_sec = 1000000;
-static const unsigned usec_per_msec = 1000;
+// static const unsigned usec_per_msec = 1000;
 
 // These functions are written to match the win32
 // signatures and behavior as closely as possible.
@@ -187,6 +198,8 @@ ofxNDIreceive::ofxNDIreceive()
 	m_AudioData = nullptr;
 	m_bAudio = false;
 	m_bAudioFrame = false;
+	// Intialize global video frame data pointer
+	video_frame.p_data = nullptr;
 
 	// For received frame fps calculations
 	startTime = lastTime = (double)timeGetTime();
@@ -195,6 +208,12 @@ ofxNDIreceive::ofxNDIreceive()
 	frameTimeNumber = 0.0;
 	lastFrame = 0.0;
 
+	// NDI documentation :
+	// For most uses you should specify NDIlib_recv_bandwidth_highest, which will
+	// result in the same stream that is being sent from the up-stream source to you.
+	// You may specify NDIlib_recv_bandwidth_lowest, which will provide you with a
+	// medium quality stream that takes significantly reduced bandwidth
+	// (see SetLowBandwidth)
 	m_bandWidth = NDIlib_recv_bandwidth_highest;
 
 	// Find and load the NDI dll
@@ -496,6 +515,12 @@ bool ofxNDIreceive::GetSenderIndex(std::string sendername, int &index)
 	return false;
 }
 
+// Set a sender name to receive from
+void ofxNDIreceive::SetSenderName(std::string sendername)
+{
+	senderName = sendername;
+}
+
 // Get the name string of a sender index
 std::string ofxNDIreceive::GetSenderName(int userindex)
 {
@@ -507,8 +532,9 @@ std::string ofxNDIreceive::GetSenderName(int userindex)
 	// If no index has been specified, use the currently selected index
 	if (userindex < 0) {
 		// If there is an existing name, return it
-		if (!senderName.empty())
+		if (!senderName.empty()) {
 			return senderName;
+		}
 		// Otherwise use the existing index
 		index = senderIndex;
 	}
@@ -520,7 +546,7 @@ std::string ofxNDIreceive::GetSenderName(int userindex)
 		return NDIsenders.at(index);
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 // Return current sender width
@@ -539,12 +565,9 @@ unsigned int ofxNDIreceive::GetSenderHeight()
 float ofxNDIreceive::GetSenderFps()
 {
 	float senderfps = 0.0f;
-	// If video frame has been received
-	if (video_frame.p_data) {
-		// Retrieve the current sender fps
-		if (video_frame.frame_rate_D > 0)
-			senderfps = (float)video_frame.frame_rate_N / (float)video_frame.frame_rate_D;
-	}
+	// Retrieve the current sender fps
+	if (video_frame.frame_rate_D > 0)
+		senderfps = (float)video_frame.frame_rate_N / (float)video_frame.frame_rate_D;
 	return senderfps;
 }
 
@@ -633,10 +656,11 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 	if (!bNDIinitialized) 
 		return false;
 
+	// The index passed in can be the required sender which has been selected by the user
+	// from a list of senders currently running, or -1 if no index has been selected.
 	int index = userindex;
 
 	// printf("ofxNDIreceive::CreateReceiver - format = %d, user index (%d)\n", colorFormat, userindex);
-
 	if (!pNDI_recv) {
 
 		// The continued check in FindSenders is for a network change and
@@ -653,11 +677,14 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 
 		if (p_sources && no_sources > 0) {
 
-			// Quit if the user index is greater than the number of sources
+			// Quit if the user selected index is greater than the number of sources
+			// Unlikely but safety.
 			if (userindex > (int)no_sources - 1)
 				return false;
 
 			// If no index has been specified (-1), use the currently set index
+			// "senderIndex" is either initialized as "0", the first sender,
+			// or it is still set to the previous sender index.
 			if (userindex < 0)
 				index = senderIndex;
 
@@ -674,6 +701,39 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			// Release the receiver if not done already
 			if (bReceiverCreated) 
 				ReleaseReceiver();
+
+			//
+			// Check for a user requested sender set by SetSenderName().
+			// (the global string "senderName" is not cleared by ReleaseReceiver above).
+			//
+			// Only applies for inital sender connection when the program starts.
+			//
+			// This check is normally skipped when the program starts, because the name
+			// is intially empty and the first sender in the list is selected (index 0).
+			//
+			// But if a sender has been specified for intial connection, the check is performed.
+			//
+			//  o If the sender is running at index zero, the check immediately passes.
+			//  o If the sender is running but with a different index, that index is retrieved.
+			//  o If the sender is not in the name list, the check returns to wait for it.
+			//
+			// After the required sender is connected, operation is as usual.
+			// That is, if the connected sender closes, the program waits for it to open again.
+			// This allows for network outages.
+			//
+			// If the user picks a sender from the list, the name is derived from the selected index.
+			//
+			if (!senderName.empty()) {
+				// Check the name against the current index
+				if (senderName != NDIsenders.at(index)) {
+					// If the name is different, does the sender exist ?
+					if (!GetSenderIndex(senderName, index)) {
+						// A sender name name has been specified so wait for it
+						return false;
+					}
+					// If the required sender is running and it's index is now matched.
+				}
+			}
 
 			// Set the descriptor for the source of the receiving index.
 			// We tell it that we prefer the passed format (NDIlib_recv_color_format_e)
@@ -701,13 +761,13 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 				return false;
 			}
 
-			// Reset the current sender name
+			// Reset the current sender name given the index
 			senderName = NDIsenders.at(index);
 
-			// Reset the sender index
+			// Reset the current index value
 			senderIndex = index;
 
-			// Start counter for frame fps calculations
+			// Start the counter for frame fps calculations
 			StartCounter();
 
 			// on_program = true, on_preview = false
@@ -747,13 +807,17 @@ void ofxNDIreceive::ReleaseReceiver()
 
 	m_Width = 0;
 	m_Height = 0;
-	senderName.empty();
+
 	pNDI_recv = nullptr;
 	bReceiverCreated = false;
 	bReceiverConnected = false;
 	bSenderSelected = false;
 	FreeVideoData();
 	FreeAudioData();
+
+	// Don't clear the sender name
+	// It can be used with SetSenderName 
+	// to specify as sender to receive from
 
 }
 
@@ -808,19 +872,19 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 				break;
 
 			case NDIlib_frame_type_metadata:
-				// printf("Metadata\n");
 				if (metadata_frame.p_data) {
 					m_bMetadata = true;
 					m_metadataString = metadata_frame.p_data;
 					// ReceiveImage will return false
 					// Use IsMetadata() to determine whether metadata has been received
+					// Free the captured buffer
+					p_NDILib->recv_free_metadata(pNDI_recv, &metadata_frame);
 				}
 				break;
 
 			case NDIlib_frame_type_audio:
-				if (m_bAudio) {
-					// printf("Audio\n");
-					if (audio_frame.p_data) {
+				if (audio_frame.p_data) {
+					if (m_bAudio) {
 						// printf("Audio data received (%d samples).\n", audio_frame.no_samples);
 						// Copy the audio data to a local audio buffer
 						// Allocate only for sample size change
@@ -831,21 +895,19 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 							if (m_AudioData) free((void *)m_AudioData);
 							m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
 						}
-
 						// printf("Audio data received data = %x, samples = %d\n", (unsigned int)audio_frame.p_data, audio_frame.no_samples);
 						m_nAudioChannels = audio_frame.no_channels;
 						m_nAudioSamples = audio_frame.no_samples;
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-						// p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
-						// Vers 4.5
-						p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
 						// and GetAudioData to retrieve the sample buffer
 					}
+					// Vers 4.5
+					p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 				}
 				break;
 
@@ -889,8 +951,11 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 							case NDIlib_FourCC_type_BGRA: // BGRA
 							case NDIlib_FourCC_type_BGRX: // BGRX
-							default: // BGRA
 								ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, true, bInvert);
+								break;
+							
+							default:
+								// Unsupported format
 								break;
 
 						} // end switch received format
@@ -965,31 +1030,31 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 			// No data received or the connection lost
 			case NDIlib_frame_type_none:
-				bRet = false;
 				break;
 
 			case NDIlib_frame_type_error:
-				bRet = false;
 				break;
 
 			// The settings on this input have changed
 			case NDIlib_frame_type_status_change:
-				bRet = false;
 				break;
 
 			// Metadata
 			case NDIlib_frame_type_metadata :
 				if (metadata_frame.p_data) {
 					m_bMetadata = true;
+					// Save the metadata string
 					m_metadataString = metadata_frame.p_data;
 					// ReceiveImage will return false
 					// Use IsMetadata() to determine whether metadata has been received
+					// Free the captured buffer
+					p_NDILib->recv_free_metadata(pNDI_recv, &metadata_frame);
 				}
 				break;
 
 			case NDIlib_frame_type_audio :
-				if (m_bAudio) {
-					if (audio_frame.p_data) {
+				if (audio_frame.p_data) {
+					if (m_bAudio) {
 						// Copy the audio data to a local audio buffer
 						// Allocate only for sample size change
 						if (m_nAudioSamples != audio_frame.no_samples
@@ -1004,19 +1069,23 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
-						// p_NDILib->recv_free_audio_v2(pNDI_recv, &audio_frame);
-						// Vers 4.5
-						p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
 						// and GetAudioData to retrieve the sample buffer
 					}
+					// Vers 4.5
+					p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
 				}
 				break;
 
 			case NDIlib_frame_type_video :
+
 				if (video_frame.p_data) {
+
+					// The caller can check whether a frame has been received
+					bReceiverConnected = true;
+
 					if (m_Width != (unsigned int)video_frame.xres || m_Height != (unsigned int)video_frame.yres) {
 						m_Width = (unsigned int)video_frame.xres;
 						m_Height = (unsigned int)video_frame.yres;
@@ -1036,10 +1105,13 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 					bRet = true;
 				}
 				else {
-					// No video data - no sender
+					// No video data
 					bReceiverConnected = false;
 				}
 				break; // endif NDIlib_frame_type_video
+
+			default:
+				break;
 
 		} // end switch frame type
 	} // endif pNDI_recv
@@ -1047,9 +1119,10 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		// No video data - no sender
 		bReceiverConnected = false;
 	}
-
+	
 	return bRet;
 }
+
 
 // Get the video type received
 NDIlib_FourCC_video_type_e ofxNDIreceive::GetVideoType()
@@ -1066,8 +1139,17 @@ unsigned char *ofxNDIreceive::GetVideoData()
 // Free NDI video frame buffers
 void ofxNDIreceive::FreeVideoData()
 {
-	if (p_NDILib && video_frame.p_data)
+	if (p_NDILib && video_frame.p_data) {
 		p_NDILib->recv_free_video_v2(pNDI_recv, &video_frame);
+		// Check that the video frame data pointer is null
+		// because the function may not reset the pointer
+		// and we return video_frame.p_data in GetVideoData().
+		// A leak would occur here if the function fails
+		// but the data is not ours to free.
+		if (video_frame.p_data) {
+			video_frame.p_data = nullptr;
+		}
+	}
 }
 
 // Free local audio frame buffer
@@ -1129,17 +1211,14 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 void ofxNDIreceive::UpdateFps() {
 	// Calculate the actual received fps
 	lastTime = startTime;
-	startTime = GetCounter();
-	double frametime = (startTime - lastTime) / 1000.0; // in seconds
+	startTime = GetCounter(); // msec
+	double frametime = (startTime - lastTime); // msec
 	if (frametime  > 0.000001) {
+		frametime = frametime / 1000.0; // seconds
 		frameRate = 1.0 / frametime; // frames per second
 		fps *= 0.95; // damping from a starting fps value
 		fps += 0.05*frameRate;
 	}
-
-	// Only called when connected
-	bReceiverConnected = true;
-
 }
 
 void ofxNDIreceive::StartCounter()

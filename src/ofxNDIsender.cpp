@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -44,14 +44,28 @@
 			   TODO disable using #ifdef TARGET_RASPBERRY_PI ?
 	08.12.20 - Corrected from ReadPixels(fbo.getTexture(), to ReadPixels(fbo) for SendImage fbo
 	24.12.20 - Changed ReadPixels from unsigned char to ofPixels
-	
+	15.11.21 - Revise ReadTexturePixels
+	18.11.21 - Revise ReadTexturePixels further due to missing glBufferStorage extension for MacOS
+			   Change ReadPixels from void to bool
+	29.12.21 - Add SetFormat
+	31/12/21 - Add AllocatePixelBuffers
+			   Clean up SetFrameRate
+	01/01/22 - Width/Height check in UpdateSender
+			   texture/buffer allocated check in SendImage ofTexture
+			   RGBA/RGBA8 check in SendImage ofTexture
+			   ofDisableDepthTest in SendImage ofTexture
+			   Width/Height/UpdateSender check in SendImage ofTexture
+			   texture/buffer allocated check in ReadPixels ofTexture
+			   data/pbo/fbo allocated check in ReadTexturePixels
+			   Add double GetFrameRate()
+	03/01/22 - Add YUV shader conversion functions
+
 */
 #include "ofxNDIsender.h"
 
 
 ofxNDIsender::ofxNDIsender()
 {
-
 	// DEBUG - report ARM target
 #ifdef TARGET_LINUX
 	printf("TARGET_LINUX\n");
@@ -81,14 +95,11 @@ ofxNDIsender::ofxNDIsender()
 	printf("gles2 version\n);
 #endif
 
-
 	m_SenderName = "";
 	m_bReadback = false; // Asynchronous fbo pixel data readback option
-	ndiPbo[0] = 0;
-	ndiPbo[1] = 0;
+	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
 
 }
-
 
 ofxNDIsender::~ofxNDIsender()
 {
@@ -103,22 +114,17 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 		return false;
 
 	// Initialize pixel buffers for sending
-	ndiBuffer[0].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
-	ndiBuffer[1].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
+	AllocatePixelBuffers(width, height);
 	m_idx = 0;
 
 	// Initialize OpenGL pbos for asynchronous readback of fbo data
-	glGenBuffers(2, ndiPbo);
-	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[0]);
-	glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, width*height * 4, 0, GL_STREAM_READ);
-	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[1]);
-	glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, width*height * 4, 0, GL_STREAM_READ);
-	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+	if(!m_pbo[0])
+		glGenBuffers(3, m_pbo);
+
 	PboIndex = NextPboIndex = 0; // index used for asynchronous fbo readback
 
-	// Allocate utility fbo
+	// Allocate utility fbo to the sender size
 	ndiFbo.allocate(width, height, GL_RGBA);
-	// ===============================================================
 
 	if (NDIsender.CreateSender(sendername, width, height)) {
 		m_SenderName = sendername;
@@ -133,25 +139,22 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 // Update sender dimensions
 bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 {
+	if (width == 0 || height == 0)
+		return false;
 
-	// Re-initialize pixel buffers
-	ndiBuffer[0].allocate(width, height, 4);
-	ndiBuffer[1].allocate(width, height, 4);
+	// Re-allocate pixel buffers
 	m_idx = 0;
+	AllocatePixelBuffers(width, height);
 
 	// Delete and re-initialize OpenGL pbos
-	if (ndiPbo[0])	glDeleteBuffers(2, ndiPbo);
-	glGenBuffers(2, ndiPbo);
-	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[0]);
-	glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, width*height * 4, 0, GL_STREAM_READ);
-	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, ndiPbo[1]);
-	glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, width*height * 4, 0, GL_STREAM_READ);
-	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
+	glGenBuffers(3, m_pbo);
 	PboIndex = NextPboIndex = 0; // reset index used for asynchronous fbo readback
 
-	// Re-initialize utility fbo
+	// Re-allocate utility fbo
 	ndiFbo.allocate(width, height, GL_RGBA);
-
+	
+	// Update NDI video frame
 	return NDIsender.UpdateSender(width, height);
 }
 
@@ -162,8 +165,9 @@ void ofxNDIsender::ReleaseSender()
 	if (ndiBuffer[0].isAllocated())	ndiBuffer[0].clear();
 	if (ndiBuffer[1].isAllocated())	ndiBuffer[1].clear();
 
-	// Delete fbo readback pbos
-	if (ndiPbo[0]) glDeleteBuffers(2, ndiPbo);
+	// Delete readback pbos
+	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
+	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
 
 	// Release utility fbo
 	if (ndiFbo.isAllocated()) ndiFbo.clear();
@@ -195,33 +199,7 @@ unsigned int ofxNDIsender::GetHeight()
 // Send ofFbo
 bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 {
-	if (!fbo.isAllocated())
-		return false;
-
-	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
-		return false;
-
-	// Quit if the fbo is not RGBA
-	if (fbo.getTexture().getTextureData().glInternalFormat != GL_RGBA)
-		return false;
-
-	unsigned int width = (unsigned int)fbo.getWidth();
-	unsigned int height = (unsigned int)fbo.getHeight();
-
-	// Update the sender if the dimensions are changed
-	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
-		NDIsender.UpdateSender(width, height);
-
-	// For asynchronous NDI sending, alternate between buffers because
-	// one buffer is being filled in while the second is "in flight"
-	// and being processed by the API.
-	if (GetAsync())
-		m_idx = (m_idx + 1) % 2;
-	
-	ReadPixels(fbo, width, height, ndiBuffer[m_idx]);
-
-	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
-
+	return SendImage(fbo.getTexture(), bInvert);
 }
 
 // Send ofTexture
@@ -233,11 +211,13 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
 		return false;
 
-	// Quit if the texture is not RGBA
-	if (tex.getTextureData().glInternalFormat != GL_RGBA)
+	// Quit if the texture is not RGBA or RGBA8
+	if (!(tex.getTextureData().glInternalFormat != GL_RGBA || tex.getTextureData().glInternalFormat != GL_RGBA8))
 		return false;
 
-	unsigned int width = (unsigned int)tex.getWidth();
+	ofDisableDepthTest(); // In case this was enabled, or textures do not show
+
+	unsigned int width  = (unsigned int)tex.getWidth();
 	unsigned int height = (unsigned int)tex.getHeight();
 
 	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
@@ -245,54 +225,55 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 
 	if (GetAsync())
 		m_idx = (m_idx + 1) % 2;
-	ReadPixels(tex, width, height, ndiBuffer[m_idx]);
 
-	return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
+	// Read texture pixels into a pixel buffer
+	bool bResult = false;
+	if (NDIsender.GetFormat() == NDIlib_FourCC_video_type_UYVY) {
+		// Convert to the YUV format at the same time.
+		// YUV output width is half that of the RGBA input
+		bResult = ReadYUVpixels(tex, width/2, height, ndiBuffer[m_idx]);
+	}
+	else {
+		bResult = ReadPixels(tex, width, height, ndiBuffer[m_idx]);
+	}
+
+	// Send pixel data
+	// NDI video frame line stride has been set to match the data format.
+	// (see ofxNDIsend::SetVideoStride)
+	if (bResult)
+		return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
+
+
+	return false;
 
 }
 
 // Send ofImage
-bool ofxNDIsender::SendImage(ofImage img, bool bInvert)
+bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
 {
 	if (!img.isAllocated())
 		return false;
-
-	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
-		return false;
-
-	// RGBA only for images and pixels
+	
+	// RGBA for images
 	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA)
 		img.setImageType(OF_IMAGE_COLOR_ALPHA);
-
-	unsigned int width = (unsigned int)img.getWidth();
-	unsigned int height = (unsigned int)img.getHeight();
-
-	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
-		NDIsender.UpdateSender(width, height);
-
-	return SendImage(img.getPixels().getData(),	width, height, false, bInvert);
+	
+	return SendImage(img.getTexture(), bInvert);
 
 }
 
 // Send ofPixels
-bool ofxNDIsender::SendImage(ofPixels pix, bool bInvert)
+bool ofxNDIsender::SendImage(ofPixels pix, bool bSwapRB, bool bInvert)
 {
 	if (!pix.isAllocated())
 		return false;
 
-	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
-		return false;
-
+	// RGBA for ofPixels
 	if (pix.getImageType() != OF_IMAGE_COLOR_ALPHA)
 		pix.setImageType(OF_IMAGE_COLOR_ALPHA);
 
-	unsigned int width = (unsigned int)pix.getWidth();
-	unsigned int height = (unsigned int)pix.getHeight();
-
-	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
-		NDIsender.UpdateSender(width, height);
-
-	return NDIsender.SendImage(pix.getData(), width, height, false, bInvert);
+	return SendImage((const unsigned char *)pix.getData(),
+		pix.getWidth(), pix.getHeight(), bSwapRB, bInvert);
 
 }
 
@@ -304,33 +285,49 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 	if (!pixels)
 		return false;
 
+	// NDI format must be set to RGBA to match the pixel data
+	if (GetFormat() != NDIlib_FourCC_video_type_RGBA)
+		SetFormat(NDIlib_FourCC_video_type_RGBA);
+
 	// Update sender to match dimensions
 	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
 		NDIsender.UpdateSender(width, height);
 	
 	return NDIsender.SendImage(pixels, width, height, bSwapRB, bInvert);
 
+}
 
+// Set output format
+void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
+{
+	NDIsender.SetFormat(format);
+	// Buffer size will change between YUV and RGBA
+	// Retain sender dimensions, but update the sender
+	// to re-create pbos, buffers and NDI video frame
+	UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
+}
+
+// Get output format
+NDIlib_FourCC_video_type_e ofxNDIsender::GetFormat()
+{
+	return NDIsender.GetFormat();
 }
 
 // Set frame rate whole number
 void ofxNDIsender::SetFrameRate(int framerate)
 {
-	NDIsender.SetFrameRate(framerate*1000, 1000);
+	NDIsender.SetFrameRate(framerate);
 }
 
 // Set frame rate decimal number
 void ofxNDIsender::SetFrameRate(double framerate)
 {
-	NDIsender.SetClockVideo();
-	NDIsender.SetFrameRate((int)(framerate*1000.0), 1000);
+	NDIsender.SetFrameRate(framerate);
 }
 
 // Set frame rate numerator and denominator
 void ofxNDIsender::SetFrameRate(int framerate_N, int framerate_D)
 {
-	NDIsender.SetAsync(false);
-	NDIsender.SetClockVideo();
 	NDIsender.SetFrameRate(framerate_N, framerate_D);
 }
 
@@ -352,6 +349,18 @@ double ofxNDIsender::GetFps()
 void ofxNDIsender::GetFrameRate(int &framerate_N, int &framerate_D)
 {
 	NDIsender.GetFrameRate(framerate_N, framerate_D);
+}
+
+// Get current frame rate
+double ofxNDIsender::GetFrameRate()
+{
+	int num = 0;
+	int den = 0;
+	NDIsender.GetFrameRate(num, den);
+	if (den > 0)
+		return (double)num / (double(den));
+	else
+		return 0.0;
 }
 
 // Set aspect ratio
@@ -478,87 +487,52 @@ std::string ofxNDIsender::GetNDIversion()
 // =========== Private functions ===========
 //
 
-
-// Read pixels from texture to buffer
-void ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int height, ofPixels &buffer)
-{
-	if (m_bReadback)
-		ReadTexturePixels(tex, width, height, buffer.getData());
-	else
-		tex.readToPixels(buffer);
-}
-
 // Read pixels from fbo to buffer
-void ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, ofPixels &buffer)
+bool ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height, ofPixels &buffer)
 {
-	if (m_bReadback) // Asynchronous readback using two pbos
-		ReadFboPixels(fbo, width, height, buffer.getData());
-	else // Read fbo directly
-		fbo.readToPixels(buffer);
-}
-
-
-//
-// Asynchronous fbo pixel Read-back
-//
-// adapted from : http://www.songho.ca/opengl/gl_pbo.html
-//
-bool ofxNDIsender::ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data)
-{
-	void *pboMemory;
-
-	if (ndiPbo[0] == 0 || ndiPbo[1] == 0)
-		return false;
-
-	PboIndex = (PboIndex + 1) % 2;
-	NextPboIndex = (PboIndex + 1) % 2;
-
-	// Bind the fbo passed in
-	fbo.bind();
-
-	// Set the target framebuffer to read
-	glReadBuffer(GL_FRONT);
-
-	// Bind the current PBO
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, ndiPbo[PboIndex]);
-
-	// Read pixels from framebuffer to the current PBO
-	// After a buffer is bound, glReadPixels() will pack(write) data into the Pixel Buffer Object.
-	// glReadPixels() should return immediately.
-	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
-
-	// Map the previous PBO to process its data by CPU
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, ndiPbo[NextPboIndex]);
-	pboMemory = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-	if (pboMemory) {
-		// Use SSE2 mempcy
-		ofxNDIutils::CopyImage((unsigned char *)pboMemory, data, width, height, width * 4);
-		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+	if (m_bReadback) {
+		// Asynchronous readback using pbos
+		return ReadTexturePixels(fbo.getTexture(), width, height, buffer.getData());
 	}
 	else {
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		// Read fbo directly
+		// Specify width and height
+		fbo.bind();
+		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (void *)buffer.getData());
 		fbo.unbind();
+
+	}
+	return true;
+}
+
+// Read pixels from texture to buffer
+bool ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int height, ofPixels &buffer)
+{
+	if (!tex.isAllocated() || !buffer.isAllocated())
 		return false;
+
+	bool bRet = true;
+	if (m_bReadback) {
+		bRet = ReadTexturePixels(tex, width, height, buffer.getData());
+	}
+	else {
+		tex.readToPixels(buffer); // Uses glGetTexImage
 	}
 
-	// Back to conventional pixel operation
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-	fbo.unbind();
-
-	return true;
+	return bRet;
 
 }
 
 // Asynchronous texture pixel Read-back via fbo
 bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data)
 {
-	void *pboMemory;
-
-	if (ndiPbo[0] == 0 || ndiPbo[1] == 0)
+	if (!data || m_pbo[0] == 0 || !ndiFbo.isAllocated())
 		return false;
 
-	PboIndex = (PboIndex + 1) % 2;
-	NextPboIndex = (PboIndex + 1) % 2;
+	void *pboMemory = nullptr;
+
+	PboIndex = (PboIndex + 1) % 3;
+	NextPboIndex = (PboIndex + 1) % 3;
 
 	// The local fbo will be the same size as the sender texture
 	ndiFbo.bind();
@@ -570,7 +544,11 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 	glReadBuffer(GL_FRONT);
 
 	// Bind the current PBO
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, ndiPbo[PboIndex]);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[PboIndex]);
+
+	// Null existing PBO data to avoid a stall
+	// This allocates memory for the PBO
+	glBufferDataARB(GL_PIXEL_PACK_BUFFER, width*height*4, 0, GL_STREAM_READ);
 
 	// Read pixels from framebuffer to the current PBO
 	// After a buffer is bound, glReadPixels() will pack(write) data into the Pixel Buffer Object.
@@ -578,7 +556,7 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
 
 	// Map the previous PBO to process its data by CPU
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, ndiPbo[NextPboIndex]);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[NextPboIndex]);
 	pboMemory = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 	if (pboMemory) {
 		// Use SSE2 mempcy
@@ -591,11 +569,82 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 		return false;
 	}
 
-	ndiFbo.unbind();
-
 	// Back to conventional pixel operation
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+	ndiFbo.unbind();
 
 	return true;
 
 }
+
+// Initialize pixel buffers for sending
+void ofxNDIsender::AllocatePixelBuffers(unsigned int width, unsigned int height)
+{
+	if (width > 0 && height > 0) {
+		ndiBuffer[0].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
+		ndiBuffer[1].allocate(width, height, OF_IMAGE_COLOR_ALPHA);
+	}
+}
+
+
+//
+// YUV shader functions
+//
+
+//
+// Read yuv pixels from rgba fbo to buffer
+// Shaders must be in the "bin/data" folder
+//
+//  bin
+//    data
+//     shaders
+//       rgba2yuv
+//
+bool ofxNDIsender::ReadYUVpixels(ofFbo &fbo, unsigned int width, unsigned int height, ofPixels &buffer)
+{
+	return ReadYUVpixels(fbo.getTexture(), width, height, buffer);
+}
+
+// Read yuv pixels from an rgba texture to buffer
+// The halfwidth argument is half the sender width
+bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigned int height, ofPixels &buffer)
+{
+	if (halfwidth == 0 || height == 0) {
+		return false;
+	}
+
+	// Load the shader
+	if (!rgba2yuv.isLoaded()) {
+		bool bResult = false;
+#ifdef TARGET_OPENGLES
+		bResult = rgba2yuv.load("/shaders/rgba2yuv/ES2/rgba2yuv");
+#else
+		if (ofIsGLProgrammableRenderer()) {
+			bResult = rgba2yuv.load("/shaders/rgba2yuv/GL3/rgba2yuv");
+		}
+		else {
+			bResult = rgba2yuv.load("/shaders/rgba2yuv/GL2/rgba2yuv");
+		}
+#endif
+		if (!bResult)
+			return false;
+
+	}
+
+	// Convert the rgba texture to YUV via fbo
+	ndiFbo.begin();
+	ofDisableAlphaBlending();
+	ofDisableDepthTest();
+	rgba2yuv.begin();
+	rgba2yuv.setUniformTexture("rgbatex", tex, 1);
+	tex.draw(0, 0);
+	rgba2yuv.end();
+	ndiFbo.end();
+
+	// The YUV result is in the ndiFbo texture
+	// The data is half the width of the rgba texture.
+	return ReadPixels(ndiFbo, halfwidth, height, ndiBuffer[m_idx]);
+
+}
+

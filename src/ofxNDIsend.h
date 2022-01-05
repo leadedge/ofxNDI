@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -111,6 +111,9 @@ public:
 
 	// Set output format
 	void SetFormat(NDIlib_FourCC_video_type_e format);
+
+	// Get output format
+	NDIlib_FourCC_video_type_e GetFormat();
 
 	// Set frame rate
 	// - framerate - frames per second
@@ -231,7 +234,8 @@ private:
 	bool m_bProgressive; // Progressive output flag
 	bool m_bClockVideo; // Clock video flag
 	bool m_bAsync; // NDI asynchronous sender
-	NDIlib_FourCC_video_type_e m_Format; // Output format. Default RGBA. May also be BGRA.
+	NDIlib_FourCC_video_type_e m_Format; // Output format. Default RGBA. May also be BGRA or YUV.
+	void SetVideoStride(NDIlib_FourCC_video_type_e format); // Set line stride for YUV or RGBA
 
 	// Audio
 	bool m_bAudio;
@@ -246,7 +250,6 @@ private:
 	bool m_bMetadata;
 	NDIlib_metadata_frame_t metadata_frame; // The frame that will be sent
 	std::string m_metadataString; // XML message format string NULL terminated - application provided
-
 
 };
 

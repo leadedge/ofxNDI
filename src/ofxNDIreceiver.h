@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -41,7 +41,9 @@
     #include <mmsystem.h> // for timegettime if ofMain is included
     #pragma comment(lib, "Winmm.lib") // for timegettime
 #elif defined(TARGET_OSX)
-    #include <x86intrin.h> // for _movsd
+    #if not defined(__aarch64__)
+        #include <x86intrin.h> // for _movsd
+    #endif
     #include <sys/time.h>
 #endif
 
@@ -59,6 +61,7 @@ public:
 
 	ofxNDIreceiver();
 	~ofxNDIreceiver();
+
 
 	// Create a receiver
 	// - index | index in the sender list to connect to
@@ -140,13 +143,17 @@ public:
 	// The index of a sender name
 	bool GetSenderIndex(char *sendername, int &index);
 
-	// Name characters of a sender index
-	bool GetSenderName(char *sendername);
-	bool GetSenderName(char *sendername, int index);
-	bool GetSenderName(char *sendername, int maxsize, int index);
+	// Set a sender name to receive from
+	void SetSenderName(std::string sendername);
 
 	// Name string of a sender index
 	std::string GetSenderName(int index = -1);
+
+	// Name characters of a sender index
+	// For back-compatibility
+	bool GetSenderName(char *sendername);
+	bool GetSenderName(char *sendername, int index);
+	bool GetSenderName(char *sendername, int maxsize, int index);
 
 	// Sender width
 	unsigned int GetSenderWidth();
@@ -194,7 +201,6 @@ public:
 
 private :
 
-	std::string SenderName;
 	bool GetPixelData(ofTexture &texture);
 
 

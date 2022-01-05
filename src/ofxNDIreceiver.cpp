@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -54,6 +54,11 @@
 	04.12.19 - Revise for ARM port (https://github.com/IDArnhem/ofxNDI)
 			   Cleanup
 	29.02.20 - Change GetFps from double to int
+	30.10.21 - Add SetSenderName
+	02.12.21 - Use setFromPixels in Receive to ofPixels
+			   Ensure the NDI video buffer is freed on fail in GetPixelData()
+	04.01.22 - Add default case break for unsupported format 
+			   for NDIreceiver.GetVideoType() in ReceiveImage(ofPixels
 
 */
 #include "ofxNDIreceiver.h"
@@ -164,6 +169,7 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 	// Receive a pixel image first
 	unsigned int width = (unsigned int)texture.getWidth();
 	unsigned int height = (unsigned int)texture.getHeight();
+
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
 		// Check for changed sender dimensions
@@ -172,9 +178,11 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 
 		// Get NDI pixel data from the video frame
 		return GetPixelData(texture);
+
 	}
 
 	return false;
+
 
 }
 
@@ -255,8 +263,11 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 
 		// Get the video frame buffer pointer
 		unsigned char *videoData = NDIreceiver.GetVideoData();
-		if (!videoData)
+		if (!videoData) {
+			// Ensure the video buffer is freed
+			NDIreceiver.FreeVideoData();
 			return false;
+		}
 
 		// Get the NDI frame pixel data into the pixel buffer
 		switch (NDIreceiver.GetVideoType()) {
@@ -270,13 +281,16 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 				break;
 			case NDIlib_FourCC_type_RGBA: // RGBA
 			case NDIlib_FourCC_type_RGBX: // RGBX
-				buffer.setFromExternalPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
+				// setFromPixels copies between buffers so that the videoData pointer can be freed
+				buffer.setFromPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
 				break;
 			case NDIlib_FourCC_type_BGRA: // BGRA
 			case NDIlib_FourCC_type_BGRX: // BGRX
-			default: // BGRA
-				buffer.setFromExternalPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
+				buffer.setFromPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
 				buffer.swapRgb();
+				break;
+			default:
+				// Unsupported format
 				break;
 		} // end switch received format
 
@@ -365,6 +379,18 @@ int ofxNDIreceiver::GetSenderCount()
 	return NDIreceiver.GetSenderCount();
 }
 
+// Set a sender name to receive from
+void ofxNDIreceiver::SetSenderName(std::string sendername)
+{
+	NDIreceiver.SetSenderName(sendername);
+}
+
+// Return the name string of a sender index
+std::string ofxNDIreceiver::GetSenderName(int userindex)
+{
+	return NDIreceiver.GetSenderName(userindex);
+}
+
 // Return the name characters of a sender index
 // For back-compatibility only
 // Char functions replaced with string versions
@@ -384,12 +410,6 @@ bool ofxNDIreceiver::GetSenderName(char *sendername, int index)
 bool ofxNDIreceiver::GetSenderName(char *sendername, int maxsize, int userindex)
 {
 	return NDIreceiver.GetSenderName(sendername, maxsize, userindex);
-}
-
-// Return the name string of a sender index
-std::string ofxNDIreceiver::GetSenderName(int userindex)
-{
-	return NDIreceiver.GetSenderName(userindex);
 }
 
 // Return the current sender width
@@ -477,7 +497,8 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 	// Get the video frame buffer pointer
 	unsigned char *videoData = NDIreceiver.GetVideoData();
 	if (!videoData) {
-		printf("GetPixelData : No video data\n");
+		// Ensure the video buffer is freed
+		NDIreceiver.FreeVideoData();
 		return false;
 	}
 

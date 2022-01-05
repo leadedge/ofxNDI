@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -44,6 +44,9 @@
 			     Previous version compatibility with rgba<>bgra and invert options
 				 Same size as dest with invert option
 				 Line-by-line with source and dest pitch
+	15.11.21 - Add timing functions
+	18.11.21 - unsigned __int32 > uint32_t (https://github.com/leadedge/ofxNDI/issues/23)
+			   Replace CopyMemory with memcpy for MacOS compatibility
 
 */
 #include "ofxNDIutils.h"
@@ -58,8 +61,19 @@
 
 namespace ofxNDIutils {
 
+#ifdef USE_CHRONO
+	// Timing counters
+	std::chrono::steady_clock::time_point start;
+	std::chrono::steady_clock::time_point end;
+#endif
+
+
 #if defined (__APPLE__)
+
 	static inline void *__movsd(void *d, const void *s, size_t n) {
+#if defined(__aarch64__)
+        return memcpy(d, s, n);
+#else
 		asm volatile ("rep movsb"
 			: "=D" (d),
 			"=S" (s),
@@ -69,8 +83,10 @@ namespace ofxNDIutils {
 			"2" (n)
 			: "memory");
 		return d;
-	}
 #endif
+    }
+#endif
+
 
 #if defined(TARGET_WIN32) || defined (TARGET_OSX)
 
@@ -316,11 +332,10 @@ namespace ofxNDIutils {
 		{
 			off1 = row_cnt * bufsize;
 			off2 = ((height - 1) - row_cnt)*bufsize;
-			// CopyMemory - very slight speed advantage over memcpy
-			CopyMemory(tb1, inbuf + off1, bufsize * sizeof(unsigned char));
-			CopyMemory(tb2, inbuf + off2, bufsize * sizeof(unsigned char));
-			CopyMemory(inbuf + off1, tb2, bufsize * sizeof(unsigned char));
-			CopyMemory(inbuf + off2, tb1, bufsize * sizeof(unsigned char));
+			memcpy((void *)tb1, (void *)(inbuf + off1), bufsize * sizeof(unsigned char));
+			memcpy((void *)tb2, (void *)(inbuf + off2), bufsize * sizeof(unsigned char));
+			memcpy((void *)(inbuf + off1), (void *)tb2, bufsize * sizeof(unsigned char));
+			memcpy((void *)(inbuf + off2), (void *)tb1, bufsize * sizeof(unsigned char));
 		}
 
 		free((void*)tb1);
@@ -394,8 +409,8 @@ namespace ofxNDIutils {
 		// For all rows
 		for (unsigned int y = 0; y < height; y++) {
 			// Start of buffers
-			auto source = static_cast<const unsigned __int32 *>(rgba_source); // unsigned int = 4 bytes
-			auto dest = static_cast<unsigned __int32 *>(rgba_dest);
+			auto source = static_cast<const uint32_t *>(rgba_source); // unsigned int = 4 bytes
+			auto dest = static_cast<uint32_t *>(rgba_dest);
 			// Increment to current line
 			// Pitch is line length in bytes. Divide by 4 to get the width in rgba pixels.
 			if (bInvert) {
@@ -411,7 +426,6 @@ namespace ofxNDIutils {
 			memcpy((void *)dest, (const void *)source, width * 4);
 		}
 	}
-
 
 	//
 	//        YUV422_to_RGBA
@@ -472,7 +486,22 @@ namespace ofxNDIutils {
 			yuv += width*2; // half width source data
 			yuv += padding; // if any
 		}
+	}  // end YUV422_to_RGBA
+
+#ifdef USE_CHRONO
+	// Timing functions
+	void StartTiming() {
+		start = std::chrono::steady_clock::now();
 	}
 
-} // end YUV422_to_RGBA
+	double EndTiming() {
+		end = std::chrono::steady_clock::now();
+		double elapsed = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
+		// printf("    elapsed [%6.2f] msec\n", elapsed / 1000.0);
+		// printf("elapsed [%.3f] u/sec\n", elapsed);
+		return elapsed / 1000.0; // msec
+	}
+#endif
+
+} // end namespace
 

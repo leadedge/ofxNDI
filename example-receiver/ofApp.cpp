@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -56,6 +56,8 @@
 	28.02.20 - Remove initial texture clear.
 			   Add received fps to on-screen display
 	08.12.20 - Change from sprintf to std::string for on-screen display
+	02.12,21 - Update pixel receive examples and comments
+	04.12.21 - Use Setfromexternalpixels to update display image
 
 */
 #include "ofApp.h"
@@ -101,7 +103,7 @@ void ofApp::setup(){
 	// Sender dimensions and fps are not known yet
 	senderWidth = (unsigned char)ofGetWidth();
 	senderHeight = (unsigned char)ofGetHeight();
-
+	
 }
 
 
@@ -111,7 +113,7 @@ void ofApp::update() {
 }
 
 //--------------------------------------------------------------
-void ofApp::draw(){
+void ofApp::draw() {
 
 	// Receive ofTexture
 	ndiReceiver.ReceiveImage(ndiTexture);
@@ -125,15 +127,20 @@ void ofApp::draw(){
 	// ndiReceiver.ReceiveImage(ndiImage);
 	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 
+	/*
 	// Receive ofPixels
-	// ndiReceiver.ReceiveImage(ndiPixels);
-	// ndiImage.setFromPixels(ndiPixels);
-	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	ndiReceiver.ReceiveImage(ndiPixels);
+	// Use setFromExternalPixels to avoid an extra data copy
+	ndiImage.getPixels().setFromExternalPixels(ndiPixels.getData(), ndiPixels.getWidth(), ndiPixels.getHeight(), 4);
+	// Update the image texture
+	ndiImage.update();
+	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	*/
 
 	/*
-	// Receive unsigned char pixel image
-	// ndiChars is the buffer to receive the pixels
-	// buffer size must be managed if there is a sender size change
+	// Receive unsigned char pixel image.
+	// ndiChars is the buffer to receive the pixels.
+	// Buffer size must be managed if there is a sender size change
 	unsigned int width = (unsigned int)ofGetWidth();
 	unsigned int height = (unsigned int)ofGetHeight();
 	if (ndiReceiver.ReceiveImage(ndiChars, width, height)) {
@@ -144,11 +151,11 @@ void ofApp::draw(){
 			// Reallocate the receiving buffer
 			delete ndiChars;
 			ndiChars = new unsigned char[senderWidth*senderHeight * 4];
-			// Reallocate the image we use for display
+			// Re-allocate display image
 			ndiImage.allocate(senderWidth, senderHeight, OF_IMAGE_COLOR_ALPHA);
 		}
 		else {
-			// Update the display image
+			// Update the display image with the new pixels
 			ndiImage.getPixels().setFromExternalPixels(ndiChars, senderWidth, senderHeight, 4);
 			ndiImage.update();
 		}
@@ -157,7 +164,7 @@ void ofApp::draw(){
 	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 	*/
 
-	// Show what it is receiving
+	// Show what it's receiving
 	ShowInfo();
 
 }
@@ -172,18 +179,23 @@ void ofApp::ShowInfo() {
 		if (ndiReceiver.ReceiverCreated()) {
 			if (ndiReceiver.ReceiverConnected()) {
 				// Show received sender information and received fps
-				str = "["; str += ndiReceiver.GetSenderName(); str += "] (";
+				str = "Receiving [";
+				str += ndiReceiver.GetSenderName();
+				str += "]";
+				ofDrawBitmapString(str, 20, 30);
+				
+				str = "(";
 				str += to_string(ndiReceiver.GetSenderWidth()); str += "x";
-				str += to_string(ndiReceiver.GetSenderHeight()); str += ")/";
+				str += to_string(ndiReceiver.GetSenderHeight()); str += "/";
 				float fps = ndiReceiver.GetSenderFps();
 				str += to_string((int)fps); str += ".";
-				str += to_string((int)(fps * 100) - (int)fps * 100); str += "fps) (at fps ";
+				str += to_string((int)(fps * 100) - (int)fps * 100); str += "fps) - at fps ";
 				fps = ndiReceiver.GetFps();
 				str += to_string((int)fps); str += ".";
-				str += to_string((int)(fps * 100) - (int)fps * 100); str += ")";
+				str += to_string((int)(fps * 100) - (int)fps * 100);
+				ofDrawBitmapString(str, 20, 50);
 			}
 		}
-		ofDrawBitmapString(str, 20, 30);
 
 		if (nsenders == 1) {
 			ofDrawBitmapString("1 network source", 20, ofGetHeight() - 20);
@@ -233,55 +245,4 @@ void ofApp::keyPressed  (int key){
 	}
 
 	
-}
-
-//--------------------------------------------------------------
-void ofApp::keyReleased  (int key){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseMoved(int x, int y ){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseDragged(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mousePressed(int x, int y, int button){
-
-}
-
-
-//--------------------------------------------------------------
-void ofApp::mouseReleased(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseEntered(int x, int y){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseExited(int x, int y){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::windowResized(int w, int h){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::gotMessage(ofMessage msg){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){ 
-
 }

@@ -4,7 +4,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2020 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -36,9 +36,12 @@
 	06.08.18 - Update to Openframeworks 10
 			   Revise for ofxNDI for NDI SDK Version 3.5
 	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
+	10.11.19 - Revise for ofxNDI for NDI SDK Version 5.1
+	05.01.21 - Allow user selection of webcam
 
 */
 #include "ofApp.h"
+#include <conio.h> // for getch
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -53,8 +56,17 @@ void ofApp::setup(){
 #endif // _WIN64	
 	cout << ndiSender.GetNDIversion() << " (https://www.ndi.tv/)" << endl;
 
+	// Save webcam devices to show the user
+	vector<ofVideoDevice> devices = vidGrabber.listDevices();
+
+	// User webcam selection
+	printf("Select the index of the device required (0 - %d)\n", devices.size() - 1);
+	int index = _getch() - 48;
+	if (index > (int)devices.size()-1 || index < 0)
+		index = 0;
+
 	// Set up webcam
-	vidGrabber.setDeviceID(0); // The first webcam
+	vidGrabber.setDeviceID(index); // The first or selected webcam
 	vidGrabber.setup(640, 480); // try to grab at this size.
 
 	// Set NDI asynchronous sending for best performance
@@ -77,52 +89,9 @@ void ofApp::update() {
 void ofApp::draw() {
 
 	vidGrabber.draw(0, 0, ofGetWidth(), ofGetHeight());
-	ndiSender.SendImage(vidGrabber.getPixels());
+	if (vidGrabber.isFrameNew())
+		ndiSender.SendImage(vidGrabber.getPixels());
 
 }
 
-//--------------------------------------------------------------
-void ofApp::keyPressed(int key){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::keyReleased(int key){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseMoved(int x, int y){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseDragged(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mousePressed(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseReleased(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::windowResized(int w, int h){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::gotMessage(ofMessage msg){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){ 
-
-}
 

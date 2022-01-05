@@ -1,6 +1,13 @@
 #include "ofMain.h"
 #include "ofApp.h"
 
+// Force programmable renderer for testing
+// #define FORCE_PROGRAMMMABLE
+
+#ifdef FORCE_PROGRAMMMABLE
+#include "ofGLProgrammableRenderer.h"
+#endif
+
 /*
 	=========================================================================
 	This program is free software: you can redistribute it and/or modify
@@ -36,8 +43,17 @@ int main() {
 // for window without console
 //========================================================================
 // int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
+	
 
+#ifdef FORCE_PROGRAMMMABLE
+	ofGLWindowSettings settings;
+	settings.setSize(640, 360);
+	settings.setGLVersion(3, 2);
+	ofCreateWindow(settings);
+#else
 	ofSetupOpenGL(640, 360, OF_WINDOW); // <-------- setup the GL context
+#endif
+
 	// this kicks off the running of my app
 	// can be OF_WINDOW or OF_FULLSCREEN
 	// pass in width and height too:
