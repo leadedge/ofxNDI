@@ -59,6 +59,7 @@
 			   data/pbo/fbo allocated check in ReadTexturePixels
 			   Add double GetFrameRate()
 	03/01/22 - Add YUV shader conversion functions
+	06.01.22 - Conditional formats for SetFormat
 
 */
 #include "ofxNDIsender.h"
@@ -300,11 +301,29 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 // Set output format
 void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
-	NDIsender.SetFormat(format);
-	// Buffer size will change between YUV and RGBA
-	// Retain sender dimensions, but update the sender
-	// to re-create pbos, buffers and NDI video frame
-	UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
+	if (format == NDIlib_FourCC_video_type_UYVY) {
+		// Test required rgba2yuv shader path for yuv format
+		std::string shaderpath = ofToDataPath("/shaders/rgba2yuv/", true);
+		if (_access(shaderpath.c_str(), 0) != -1) {
+			NDIsender.SetFormat(format);
+			// Buffer size will change between YUV and RGBA
+			// Retain sender dimensions, but update the sender
+			// to re-create pbos, buffers and NDI video frame
+			UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
+		}
+	}
+	else if (format == NDIlib_FourCC_video_type_BGRA
+		  || format == NDIlib_FourCC_video_type_BGRX
+		  || format == NDIlib_FourCC_video_type_RGBA
+		  || format == NDIlib_FourCC_video_type_RGBX) {
+			  // Supported formats
+			  NDIsender.SetFormat(format);
+			  UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
+	}
+	else {
+		printf("Incompatible format\n");
+	}
+
 }
 
 // Get output format
