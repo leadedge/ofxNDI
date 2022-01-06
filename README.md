@@ -9,8 +9,8 @@ Sending speed is increased due to reduced video frame data size.\
 Maximum speed is achieved together with Async sending and pbo readback.\
 The Sender example has been revised considerably to help assess performance\
 and commented to show details of the various options.\
-Details of changes are documented in each source file\.
-Example binaries are included for convenience.\
+Details of changes are documented in each source file.\
+Example binaries are included for testing.
 
 --------------------------
 18.12.20 - Updated master from testing branch NDI SDK Vers 4.5 dynamic load.\
