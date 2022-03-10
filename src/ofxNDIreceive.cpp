@@ -134,6 +134,7 @@
 	26.12.21 - Comment out unused usec_per_msec constant - PR #28 by dimitre
 	28.12.21 - Add default case break for NDI_frame_type in ReceiveImage - PR #31 by dimitre
 	04.01.22 - Add default case break for video_frame.FourCC in ReceiveImage
+	09.03.22 - SetSenderName/SetSenderIndex - release the current sender
 
 */
 
@@ -405,6 +406,9 @@ bool ofxNDIreceive::SetSenderIndex(int index)
 	if (NDIsenders.at(senderIndex) == senderName)
 		return false;
 
+	// Different sender so release the current one
+	ReleaseReceiver();
+
 	// Update the class sender name
 	senderName = NDIsenders.at(senderIndex);
 
@@ -518,7 +522,14 @@ bool ofxNDIreceive::GetSenderIndex(std::string sendername, int &index)
 // Set a sender name to receive from
 void ofxNDIreceive::SetSenderName(std::string sendername)
 {
+	// Return if the Same sender
+	if (senderName == senderName)
+		return;
+
+	// Release the current sender and change the name
+	ReleaseReceiver();
 	senderName = sendername;
+
 }
 
 // Get the name string of a sender index
@@ -776,7 +787,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 
 			// Set class flag that a receiver has been created
 			bReceiverCreated = true;
-
+			// printf("pNDI_recv = 0x%.7X (%s)\n", PtrToUint(pNDI_recv), senderName);
 			return true;
 
 		}
