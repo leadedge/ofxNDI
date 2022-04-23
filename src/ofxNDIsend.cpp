@@ -360,7 +360,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		if (bSwapRB || bInvert) {
 			// Local memory buffer is only needed for rgba to bgra or invert
 			if (!p_frame) {
-				p_frame = (uint8_t*)malloc((size_t)width * (size_t)height * 4 * sizeof(unsigned char));
+				p_frame = (uint8_t*)malloc((size_t)width * (size_t)height * 4L * sizeof(unsigned char));
 				if (!p_frame) {
 					printf("Out of memory in SendImage\n");
 					return false;
