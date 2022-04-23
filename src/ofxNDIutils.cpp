@@ -47,6 +47,9 @@
 	15.11.21 - Add timing functions
 	18.11.21 - unsigned __int32 > uint32_t (https://github.com/leadedge/ofxNDI/issues/23)
 			   Replace CopyMemory with memcpy for MacOS compatibility
+	23.04.22 - CopyImage - Use size_t cast for memcpy functions
+			   to avoid warning C26451: Arithmetic overflow
+
 
 */
 #include "ofxNDIutils.h"
@@ -168,7 +171,6 @@ namespace ofxNDIutils {
 	{
 		uint32_t *src = nullptr;
 		uint32_t *dst = nullptr;
-		uint32_t rgbapix; // 32bit rgba pixel
 		unsigned int x = 0;
 		unsigned int y = 0;
 		__m128i brMask = _mm_set1_epi32(0x00ff00ff); // argb
@@ -176,23 +178,25 @@ namespace ofxNDIutils {
 		for (y = 0; y < height; y++) {
 
 			// Start of buffer
-			src = (uint32_t*)source; // unsigned int = 4 bytes
-			dst = (uint32_t*)dest;
+			auto src = static_cast<const unsigned __int32*>(source); // unsigned int = 4 bytes
+			auto dst = static_cast<unsigned __int32*>(dest);
+
+			// Cast first to avoid warning C26451: Arithmetic overflow
+			unsigned long H1YxW = (unsigned long)((height - 1 - y) * width);
+			unsigned long YxW = (unsigned long)(y * width);
 
 			// Increment to current line
-			if (bInvert) {
-				src += (uint32_t)(width*height); // end of rgba buffer
-				src -= (uint32_t)width;          // beginning of the last rgba line
-				src -= (uint32_t)y*width;        // current line
-			}
-			else {
-				src += (uint32_t)y*width;
-			}
-			dst += (uint32_t)y*width; // dest is not inverted
+			if (bInvert)
+				src += H1YxW;
+			else
+				src += YxW;
+
+			dst += YxW; // dest is not inverted
 
 			// Make output writes aligned
+			unsigned int x;
 			for (x = 0; ((reinterpret_cast<intptr_t>(&dst[x]) & 15) != 0) && x < width; x++) {
-				rgbapix = src[x];
+				auto rgbapix = src[x];
 				// rgbapix << 16		: a r g b > g b a r
 				//        & 0x00ff00ff  : r g b . > . b . r
 				// rgbapix & 0xff00ff00 : a r g b > a . g .
@@ -220,8 +224,7 @@ namespace ofxNDIutils {
 
 			// Perform leftover writes
 			for (; x < width; x++) {
-				rgbapix = src[x];
-
+				auto rgbapix = src[x];
 #if defined(TARGET_WIN32)
 				// _rotl is available
 				dst[x] = (_rotl(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
@@ -230,28 +233,34 @@ namespace ofxNDIutils {
 				dst[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
 #endif
 			}
+
 		}
 	} // end rgba_bgra_sse2
 #endif
 
 	// Without SSE
-	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert)
+	void rgba_bgra(const void *rgba_source, void *bgra_dest,
+		unsigned int width, unsigned int height, bool bInvert)
 	{
+
 		for (unsigned int y = 0; y < height; y++) {
 
 			// Start of buffer
-			auto source = static_cast<const uint32_t *>(rgba_source); // unsigned int = 4 bytes
-			auto dest = static_cast<uint32_t *>(bgra_dest);
+			auto source = static_cast<const unsigned __int32*>(rgba_source);; // unsigned int = 4 bytes
+			auto dest = static_cast<unsigned __int32*>(bgra_dest);
+
+			// Cast first to avoid warning C26451: Arithmetic overflow
+			unsigned long H1YxW = (unsigned long)((height - 1 - y) * width);
+			unsigned long YxW = (unsigned long)(y * width);
 
 			// Increment to current line
 			if (bInvert) {
-				// https://docs.microsoft.com/en-us/visualstudio/code-quality/c26451?view=vs-2017
-				source += (unsigned long)((height - 1 - y)*width);
-				dest += (unsigned long)(y * width); // dest is not inverted
+				source += H1YxW;
+				dest += YxW; // dest is not inverted
 			}
 			else {
-				source += (unsigned long)(y * width);
-				dest += (unsigned long)(y * width);
+				source += YxW;
+				dest += YxW;
 			}
 
 			for (unsigned int x = 0; x < width; x++) {
@@ -264,7 +273,9 @@ namespace ofxNDIutils {
 				dest[x] = (ROL(rgbapix, 16) & 0x00ff00ff) | (rgbapix & 0xff00ff00);
 #endif
 			}
+
 		}
+
 	} // end rgba_bgra
 
 
@@ -382,17 +393,17 @@ namespace ofxNDIutils {
 #if defined(TARGET_WIN32) || defined (TARGET_OSX)
 			// Small image just use memcpy
 			if (width < 512 || height < 256) {
-				memcpy((void *)dest, (const void *)source, height*stride);
+				memcpy((void *)dest, (const void *)source, (size_t)height* (size_t)stride);
 			}
 			else if ((stride % 16) == 0) { // 16 byte aligned
-				memcpy_sse2((void *)dest, (const void *)source, height*stride);
+				memcpy_sse2((void *)dest, (const void *)source, (size_t)height* (size_t)stride);
 			}
 			else if ((stride % 4) == 0) { // 4 byte aligned
-				memcpy_movsd((void*)dest, (const void *)source, height*stride);
+				memcpy_movsd((void*)dest, (const void *)source, (size_t)height* (size_t)stride);
 			}
 #else
 			// @zilog no SSE stuff for aarch64 build
-			memcpy((void *)dest, (const void *)source, height*stride);
+			memcpy((void *)dest, (const void *)source, (size_t)height* (size_t)stride);
 #endif
 		}
 	} // end CopyImage
@@ -423,7 +434,7 @@ namespace ofxNDIutils {
 			}
 
 			// Copy the line
-			memcpy((void *)dest, (const void *)source, width * 4);
+			memcpy((void *)dest, (const void *)source, (size_t)width * 4);
 		}
 	}
 
@@ -483,7 +494,7 @@ namespace ofxNDIutils {
 				*rgba++ = (unsigned char)b2;
 				*rgba++ = 255;
 			}
-			yuv += width*2; // half width source data
+			yuv += (size_t)width*2; // half width source data
 			yuv += padding; // if any
 		}
 	}  // end YUV422_to_RGBA

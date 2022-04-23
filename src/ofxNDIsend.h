@@ -50,7 +50,6 @@
 #include <string>
 
 #include "ofxNDIdynloader.h" // NDI library loader
-#include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 
 class ofxNDIsend {

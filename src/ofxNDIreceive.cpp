@@ -135,6 +135,8 @@
 	28.12.21 - Add default case break for NDI_frame_type in ReceiveImage - PR #31 by dimitre
 	04.01.22 - Add default case break for video_frame.FourCC in ReceiveImage
 	09.03.22 - SetSenderName/SetSenderIndex - release the current sender
+	23.04.22 - GetSenderName - return "" instead of nullptr to avoid Visual Studio warning C6387
+			   Use size_t cast for malloc to avoid warning C26451: Arithmetic overflow
 
 */
 
@@ -557,7 +559,7 @@ std::string ofxNDIreceive::GetSenderName(int userindex)
 		return NDIsenders.at(index);
 	}
 
-	return nullptr;
+	return ""; // nullptr generates Visual Studio warning C6387
 }
 
 // Return current sender width
@@ -904,14 +906,14 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 							|| m_nAudioChannels != audio_frame.no_channels) {
 							// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
 							if (m_AudioData) free((void *)m_AudioData);
-							m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
+							m_AudioData = (float *)malloc((size_t)audio_frame.no_samples * (size_t)audio_frame.no_channels * sizeof(float));
 						}
 						// printf("Audio data received data = %x, samples = %d\n", (unsigned int)audio_frame.p_data, audio_frame.no_samples);
 						m_nAudioChannels = audio_frame.no_channels;
 						m_nAudioSamples = audio_frame.no_samples;
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
-							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
+							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, ((size_t)m_nAudioSamples * (size_t)audio_frame.no_channels * sizeof(float)));
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
@@ -1073,13 +1075,13 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 							|| m_nAudioChannels != audio_frame.no_channels) {
 							// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
 							if (m_AudioData) free((void *)m_AudioData);
-							m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
+							m_AudioData = (float *)malloc((size_t)audio_frame.no_samples * (size_t)audio_frame.no_channels * sizeof(float));
 						}
 						m_nAudioChannels = audio_frame.no_channels;
 						m_nAudioSamples = audio_frame.no_samples;
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
-							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
+							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, ((size_t)m_nAudioSamples * (size_t)audio_frame.no_channels * sizeof(float)));
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received

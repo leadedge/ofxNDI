@@ -87,6 +87,8 @@
 				  Add SetVideoStride for YUV or RGBA formats
 	31/12/21	- Clean up SetFrameRate
 				  Comment clean up.
+	23/04/22	- Initialize m_bMetadata false
+				  Use size_t cast for malloc to avoid warning C26451: Arithmetic overflow
 
 */
 #include "ofxNDIsend.h"
@@ -105,6 +107,7 @@ ofxNDIsend::ofxNDIsend()
 	m_bProgressive = true; // progressive default
 	m_bClockVideo = true; // clock video default
 	m_bAsync = false;
+	m_bMetadata = false;
 	m_Format = NDIlib_FourCC_video_type_RGBA; // Default output format
 	m_bNDIinitialized = false;
 	m_Width = m_Height = 0;
@@ -357,7 +360,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		if (bSwapRB || bInvert) {
 			// Local memory buffer is only needed for rgba to bgra or invert
 			if (!p_frame) {
-				p_frame = (uint8_t*)malloc(width*height * 4 * sizeof(unsigned char));
+				p_frame = (uint8_t*)malloc((size_t)width * (size_t)height * 4 * sizeof(unsigned char));
 				if (!p_frame) {
 					printf("Out of memory in SendImage\n");
 					return false;
@@ -453,7 +456,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		if (bInvert) {
 			// Local memory buffer is only needed for invert
 			if (!p_frame) {
-				p_frame = (uint8_t*)malloc(width*height * 4 * sizeof(unsigned char));
+				p_frame = (uint8_t*)malloc((size_t)width * (size_t)height * 4 * sizeof(unsigned char));
 				if (!p_frame) {
 					printf("Out of memory in SendImage\n");
 					return false;
@@ -543,6 +546,7 @@ unsigned int ofxNDIsend::GetHeight()
 // Set video frame format
 //  Default NDIlib_FourCC_video_type_RGBA
 //  Can be NDIlib_FourCC_video_type_BGRA to match texture format
+//  NDIlib_FourCC_video_type_UYVY with OpenFrameworks shaders only
 void ofxNDIsend::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	m_Format = format;

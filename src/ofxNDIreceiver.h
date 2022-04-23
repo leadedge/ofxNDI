@@ -51,7 +51,6 @@
 #include <iostream>
 #include <vector>
 #include <iostream> // for cout
-#include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIreceive.h" // Basic receiver functions
 #include "ofxNDIutils.h" // buffer copy utilities
 

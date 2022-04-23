@@ -60,6 +60,7 @@
 			   Add double GetFrameRate()
 	03/01/22 - Add YUV shader conversion functions
 	06.01.22 - Conditional formats for SetFormat
+	12.01.22 - "doesFileExist" instead of "_access" in SetFormat (PR #31)
 
 */
 #include "ofxNDIsender.h"
@@ -229,6 +230,8 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 
 	// Read texture pixels into a pixel buffer
 	bool bResult = false;
+	// NDIlib_FourCC_video_type_UYVY can only be enabled by SetFormat
+	// Path to required shaders is tested
 	if (NDIsender.GetFormat() == NDIlib_FourCC_video_type_UYVY) {
 		// Convert to the YUV format at the same time.
 		// YUV output width is half that of the RGBA input
@@ -303,8 +306,7 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	if (format == NDIlib_FourCC_video_type_UYVY) {
 		// Test required rgba2yuv shader path for yuv format
-		std::string shaderpath = ofToDataPath("/shaders/rgba2yuv/", true);
-		if (_access(shaderpath.c_str(), 0) != -1) {
+		if (ofFile::doesFileExist("/shaders/rgba2yuv/")) { // instead of _access
 			NDIsender.SetFormat(format);
 			// Buffer size will change between YUV and RGBA
 			// Retain sender dimensions, but update the sender
@@ -567,7 +569,7 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 
 	// Null existing PBO data to avoid a stall
 	// This allocates memory for the PBO
-	glBufferDataARB(GL_PIXEL_PACK_BUFFER, width*height*4, 0, GL_STREAM_READ);
+	glBufferDataARB(GL_PIXEL_PACK_BUFFER, (size_t)width * (size_t)height * 4, 0, GL_STREAM_READ);
 
 	// Read pixels from framebuffer to the current PBO
 	// After a buffer is bound, glReadPixels() will pack(write) data into the Pixel Buffer Object.

@@ -48,10 +48,8 @@
 
 #include <stdio.h>
 #include <string>
-// #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIsend.h" // basic sender functions
 #include "ofxNDIutils.h" // buffer copy utilities
-#include <io.h> // for _access
 
 class ofxNDIsender {
 
