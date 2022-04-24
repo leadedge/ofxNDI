@@ -8,7 +8,7 @@
 //
 //***********************************************************************************************************
 //
-// Copyright (C)2014-2021, NewTek, inc.
+// Copyright (C)2014-2022, NewTek, inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 // associated documentation files(the "Software"), to deal in the Software without restriction, including
@@ -570,10 +570,10 @@ typedef struct NDIlib_v5
 		PROCESSINGNDILIB_DEPRECATED int(*NDIlib_framesync_audio_queue_depth)(NDIlib_framesync_instance_t p_instance);
 	};
 
-	// v4.5
+	// v5
 	union
-	{	bool(*recv_ptz_exposure_manual_v2)(NDIlib_framesync_instance_t p_instance, const float iris, const float gain, const float shutter_speed);
-		PROCESSINGNDILIB_DEPRECATED bool(*NDIlib_recv_ptz_exposure_manual_v2)(NDIlib_framesync_instance_t p_instance, const float iris, const float gain, const float shutter_speed);
+	{	bool(*recv_ptz_exposure_manual_v2)(NDIlib_recv_instance_t p_instance, const float iris, const float gain, const float shutter_speed);
+		PROCESSINGNDILIB_DEPRECATED bool(*NDIlib_recv_ptz_exposure_manual_v2)(NDIlib_recv_instance_t p_instance, const float iris, const float gain, const float shutter_speed);
 	};
 
 } NDIlib_v5;
@@ -583,20 +583,21 @@ typedef struct NDIlib_v5 NDIlib_v4;
 typedef struct NDIlib_v5 NDIlib_v3;
 typedef struct NDIlib_v5 NDIlib_v2;
 
-// Load the library
+// Load the library.
 PROCESSINGNDILIB_API
 const NDIlib_v5* NDIlib_v5_load(void);
 
 PROCESSINGNDILIB_API PROCESSINGNDILIB_DEPRECATED
 const NDIlib_v4_5* NDIlib_v4_5_load(void);
 
-// Load the library
+// Load the library.
 PROCESSINGNDILIB_API PROCESSINGNDILIB_DEPRECATED
 const NDIlib_v4* NDIlib_v4_load(void);
 
-// Load the library
+// Load the library.
 PROCESSINGNDILIB_API PROCESSINGNDILIB_DEPRECATED
 const NDIlib_v3* NDIlib_v3_load(void);
 
+// Load the library.
 PROCESSINGNDILIB_API PROCESSINGNDILIB_DEPRECATED
 const NDIlib_v2* NDIlib_v2_load(void);

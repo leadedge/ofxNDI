@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -57,6 +57,8 @@
 	30.10.21 - Add SetSenderName
 	02.12.21 - Use setFromPixels in Receive to ofPixels
 			   Ensure the NDI video buffer is freed on fail in GetPixelData()
+	04.01.22 - Add default case break for unsupported format 
+			   for NDIreceiver.GetVideoType() in ReceiveImage(ofPixels
 
 */
 #include "ofxNDIreceiver.h"
@@ -284,9 +286,11 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 				break;
 			case NDIlib_FourCC_type_BGRA: // BGRA
 			case NDIlib_FourCC_type_BGRX: // BGRX
-			default: // BGRA
 				buffer.setFromPixels((unsigned char *)videoData, width, height, OF_PIXELS_RGBA);
 				buffer.swapRgb();
+				break;
+			default:
+				// Unsupported format
 				break;
 		} // end switch received format
 

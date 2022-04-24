@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -26,6 +26,7 @@
 
 	08.07.18 - Use ofxNDIsend class
 	07.12.19 - remove iostream
+	26.12.21 - Correct m_pbo dimension from 2 to 3. PR #27 by Dimitre
 
 */
 #pragma once
@@ -47,7 +48,6 @@
 
 #include <stdio.h>
 #include <string>
-// #include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIsend.h" // basic sender functions
 #include "ofxNDIutils.h" // buffer copy utilities
 
@@ -60,12 +60,12 @@ public:
 
 	// Create an RGBA sender
 	// - sendername | name for the sender
-	// - width | sender image width
-	// - height | sender image height
+	// - width      | sender image width
+	// - height     | sender image height
 	bool CreateSender(const char *sendername, unsigned int width, unsigned int height);
 
 	// Update sender dimensions
-	// - width | sender image width
+	// - width  | sender image width
 	// - height | sender image height
 	bool UpdateSender(unsigned int width, unsigned int height);
 
@@ -85,35 +85,41 @@ public:
 	std::string GetSenderName();
 
 	// Send ofFbo
-	// - fbo | Openframeworks fbo to send
+	// - fbo     | Openframeworks fbo to send
 	// - bInvert | flip the image - default false
 	bool SendImage(ofFbo fbo, bool bInvert = false);
 
 	// Send ofTexture
-	// - tex | Openframeworks texture to send
+	// - tex     | Openframeworks texture to send
 	// - bInvert | flip the image - default false
 	bool SendImage(ofTexture tex, bool bInvert = false);
 
 	// Send ofImage
-	// - image | Openframeworks image to send
+	// - image   | Openframeworks image to send
 	// - bInvert | flip the image - default false
 	// - image is converted to RGBA if not already
-	bool SendImage(ofImage img, bool bInvert = false);
+	bool SendImage(ofImage img, bool bSwapRB = false, bool bInvert = false);
 
 	// Send ofPixels
-	// - pix | Openframeworks pixel buffer to send
+	// - pix     | Openframeworks pixel buffer to send
 	// - bInvert | flip the image - default false
 	// - buffer is converted to RGBA if not already
-	bool SendImage(ofPixels pix, bool bInvert = false);
+	bool SendImage(ofPixels pix, bool bSwapRB = false, bool bInvert = false);
 
 	// Send RGBA image pixels
-	// - image | pixel data
-	// - width | image width
-	// - height | image height
+	// - image   | pixel data
+	// - width   | image width
+	// - height  | image height
 	// - bSwapRB | swap red and blue components - default false
 	// - bInvert | flip the image - default false
 	bool SendImage(const unsigned char *image, unsigned int width, unsigned int height,
 		bool bSwapRB = false, bool bInvert = false);
+
+	// Set output format
+	void SetFormat(NDIlib_FourCC_video_type_e format);
+
+	// Get output format
+	NDIlib_FourCC_video_type_e GetFormat();
 
 	// Set frame rate whole number
 	// - framerate - frames per second
@@ -139,9 +145,12 @@ public:
 	// - framerate_D | denominator
 	void GetFrameRate(int &framerate_N, int &framerate_D);
 
+	// Get current frame rate as a value
+	double GetFrameRate();
+
 	// Set aspect ratio
 	// - horizontal | horizontal proportion
-	// - vertical | vertical proportion
+	// - vertical   | vertical proportion
 	// Initialized 1:1 to use the image source aspect ratio
 	void SetAspectRatio(int horizontal = 16, int vertical = 9);
 
@@ -218,7 +227,7 @@ public:
 
 	// Get the current NDI SDK version
 	std::string GetNDIversion();
-	
+
 private:
 
 	ofxNDIsend NDIsender; // Basic sender functions
@@ -228,7 +237,7 @@ private:
 	int m_idx; // Index used for async buffer swapping
 
 	bool m_bReadback; // Asynchronous readback of pixels from FBO using two PBOs
-	GLuint m_pbo[2]; // PBOs used for asynchronous read-back from fbo
+	GLuint m_pbo[3]; // PBOs used for asynchronous read-back from fbo
 	int PboIndex; // Index used for asynchronous read-back from fbo
 	int NextPboIndex;
 	ofFbo ndiFbo; // Utility Fbo
@@ -239,11 +248,23 @@ private:
 	// Read pixels from texture to pixel buffer
 	bool ReadPixels(ofTexture tex, unsigned int width, unsigned int height, ofPixels &buffer);
 
-	// Asynchronous fbo pixel data readback
-	bool ReadFboPixels(ofFbo fbo, unsigned int width, unsigned int height, unsigned char *data);
-
 	// Asynchronous texture pixel data readback
 	bool ReadTexturePixels(ofTexture tex, unsigned int width, unsigned int height, unsigned char *data);
+
+	// Initialize pixel buffers for sending
+	void AllocatePixelBuffers(unsigned int width, unsigned int height);
+
+	//
+	// YUV format conversion functions
+	//
+
+	ofShader rgba2yuv;  // RGBA to YUV shader
+
+	// Read YUV pixels from RGBA fbo to pixel buffer
+	bool ReadYUVpixels(ofFbo &fbo, unsigned int halfwidth, unsigned int height, ofPixels &buffer);
+
+	// Read YUV pixels from RGBA texture to pixel buffer
+	bool ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigned int height, ofPixels &buffer);
 
 
 };

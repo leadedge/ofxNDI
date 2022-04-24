@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -50,7 +50,6 @@
 #include <string>
 
 #include "ofxNDIdynloader.h" // NDI library loader
-#include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 
 class ofxNDIsend {
@@ -111,6 +110,9 @@ public:
 
 	// Set output format
 	void SetFormat(NDIlib_FourCC_video_type_e format);
+
+	// Get output format
+	NDIlib_FourCC_video_type_e GetFormat();
 
 	// Set frame rate
 	// - framerate - frames per second
@@ -231,7 +233,8 @@ private:
 	bool m_bProgressive; // Progressive output flag
 	bool m_bClockVideo; // Clock video flag
 	bool m_bAsync; // NDI asynchronous sender
-	NDIlib_FourCC_video_type_e m_Format; // Output format. Default RGBA. May also be BGRA.
+	NDIlib_FourCC_video_type_e m_Format; // Output format. Default RGBA. May also be BGRA or YUV.
+	void SetVideoStride(NDIlib_FourCC_video_type_e format); // Set line stride for YUV or RGBA
 
 	// Audio
 	bool m_bAudio;

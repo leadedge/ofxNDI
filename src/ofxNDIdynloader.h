@@ -1,6 +1,16 @@
 #ifndef ofxNDIdynloader_H
 #define ofxNDIdynloader_H
 
+//
+// Option : disable warning C26812 (unscoped enums) for Visual Studio for using NDI enums.
+//
+// Use of C++11 scoped (class) enums are not compatible with early compilers (< VS2012 and others).
+// However, for Visual Studio this warning is designated "Prefer" and "C" standard unscoped enums
+// are acceptable and compatible. The warning can be enabled or disabled here.
+//
+// #pragma warning(disable:26812)
+//
+
 #include <cstddef> // to avoid NULL definition problem
 #include "ofxNDIplatforms.h"
 #include "Processing.NDI.Lib.h" // NDI SDK

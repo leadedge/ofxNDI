@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -61,13 +61,12 @@
 #include <assert.h>
 
 #include "ofxNDIdynloader.h" // NDI library loader
-#include "Processing.NDI.Lib.h" // NDI SDK
 #include "ofxNDIutils.h" // buffer copy utilities
 
 #if defined(TARGET_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
-#include <math.h> ////
+#include <math.h> //
 #include <gl\GL.h>
 #include <mmsystem.h> // for timegettime if ofMain is included
 #include <shlwapi.h>  // for path functions

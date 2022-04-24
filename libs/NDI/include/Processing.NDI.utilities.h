@@ -8,7 +8,7 @@
 //
 //***********************************************************************************************************
 //
-// Copyright (C)2014-2021, NewTek, inc.
+// Copyright (C)2014-2022, NewTek, inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 // associated documentation files(the "Software"), to deal in the Software without restriction, including
@@ -36,7 +36,7 @@
 // exceeds the reference level and so if you are not careful you will end up having audio clipping when you
 // use the 16 bit range.
 
-// This describes an audio frame
+// This describes an audio frame.
 typedef struct NDIlib_audio_frame_interleaved_16s_t
 {	// The sample-rate of this buffer.
 	int sample_rate;
@@ -47,15 +47,15 @@ typedef struct NDIlib_audio_frame_interleaved_16s_t
 	// The number of audio samples per channel.
 	int no_samples;
 
-	// The timecode of this frame in 100ns intervals.
+	// The timecode of this frame in 100 ns intervals.
 	int64_t timecode;
 
-	// The audio reference level in dB. This specifies how many dB above the reference level (+4dBU) is the
-	// full range of 16 bit audio. If you do not understand this and want to just use numbers:
-	// - If you are sending audio, specify +0dB. Most common applications produce audio at reference level.
-	// - If receiving audio, specify +20dB. This means that the full 16 bit range corresponds to professional
-	//   level audio with 20dB of headroom. Note that if you are writing it into a file it might sound soft
-	//   because you have 20dB of headroom before clipping.
+	// The audio reference level in dB. This specifies how many dB above the reference level (+4 dBU) is the
+	// full range of 16-bit audio. If you do not understand this and want to just use numbers:
+	// - If you are sending audio, specify +0 dB. Most common applications produce audio at reference level.
+	// - If receiving audio, specify +20 dB. This means that the full 16-bit range corresponds to professional
+	//   level audio with 20 dB of headroom. Note that if you are writing it into a file it might sound soft
+	//   because you have 20 dB of headroom before clipping.
 	int reference_level;
 
 	// The audio data, interleaved 16bpp.
@@ -79,13 +79,13 @@ typedef struct NDIlib_audio_frame_interleaved_32s_t
 	// The number of audio samples per channel.
 	int no_samples;
 
-	// The timecode of this frame in 100ns intervals.
+	// The timecode of this frame in 100 ns intervals.
 	int64_t timecode;
 
-	// The audio reference level in dB. This specifies how many dB above the reference level (+4dBU) is the
-	// full range of 16 bit audio. If you do not understand this and want to just use numbers:
-	// - If you are sending audio, specify +0dB. Most common applications produce audio at reference level.
-	// - If receiving audio, specify +20dB. This means that the full 16 bit range corresponds to professional
+	// The audio reference level in dB. This specifies how many dB above the reference level (+4 dBU) is the
+	// full range of 16-bit audio. If you do not understand this and want to just use numbers:
+	// - If you are sending audio, specify +0 dB. Most common applications produce audio at reference level.
+	// - If receiving audio, specify +20 dB. This means that the full 16-bit range corresponds to professional
 	//   level audio with 20dB of headroom. Note that if you are writing it into a file it might sound soft
 	//   because you have 20dB of headroom before clipping.
 	int reference_level;
