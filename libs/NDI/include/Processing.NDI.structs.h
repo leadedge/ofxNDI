@@ -8,7 +8,7 @@
 //
 //***********************************************************************************************************
 //
-// Copyright (C)2014-2021, NewTek, inc.
+// Copyright (C)2014-2022, NewTek, inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 // associated documentation files(the "Software"), to deal in the Software without restriction, including
@@ -32,7 +32,7 @@
 	((uint32_t)(uint8_t)(ch0) | ((uint32_t)(uint8_t)(ch1) << 8) | ((uint32_t)(uint8_t)(ch2) << 16) | ((uint32_t)(uint8_t)(ch3) << 24))
 #endif
 
-// An enumeration to specify the type of a packet returned by the functions
+// An enumeration to specify the type of a packet returned by the functions.
 typedef enum NDIlib_frame_type_e
 {	// What frame type is this?
 	NDIlib_frame_type_none = 0,
@@ -46,11 +46,11 @@ typedef enum NDIlib_frame_type_e
 	// instance the web URL has changed or the device is now known to be a PTZ camera.
 	NDIlib_frame_type_status_change = 100,
 
-	// Ensure that the size is 32bits
+	// Make sure this is a 32-bit enumeration.
 	NDIlib_frame_type_max = 0x7fffffff
 } NDIlib_frame_type_e;
 
-// FourCC values for video frames
+// FourCC values for video frames.
 typedef enum NDIlib_FourCC_video_type_e
 {	// YCbCr color space using 4:2:2.
 	NDIlib_FourCC_video_type_UYVY = NDI_LIB_FOURCC('U', 'Y', 'V', 'Y'),
@@ -63,14 +63,14 @@ typedef enum NDIlib_FourCC_video_type_e
 	NDIlib_FourCC_video_type_UYVA = NDI_LIB_FOURCC('U', 'Y', 'V', 'A'),
 	NDIlib_FourCC_type_UYVA = NDIlib_FourCC_video_type_UYVA,
 
-	// YCbCr color space using 4:2:2 in 16bpp
+	// YCbCr color space using 4:2:2 in 16bpp.
 	// In memory this is a semi-planar format. This is identical to a 16bpp version of the NV16 format.
 	// The first buffer is a 16bpp luminance buffer.
 	// Immediately after this is an interleaved buffer of 16bpp Cb, Cr pairs.
 	NDIlib_FourCC_video_type_P216 = NDI_LIB_FOURCC('P', '2', '1', '6'),
 	NDIlib_FourCC_type_P216 = NDIlib_FourCC_video_type_P216,
 
-	// YCbCr color space with an alpha channel, using 4:2:2:4
+	// YCbCr color space with an alpha channel, using 4:2:2:4.
 	// In memory this is a semi-planar format.
 	// The first buffer is a 16bpp luminance buffer.
 	// Immediately after this is an interleaved buffer of 16bpp Cb, Cr pairs.
@@ -113,41 +113,41 @@ typedef enum NDIlib_FourCC_video_type_e
 	NDIlib_FourCC_type_RGBA = NDIlib_FourCC_video_type_RGBA,
 
 	// Planar 8bit, 4:4:4 video format, packed into 32bit pixels.
-	// Color ordering in memory is red, green, blue, 255
+	// Color ordering in memory is red, green, blue, 255.
 	NDIlib_FourCC_video_type_RGBX = NDI_LIB_FOURCC('R', 'G', 'B', 'X'),
 	NDIlib_FourCC_type_RGBX = NDIlib_FourCC_video_type_RGBX,
 
-	// Ensure that the size is 32bits
+	// Make sure this is a 32-bit enumeration.
 	NDIlib_FourCC_video_type_max = 0x7fffffff
 } NDIlib_FourCC_video_type_e;
 
-// Really for backwards compatibility
+// Really for backwards compatibility.
 PROCESSINGNDILIB_DEPRECATED
 typedef NDIlib_FourCC_video_type_e NDIlib_FourCC_type_e;
 
-// FourCC values for audio frames
+// FourCC values for audio frames.
 typedef enum NDIlib_FourCC_audio_type_e
 {	// Planar 32-bit floating point. Be sure to specify the channel stride.
 	NDIlib_FourCC_audio_type_FLTP = NDI_LIB_FOURCC('F', 'L', 'T', 'p'),
 	NDIlib_FourCC_type_FLTP = NDIlib_FourCC_audio_type_FLTP,
 
-	// Ensure that the size is 32bits
+	// Make sure this is a 32-bit enumeration.
 	NDIlib_FourCC_audio_type_max = 0x7fffffff
 } NDIlib_FourCC_audio_type_e;
 
 typedef enum NDIlib_frame_format_type_e
-{	// A progressive frame
+{	// A progressive frame.
 	NDIlib_frame_format_type_progressive = 1,
 
 	// A fielded frame with the field 0 being on the even lines and field 1 being
-	// on the odd lines/
+	// on the odd lines.
 	NDIlib_frame_format_type_interleaved = 0,
 
-	// Individual fields
+	// Individual fields.
 	NDIlib_frame_format_type_field_0 = 2,
 	NDIlib_frame_format_type_field_1 = 3,
 
-	// Ensure that the size is 32bits
+	// Make sure this is a 32-bit enumeration.
 	NDIlib_frame_format_type_max = 0x7fffffff
 } NDIlib_frame_format_type_e;
 
@@ -175,7 +175,7 @@ typedef enum NDIlib_frame_format_type_e
 // since it was sent.
 static const int64_t NDIlib_send_timecode_synthesize = INT64_MAX;
 
-// If the time-stamp is not available (i.e. a version of a sender before v2.5)
+// If the time-stamp is not available (i.e. a version of a sender before v2.5).
 static const int64_t NDIlib_recv_timestamp_undefined = INT64_MAX;
 
 // This is a descriptor of a NDI source available on the network.
@@ -192,7 +192,7 @@ typedef struct NDIlib_source_t
 	// the API internally will instantiate a finder that is used to discover it even if it is not yet
 	// available on the network.
 	union
-	{	// The current way of addressing the value
+	{	// The current way of addressing the value.
 		const char* p_url_address;
 
 		// We used to use an IP address before we used the more general URL notification this is now
@@ -200,37 +200,36 @@ typedef struct NDIlib_source_t
 		PROCESSINGNDILIB_DEPRECATED const char* p_ip_address;
 	};
 
-	// Default constructor in C++
 #if NDILIB_CPP_DEFAULT_CONSTRUCTORS
 	NDIlib_source_t(const char* p_ndi_name_ = NULL, const char* p_url_address_ = NULL);
 #endif // NDILIB_CPP_DEFAULT_CONSTRUCTORS
 
 } NDIlib_source_t;
 
-// This describes a video frame
+// This describes a video frame.
 typedef struct NDIlib_video_frame_v2_t
-{	// The resolution of this frame
+{	// The resolution of this frame.
 	int xres, yres;
 
-	// What FourCC describing the type of data for this frame
+	// What FourCC describing the type of data for this frame.
 	NDIlib_FourCC_video_type_e FourCC;
 
-	// What is the frame-rate of this frame.
-	// For instance NTSC is 30000,1001 = 30000/1001 = 29.97fps
+	// What is the frame rate of this frame.
+	// For instance NTSC is 30000,1001 = 30000/1001 = 29.97fps.
 	int frame_rate_N, frame_rate_D;
 
 	// What is the picture aspect ratio of this frame.
 	// For instance 16.0/9.0 = 1.778 is 16:9 video
-	// 0 means square pixels
+	// 0 means square pixels.
 	float picture_aspect_ratio;
 
-	// Is this a fielded frame, or is it progressive
+	// Is this a fielded frame, or is it progressive.
 	NDIlib_frame_format_type_e frame_format_type;
 
-	// The timecode of this frame in 100ns intervals
+	// The timecode of this frame in 100ns intervals.
 	int64_t timecode;
 
-	// The video data itself
+	// The video data itself.
 	uint8_t* p_data;
 
 	union
@@ -259,24 +258,24 @@ typedef struct NDIlib_video_frame_v2_t
 
 } NDIlib_video_frame_v2_t;
 
-// This describes an audio frame
+// This describes an audio frame.
 typedef struct NDIlib_audio_frame_v2_t
-{	// The sample-rate of this buffer
+{	// The sample-rate of this buffer.
 	int sample_rate;
 
-	// The number of audio channels
+	// The number of audio channels.
 	int no_channels;
 
-	// The number of audio samples per channel
+	// The number of audio samples per channel.
 	int no_samples;
 
-	// The timecode of this frame in 100ns intervals
+	// The timecode of this frame in 100ns intervals.
 	int64_t timecode;
 
-	// The audio data
+	// The audio data.
 	float* p_data;
 
-	// The inter channel stride of the audio channels, in bytes
+	// The inter channel stride of the audio channels, in bytes.
 	int channel_stride_in_bytes;
 
 	// Per frame metadata for this frame. This is a NULL terminated UTF8 string that should be in XML format.
@@ -295,24 +294,24 @@ typedef struct NDIlib_audio_frame_v2_t
 
 } NDIlib_audio_frame_v2_t;
 
-// This describes an audio frame
+// This describes an audio frame.
 typedef struct NDIlib_audio_frame_v3_t
-{	// The sample-rate of this buffer
+{	// The sample-rate of this buffer.
 	int sample_rate;
 
-	// The number of audio channels
+	// The number of audio channels.
 	int no_channels;
 
-	// The number of audio samples per channel
+	// The number of audio samples per channel.
 	int no_samples;
 
-	// The timecode of this frame in 100ns intervals
+	// The timecode of this frame in 100ns intervals.
 	int64_t timecode;
 
-	// What FourCC describing the type of data for this frame
+	// What FourCC describing the type of data for this frame.
 	NDIlib_FourCC_audio_type_e FourCC;
 
-	// The audio data
+	// The audio data.
 	uint8_t* p_data;
 
 	union
@@ -341,13 +340,13 @@ typedef struct NDIlib_audio_frame_v3_t
 
 } NDIlib_audio_frame_v3_t;
 
-// The data description for metadata
+// The data description for metadata.
 typedef struct NDIlib_metadata_frame_t
 {	// The length of the string in UTF8 characters. This includes the NULL terminating character. If this is
 	// 0, then the length is assume to be the length of a NULL terminated string.
 	int length;
 
-	// The timecode of this frame in 100ns intervals
+	// The timecode of this frame in 100 ns intervals.
 	int64_t timecode;
 
 	// The metadata as a UTF8 XML string. This is a NULL terminated string.
@@ -361,10 +360,10 @@ typedef struct NDIlib_metadata_frame_t
 
 // Tally structures
 typedef struct NDIlib_tally_t
-{	// Is this currently on program output
+{	// Is this currently on program output.
 	bool on_program;
 
-	// Is this currently on preview output
+	// Is this currently on preview output.
 	bool on_preview;
 
 #if NDILIB_CPP_DEFAULT_CONSTRUCTORS

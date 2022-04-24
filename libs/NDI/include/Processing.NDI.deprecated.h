@@ -8,7 +8,7 @@
 //
 //***********************************************************************************************************
 //
-// Copyright (C)2014-2021, NewTek, inc.
+// Copyright (C)2014-2022, NewTek, inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 // associated documentation files(the "Software"), to deal in the Software without restriction, including
@@ -30,27 +30,27 @@
 // This describes a video frame
 PROCESSINGNDILIB_DEPRECATED
 typedef struct NDIlib_video_frame_t
-{	// The resolution of this frame
+{	// The resolution of this frame.
 	int xres, yres;
 
-	// What FourCC this is with. This can be two values
+	// What FourCC this is with. This can be two values.
 	NDIlib_FourCC_video_type_e FourCC;
 
-	// What is the frame-rate of this frame.
+	// What is the frame rate of this frame.
 	// For instance NTSC is 30000,1001 = 30000/1001 = 29.97fps
 	int frame_rate_N, frame_rate_D;
 
 	// What is the picture aspect ratio of this frame.
-	// For instance 16.0/9.0 = 1.778 is 16:9 video. If this is zero, then square pixels are assumed (xres/yres)
+	// For instance 16.0/9.0 = 1.778 is 16:9 video. If this is zero, then square pixels are assumed (xres/yres).
 	float picture_aspect_ratio;
 
-	// Is this a fielded frame, or is it progressive
+	// Is this a fielded frame, or is it progressive.
 	NDIlib_frame_format_type_e frame_format_type;
 
-	// The timecode of this frame in 100ns intervals
+	// The timecode of this frame in 100ns intervals.
 	int64_t timecode;
 
-	// The video data itself
+	// The video data itself.
 	uint8_t* p_data;
 
 	// The inter line stride of the video data, in bytes.
@@ -67,22 +67,22 @@ typedef struct NDIlib_video_frame_t
 // This describes an audio frame
 PROCESSINGNDILIB_DEPRECATED
 typedef struct NDIlib_audio_frame_t
-{	// The sample-rate of this buffer
+{	// The sample-rate of this buffer.
 	int sample_rate;
 
-	// The number of audio channels
+	// The number of audio channels.
 	int no_channels;
 
-	// The number of audio samples per channel
+	// The number of audio samples per channel.
 	int no_samples;
 
-	// The timecode of this frame in 100ns intervals
+	// The timecode of this frame in 100ns intervals.
 	int64_t timecode;
 
-	// The audio data
+	// The audio data.
 	float* p_data;
 
-	// The inter channel stride of the audio channels, in bytes
+	// The inter channel stride of the audio channels, in bytes.
 	int channel_stride_in_bytes;
 
 #if NDILIB_CPP_DEFAULT_CONSTRUCTORS
@@ -106,7 +106,7 @@ NDIlib_find_instance_t NDIlib_find_create(const NDIlib_find_create_t* p_create_s
 PROCESSINGNDILIB_API PROCESSINGNDILIB_DEPRECATED
 const NDIlib_source_t* NDIlib_find_get_sources(NDIlib_find_instance_t p_instance, uint32_t* p_no_sources, uint32_t timeout_in_ms);
 
-// The creation structure that is used when you are creating a receiver
+// The creation structure that is used when you are creating a receiver.
 PROCESSINGNDILIB_DEPRECATED
 typedef struct NDIlib_recv_create_t
 {	// The source that you wish to connect to.
@@ -159,21 +159,21 @@ NDIlib_recv_instance_t NDIlib_recv_create(const NDIlib_recv_create_t* p_create_s
 // appropriate free function below.
 PROCESSINGNDILIB_API PROCESSINGNDILIB_DEPRECATED
 NDIlib_frame_type_e NDIlib_recv_capture(
-NDIlib_recv_instance_t p_instance,   // The library instance
-NDIlib_video_frame_t* p_video_data,  // The video data received (can be NULL)
-NDIlib_audio_frame_t* p_audio_data,  // The audio data received (can be NULL)
-NDIlib_metadata_frame_t* p_metadata, // The metadata received (can be NULL)
+NDIlib_recv_instance_t p_instance,   // The library instance.
+NDIlib_video_frame_t* p_video_data,  // The video data received (can be NULL).
+NDIlib_audio_frame_t* p_audio_data,  // The audio data received (can be NULL).
+NDIlib_metadata_frame_t* p_metadata, // The metadata received (can be NULL).
 uint32_t timeout_in_ms);             // The amount of time in milliseconds to wait for data.
 
-// Free the buffers returned by capture for video
+// Free the buffers returned by capture for video.
 PROCESSINGNDILIB_API PROCESSINGNDILIB_DEPRECATED
 void NDIlib_recv_free_video(NDIlib_recv_instance_t p_instance, const NDIlib_video_frame_t* p_video_data);
 
-// Free the buffers returned by capture for audio
+// Free the buffers returned by capture for audio.
 PROCESSINGNDILIB_API PROCESSINGNDILIB_DEPRECATED
 void NDIlib_recv_free_audio(NDIlib_recv_instance_t p_instance, const NDIlib_audio_frame_t* p_audio_data);
 
-// This will add a video frame
+// This will add a video frame.
 PROCESSINGNDILIB_API PROCESSINGNDILIB_DEPRECATED
 void NDIlib_send_send_video(NDIlib_send_instance_t p_instance, const NDIlib_video_frame_t* p_video_data);
 

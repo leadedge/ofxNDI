@@ -8,7 +8,7 @@
 //
 //***********************************************************************************************************
 //
-// Copyright (C)2014-2021, NewTek, inc.
+// Copyright (C)2014-2022, NewTek, inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 // associated documentation files(the "Software"), to deal in the Software without restriction, including
@@ -29,7 +29,8 @@
 
 // Structures and type definitions required by NDI finding.
 // The reference to an instance of the receiver.
-typedef void* NDIlib_recv_instance_t;
+struct NDIlib_recv_instance_type;
+typedef struct NDIlib_recv_instance_type* NDIlib_recv_instance_t;
 
 typedef enum NDIlib_recv_bandwidth_e
 {	NDIlib_recv_bandwidth_metadata_only = -10, // Receive metadata.
@@ -37,7 +38,7 @@ typedef enum NDIlib_recv_bandwidth_e
 	NDIlib_recv_bandwidth_lowest = 0,          // Receive metadata, audio, video at a lower bandwidth and resolution.
 	NDIlib_recv_bandwidth_highest = 100,       // Receive metadata, audio, video at full resolution.
 
-	// Ensure this is 32bits in size.
+	// Make sure this is a 32-bit enumeration.
 	NDIlib_recv_bandwidth_max = 0x7fffffff
 } NDIlib_recv_bandwidth_e;
 
@@ -95,7 +96,7 @@ typedef enum NDIlib_recv_color_format_e
 	NDIlib_recv_color_format_BGRX_BGRA_flipped = 1000 + NDIlib_recv_color_format_BGRX_BGRA,
 #endif
 
-	// Force the size to be 32bits.
+	// Make sure this is a 32-bit enumeration.
 	NDIlib_recv_color_format_max = 0x7fffffff
 } NDIlib_recv_color_format_e;
 

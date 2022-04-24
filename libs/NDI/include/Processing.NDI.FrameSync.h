@@ -8,7 +8,7 @@
 //
 //***********************************************************************************************************
 //
-// Copyright (C)2014-2021, NewTek, inc.
+// Copyright (C)2014-2022, NewTek, inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 // associated documentation files(the "Software"), to deal in the Software without restriction, including
@@ -74,7 +74,8 @@
 //                                   so that they can be ISO edited, then you might want a frame-sync.
 
 // The type instance for a frame-synchronizer.
-typedef void* NDIlib_framesync_instance_t;
+struct NDIlib_framesync_instance_type;
+typedef struct NDIlib_framesync_instance_type* NDIlib_framesync_instance_t;
 
 // Create a frame synchronizer instance that can be used to get frames from a receiver. Once this receiver
 // has been bound to a frame-sync then you should use it in order to receive video frames. You can continue
