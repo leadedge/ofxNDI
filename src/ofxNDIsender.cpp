@@ -63,6 +63,7 @@
 	12.01.22 - "doesFileExist" instead of "_access" in SetFormat (PR #31)
 	27.04.22 - Allow for non-texture image in Send ofImage
 			 - Correct use of ndiBuffer[m_idx] directly in ReadYUVPixels
+			 - Correct missing return statement for non-texture image.
 
 */
 #include "ofxNDIsender.h"
@@ -267,7 +268,7 @@ bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
 	if (img.isUsingTexture())
 		return SendImage(img.getTexture(), bInvert);
 	else
-		SendImage(img.getPixels(), bSwapRB, bInvert);
+		return SendImage(img.getPixels(), bSwapRB, bInvert);
 
 
 }
