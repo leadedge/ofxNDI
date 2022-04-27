@@ -61,6 +61,8 @@
 	03/01/22 - Add YUV shader conversion functions
 	06.01.22 - Conditional formats for SetFormat
 	12.01.22 - "doesFileExist" instead of "_access" in SetFormat (PR #31)
+	27.04.22 - Allow for non-texture image in Send ofImage
+			 - Correct use of ndiBuffer[m_idx] directly in ReadYUVPixels
 
 */
 #include "ofxNDIsender.h"
@@ -262,7 +264,11 @@ bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
 	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA)
 		img.setImageType(OF_IMAGE_COLOR_ALPHA);
 	
-	return SendImage(img.getTexture(), bInvert);
+	if (img.isUsingTexture())
+		return SendImage(img.getTexture(), bInvert);
+	else
+		SendImage(img.getPixels(), bSwapRB, bInvert);
+
 
 }
 
@@ -665,7 +671,7 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 
 	// The YUV result is in the ndiFbo texture
 	// The data is half the width of the rgba texture.
-	return ReadPixels(ndiFbo, halfwidth, height, ndiBuffer[m_idx]);
+	return ReadPixels(ndiFbo, halfwidth, height, buffer);
 
 }
 
