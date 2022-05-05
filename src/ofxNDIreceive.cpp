@@ -137,6 +137,8 @@
 	09.03.22 - SetSenderName/SetSenderIndex - release the current sender
 	23.04.22 - GetSenderName - return "" instead of nullptr to avoid Visual Studio warning C6387
 			   Use size_t cast for malloc to avoid warning C26451: Arithmetic overflow
+	30.04.22 - Add GetAudioChannels, GetAudioSamples, GetAudioSampleRate.
+			   Add GetAudioData overload to get audio frame data pointer
 
 */
 
@@ -198,9 +200,14 @@ ofxNDIreceive::ofxNDIreceive()
 	m_Height = 0;
 	senderIndex = 0;
 	senderName = "";
+	// Audio
 	m_AudioData = nullptr;
 	m_bAudio = false;
 	m_bAudioFrame = false;
+	m_nAudioSampleRate = 0;
+	m_nAudioSamples = 0;
+	m_nAudioChannels = 0;
+
 	// Intialize global video frame data pointer
 	video_frame.p_data = nullptr;
 
@@ -618,11 +625,12 @@ std::string ofxNDIreceive::GetMetadataString()
 	return m_metadataString;
 }
 
-
 // Set to receive Audio
 void ofxNDIreceive::SetAudio(bool bAudio)
 {
 	m_bAudio = bAudio;
+	if (!m_bAudio)
+		FreeAudioData();
 }
 
 // Is the current frame Audio ?
@@ -631,9 +639,36 @@ bool ofxNDIreceive::IsAudioFrame()
 	return m_bAudioFrame;
 }
 
-// Return the current audio frame data
-// output - the audio data pointer
-void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, int &nChannels)
+// Number of audio channels
+int ofxNDIreceive::GetAudioChannels()
+{
+	return m_nAudioChannels;
+}
+
+// Number of audio samples
+int ofxNDIreceive::GetAudioSamples()
+{
+	return m_nAudioSamples;
+}
+
+// Audio sample rate
+int ofxNDIreceive::GetAudioSampleRate()
+{
+	if (m_AudioData) {
+		return m_nAudioSampleRate;
+	}
+	return 0;
+}
+
+// Get audio frame data pointer
+float * ofxNDIreceive::GetAudioData()
+{
+	return m_AudioData;
+}
+
+// Return audio frame data
+// output - the audio data pointer and parameters
+void ofxNDIreceive::GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels)
 {
 	if (m_AudioData) {
 		output = m_AudioData;
@@ -1066,7 +1101,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 				break;
 
 			case NDIlib_frame_type_audio :
+
 				if (audio_frame.p_data) {
+
 					if (m_bAudio) {
 						// Copy the audio data to a local audio buffer
 						// Allocate only for sample size change
@@ -1083,12 +1120,15 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, ((size_t)m_nAudioSamples * (size_t)audio_frame.no_channels * sizeof(float)));
 						m_bAudioFrame = true;
-						// ReceiveImage will return false
+						//
+						// ReceiveImage will return false (no image received)
+						//
 						// Use IsAudioFrame() to determine whether audio has been received
 						// and GetAudioData to retrieve the sample buffer
 					}
 					// Vers 4.5
 					p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
+
 				}
 				break;
 
@@ -1172,8 +1212,9 @@ void ofxNDIreceive::FreeAudioData()
 	if (m_AudioData) free((void *)m_AudioData);
 	m_AudioData =nullptr;
 	m_bAudioFrame = false;
+	m_nAudioSampleRate = 0;
 	m_nAudioSamples = 0;
-	m_nAudioChannels = 1;
+	m_nAudioChannels = 0;
 }
 
 // Get NDI dll version number

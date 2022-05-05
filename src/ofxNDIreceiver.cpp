@@ -59,6 +59,9 @@
 			   Ensure the NDI video buffer is freed on fail in GetPixelData()
 	04.01.22 - Add default case break for unsupported format 
 			   for NDIreceiver.GetVideoType() in ReceiveImage(ofPixels
+	30.04.22 - Add missing SetAudio function.
+			   Add GetAudioChannels, GetAudioSamples, GetAudioSampleRate.
+			   Add GetAudioData overload to get audio frame data pointer
 
 */
 #include "ofxNDIreceiver.h"
@@ -461,18 +464,50 @@ std::string ofxNDIreceiver::GetMetadataString()
 	return NDIreceiver.GetMetadataString();
 }
 
+// Set to receive Audio
+void ofxNDIreceiver::SetAudio(bool bAudio)
+{
+	NDIreceiver.SetAudio(bAudio);
+}
+
 // Is the current frame Audio ?
 bool ofxNDIreceiver::IsAudioFrame()
 {
 	return NDIreceiver.IsAudioFrame();
 }
 
-// Return the current audio frame data
-// output - the audio data pointer
-void ofxNDIreceiver::GetAudioData(float *&output, int &samplerate, int &samples, int &nChannels)
+// Number of audio channels
+int ofxNDIreceiver::GetAudioChannels()
+{
+	return NDIreceiver.GetAudioChannels();
+}
+
+// Number of audio samples
+int ofxNDIreceiver::GetAudioSamples()
+{
+	return NDIreceiver.GetAudioSamples();
+}
+
+// Audio sample rate
+int ofxNDIreceiver::GetAudioSampleRate()
+{
+	return NDIreceiver.GetAudioSampleRate();
+}
+
+// Get audio frame data pointer
+float * ofxNDIreceiver::GetAudioData()
+{
+	return NDIreceiver.GetAudioData();
+}
+
+// Return audio frame data
+// output - audio data pointer, samplerate, samples and channels
+void ofxNDIreceiver::GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels)
 {
 	NDIreceiver.GetAudioData(output, samplerate, samples, nChannels);
 }
+
+
 
 // Return the NDI dll version number
 std::string ofxNDIreceiver::GetNDIversion()
