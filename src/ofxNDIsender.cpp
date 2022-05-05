@@ -64,6 +64,7 @@
 	27.04.22 - Allow for non-texture image in Send ofImage
 			 - Correct use of ndiBuffer[m_idx] directly in ReadYUVPixels
 			 - Correct missing return statement for non-texture image.
+	28.04.22 - Add GetNDIname()
 
 */
 #include "ofxNDIsender.h"
@@ -199,6 +200,18 @@ unsigned int ofxNDIsender::GetWidth()
 unsigned int ofxNDIsender::GetHeight() 
 {
 	return NDIsender.GetHeight();
+}
+
+// Return the sender name
+std::string ofxNDIsender::GetSenderName()
+{
+	return NDIsender.GetSenderName();
+}
+
+// Return the sender NDI name
+std::string ofxNDIsender::GetNDIname()
+{
+	return NDIsender.GetNDIname();
 }
 
 // Send ofFbo
@@ -449,12 +462,6 @@ void ofxNDIsender::SetReadback(bool bReadback)
 bool ofxNDIsender::GetReadback()
 {
 	return m_bReadback;
-}
-
-// Get current sender name
-std::string ofxNDIsender::GetSenderName()
-{
-	return m_SenderName;
 }
 
 // Set to send Audio

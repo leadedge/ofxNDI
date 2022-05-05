@@ -108,6 +108,12 @@ public:
 	// Return current sender height
 	unsigned int GetHeight();
 
+	// Return the sender name
+	std::string GetSenderName();
+
+	// Return the sender NDI name
+	std::string GetNDIname();
+
 	// Set output format
 	void SetFormat(NDIlib_FourCC_video_type_e format);
 

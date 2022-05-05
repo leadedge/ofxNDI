@@ -89,6 +89,8 @@
 				  Comment clean up.
 	23/04/22	- Initialize m_bMetadata false
 				  Use size_t cast for malloc to avoid warning C26451: Arithmetic overflow
+	28/04/22	- Add GetSenderName() and GetNDIname()
+	05/05/22	- Inter channel stride - as per NDI video and audio send example
 
 */
 #include "ofxNDIsend.h"
@@ -241,8 +243,9 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 			m_audio_frame.no_samples  = m_AudioSamples;
 			m_audio_frame.timecode    = m_AudioTimecode;
 			m_audio_frame.p_data      = m_AudioData;
-			// mono/stereo inter channel stride
-			m_audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(float);
+			// Inter channel stride - as per NDI video and audio send example
+			m_audio_frame.channel_stride_in_bytes = m_audio_frame.no_samples * sizeof(float);
+
 		}
 
 		if (GetFormat() == NDIlib_FourCC_video_type_UYVY)
@@ -317,8 +320,7 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 		m_audio_frame.no_samples = m_AudioSamples;
 		m_audio_frame.timecode = m_AudioTimecode;
 		m_audio_frame.p_data = m_AudioData;
-		// mono/stereo inter channel stride
-		m_audio_frame.channel_stride_in_bytes = (m_AudioChannels - 1)*m_AudioSamples * sizeof(float);
+		m_audio_frame.channel_stride_in_bytes = m_AudioSamples * sizeof(float);
 	}
 
 	if (GetFormat() == NDIlib_FourCC_video_type_UYVY)
@@ -340,11 +342,11 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
+
 	if (!m_bNDIinitialized)
 		return false;
 
 	if (pNDI_send && bSenderInitialized && pixels && width > 0 && height > 0) {
-
 		// Allow for forgotten UpdateSender
 		if (video_frame.xres != (int)width || video_frame.yres != (int)height) {
 			video_frame.xres = (int)width;
@@ -541,6 +543,42 @@ unsigned int ofxNDIsend::GetWidth()
 unsigned int ofxNDIsend::GetHeight()
 {
 	return m_Height;
+}
+
+// Return the sender name
+std::string ofxNDIsend::GetSenderName()
+{
+	std::string name = "";
+	if (bSenderInitialized) {
+		// Name at creation (does not include the computer name)
+		name = NDI_send_create_desc.p_ndi_name;
+	}
+	return name;
+}
+
+// Return the sender NDI name
+std::string ofxNDIsend::GetNDIname()
+{
+	std::string ndiname = "";
+	char computername[MAX_COMPUTERNAME_LENGTH + 1];
+	if (bSenderInitialized) {
+		// There is an NDI function to get the exact name of any sender.
+		// SDK documentation section 13 NDI-SEND, page 22.
+		// For example :
+		//     const NDIlib_source_t* source = p_NDILib->NDIlib_send_get_source_name(pNDI_send);
+		//     ndiname = source->p_ndi_name;
+		// However, for dynamic loading, a deprecated warning appears.
+		// To avoid this, the NDI name can be constructed as "computername (sendername)"
+		DWORD dwLength = MAX_COMPUTERNAME_LENGTH + 1;
+		if (GetComputerNameA(computername, &dwLength)) {
+			ndiname = computername;
+			ndiname += " (";
+			// Sender create description does not include the computer name
+			ndiname += NDI_send_create_desc.p_ndi_name;
+			ndiname += ")";
+		}
+	}
+	return ndiname;
 }
 
 // Set video frame format
