@@ -248,11 +248,13 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 
 		}
 
+		// For debugging
+		/*
 		if (GetFormat() == NDIlib_FourCC_video_type_UYVY)
 			printf("ofxNDIsend::CreateSender - [%s] (%dx%d) YUV\n", sendername, width, height);
 		else
 			printf("ofxNDIsend::CreateSender - [%s] (%dx%d) RGBA\n", sendername, width, height);
-
+		*/
 
 		return true;
 	}
@@ -323,11 +325,13 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 		m_audio_frame.channel_stride_in_bytes = m_AudioSamples * sizeof(float);
 	}
 
+	// For debugging
+	/*
 	if (GetFormat() == NDIlib_FourCC_video_type_UYVY)
 		printf("ofxNDIsend::UpdateSender - [%s] (%dx%d) YUV\n", NDI_send_create_desc.p_ndi_name, width, height);
 	else
 		printf("ofxNDIsend::UpdateSender - [%s] (%dx%d) RGBA\n", NDI_send_create_desc.p_ndi_name, width, height);
-
+	*/
 
 	return true;
 }
