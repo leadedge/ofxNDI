@@ -379,6 +379,10 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		else {
 			// No bgra conversion or invert, so use the pointer directly
 			video_frame.p_data = (uint8_t*)pixels;
+			// For debugging
+			// int aCode = video_frame.FourCC;
+			// char fourChar[5] = { (aCode >> 24) & 0xFF, (aCode >> 16) & 0xFF, (aCode >> 8) & 0xFF, aCode & 0xFF, 0 };
+			// printf("    SendImage format FourCC = %d (%s)\n", video_frame.FourCC, fourChar); // 1094862674, 1094862674
 		}
 
 		// Submit the audio buffer first.
@@ -592,6 +596,14 @@ std::string ofxNDIsend::GetNDIname()
 void ofxNDIsend::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	m_Format = format;
+
+	// For debugging
+	// NDI_LIB_FOURCC(ch0, ch1, ch2, ch3)
+	// ((uint32_t)(uint8_t)(ch0) | ((uint32_t)(uint8_t)(ch1) << 8) | ((uint32_t)(uint8_t)(ch2) << 16) | ((uint32_t)(uint8_t)(ch3) << 24))
+	// int fcode = format;
+	// char fourcc[5] = { fcode & 0xFF, (fcode >> 8) & 0xFF, (fcode >> 16) & 0xFF, (fcode >> 24) & 0xFF, 0 };
+	// printf("    ofxNDIsend::SetFormat FourCC = %d (%s)\n", video_frame.FourCC, fourcc); // Integer value and letters
+
 }
 
 // Get output format
