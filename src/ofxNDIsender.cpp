@@ -65,6 +65,7 @@
 			 - Correct use of ndiBuffer[m_idx] directly in ReadYUVPixels
 			 - Correct missing return statement for non-texture image.
 	28.04.22 - Add GetNDIname()
+	10.05.22 - Allow for RGBX in check of format in Sendimage
 
 */
 #include "ofxNDIsender.h"
@@ -310,7 +311,8 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 		return false;
 
 	// NDI format must be set to RGBA to match the pixel data
-	if (GetFormat() != NDIlib_FourCC_video_type_RGBA)
+	if (!(GetFormat() == NDIlib_FourCC_video_type_RGBA
+		|| GetFormat() == NDIlib_FourCC_video_type_RGBX))
 		SetFormat(NDIlib_FourCC_video_type_RGBA);
 
 	// Update sender to match dimensions
