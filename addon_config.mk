@@ -76,6 +76,8 @@ common:
 	# ADDON_LIBS += libs/opencv/lib/linuxarmv6l/libopencv_calib3d.a
 	# ...
 
+	ADDON_SOURCES_EXCLUDE = src/shaders/%
+
 linux64:
 linux:
 win_cb:
