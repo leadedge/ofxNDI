@@ -49,6 +49,7 @@
 			   Replace CopyMemory with memcpy for MacOS compatibility
 	23.04.22 - CopyImage - Use size_t cast for memcpy functions
 			   to avoid warning C26451: Arithmetic overflow
+	09.06.22 - rgba_bgra unsigned __int32 > uint32_t (https://github.com/leadedge/ofxNDI/issues/34)
 
 
 */
@@ -178,8 +179,8 @@ namespace ofxNDIutils {
 		for (y = 0; y < height; y++) {
 
 			// Start of buffer
-			auto src = static_cast<const unsigned __int32*>(source); // unsigned int = 4 bytes
-			auto dst = static_cast<unsigned __int32*>(dest);
+			auto src = static_cast<const uint32_t*>(source); // unsigned int = 4 bytes
+			auto dst = static_cast<uint32_t*>(dest);
 
 			// Cast first to avoid warning C26451: Arithmetic overflow
 			unsigned long H1YxW = (unsigned long)((height - 1 - y) * width);
@@ -246,8 +247,8 @@ namespace ofxNDIutils {
 		for (unsigned int y = 0; y < height; y++) {
 
 			// Start of buffer
-			auto source = static_cast<const unsigned __int32*>(rgba_source);; // unsigned int = 4 bytes
-			auto dest = static_cast<unsigned __int32*>(bgra_dest);
+			auto source = static_cast<const uint32_t*>(rgba_source);; // unsigned int = 4 bytes
+			auto dest = static_cast<uint32_t*>(bgra_dest);
 
 			// Cast first to avoid warning C26451: Arithmetic overflow
 			unsigned long H1YxW = (unsigned long)((height - 1 - y) * width);
