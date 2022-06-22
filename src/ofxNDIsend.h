@@ -52,6 +52,17 @@
 #include "ofxNDIdynloader.h" // NDI library loader
 #include "ofxNDIutils.h" // buffer copy utilities
 
+// Definition is in WinBase.h
+// define for compilers that don't include this
+#ifndef MAX_COMPUTERNAME_LENGTH
+#ifndef _MAC
+#define MAX_COMPUTERNAME_LENGTH 15
+#else
+#define MAX_COMPUTERNAME_LENGTH 31
+#endif
+#endif
+
+
 class ofxNDIsend {
 
 public:

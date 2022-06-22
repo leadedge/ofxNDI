@@ -91,6 +91,9 @@
 				  Use size_t cast for malloc to avoid warning C26451: Arithmetic overflow
 	28/04/22	- Add GetSenderName() and GetNDIname()
 	05/05/22	- Inter channel stride - as per NDI video and audio send example
+	10/06/22	- define MAX_COMPUTERNAME_LENGTH in header
+	22/06/22	- GetNDIname constructed from computername included as optional code.
+				- Corrected error where width*4 was used in SendImage instead of sourcePitch
 
 */
 #include "ofxNDIsend.h"
@@ -466,7 +469,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		if (bInvert) {
 			// Local memory buffer is only needed for invert
 			if (!p_frame) {
-				p_frame = (uint8_t*)malloc((size_t)width * (size_t)height * 4 * sizeof(unsigned char));
+				p_frame = (uint8_t*)malloc((size_t)sourcePitch * (size_t)height * sizeof(unsigned char));
 				if (!p_frame) {
 					printf("Out of memory in SendImage\n");
 					return false;
@@ -568,15 +571,17 @@ std::string ofxNDIsend::GetSenderName()
 std::string ofxNDIsend::GetNDIname()
 {
 	std::string ndiname = "";
-	char computername[MAX_COMPUTERNAME_LENGTH + 1];
 	if (bSenderInitialized) {
 		// There is an NDI function to get the exact name of any sender.
-		// SDK documentation section 13 NDI-SEND, page 22.
-		// For example :
-		//     const NDIlib_source_t* source = p_NDILib->NDIlib_send_get_source_name(pNDI_send);
-		//     ndiname = source->p_ndi_name;
-		// However, for dynamic loading, a deprecated warning appears.
-		// To avoid this, the NDI name can be constructed as "computername (sendername)"
+		// SDK documentation section 13 NDI-SEND, page 22. As follows :
+		const NDIlib_source_t* source = p_NDILib->NDIlib_send_get_source_name(pNDI_send);
+		ndiname = source->p_ndi_name;
+
+		// However, for dynamic loading, a deprecated warning appears with a rebuild or
+		// Visual Studio Code Analysis. If you wish to avoid this warning, the NDI name
+		// can be constructed as "computername (sendername)". Windows only.
+		/*
+		char computername[MAX_COMPUTERNAME_LENGTH + 1];
 		DWORD dwLength = MAX_COMPUTERNAME_LENGTH + 1;
 		if (GetComputerNameA(computername, &dwLength)) {
 			ndiname = computername;
@@ -585,6 +590,7 @@ std::string ofxNDIsend::GetNDIname()
 			ndiname += NDI_send_create_desc.p_ndi_name;
 			ndiname += ")";
 		}
+		*/
 	}
 	return ndiname;
 }

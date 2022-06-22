@@ -66,6 +66,9 @@
 			 - Correct missing return statement for non-texture image.
 	28.04.22 - Add GetNDIname()
 	10.05.22 - Allow for RGBX in check of format in Sendimage
+	22/06/22 - rgbg2Yuv shaders located in a "bin\data\rgbg2Yuv" folder
+	           instead of "bin\data\shaders\rgbg2Yuv" to avoid conflicts
+			   with over-write by Project Generator
 
 */
 #include "ofxNDIsender.h"
@@ -328,7 +331,7 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	if (format == NDIlib_FourCC_video_type_UYVY) {
 		// Test required rgba2yuv shader path for yuv format
-		if (ofFile::doesFileExist("/shaders/rgba2yuv/")) { // instead of _access
+		if (ofFile::doesFileExist("/rgba2yuv/")) { // instead of _access
 			NDIsender.SetFormat(format);
 			// Buffer size will change between YUV and RGBA
 			// Retain sender dimensions, but update the sender
@@ -631,11 +634,10 @@ void ofxNDIsender::AllocatePixelBuffers(unsigned int width, unsigned int height)
 
 //
 // Read yuv pixels from rgba fbo to buffer
-// Shaders must be in the "bin/data" folder
+// Shaders must be in a "bin\data\rgbg2Yuv" folder  folder
 //
 //  bin
 //    data
-//     shaders
 //       rgba2yuv
 //
 bool ofxNDIsender::ReadYUVpixels(ofFbo &fbo, unsigned int width, unsigned int height, ofPixels &buffer)
@@ -655,13 +657,13 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 	if (!rgba2yuv.isLoaded()) {
 		bool bResult = false;
 #ifdef TARGET_OPENGLES
-		bResult = rgba2yuv.load("/shaders/rgba2yuv/ES2/rgba2yuv");
+		bResult = rgba2yuv.load("/rgba2yuv/ES2/rgba2yuv");
 #else
 		if (ofIsGLProgrammableRenderer()) {
-			bResult = rgba2yuv.load("/shaders/rgba2yuv/GL3/rgba2yuv");
+			bResult = rgba2yuv.load("/rgba2yuv/GL3/rgba2yuv");
 		}
 		else {
-			bResult = rgba2yuv.load("/shaders/rgba2yuv/GL2/rgba2yuv");
+			bResult = rgba2yuv.load("/rgba2yuv/GL2/rgba2yuv");
 		}
 #endif
 		if (!bResult)
