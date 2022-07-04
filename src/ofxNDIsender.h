@@ -81,8 +81,11 @@ public:
 	// Return current sender height
 	unsigned int GetHeight();
 
-	// Return the NDI sender name
+	// Return the sender name
 	std::string GetSenderName();
+
+	// Return the sender NDI name
+	std::string GetNDIname();
 
 	// Send ofFbo
 	// - fbo     | Openframeworks fbo to send
@@ -93,7 +96,7 @@ public:
 	// - tex     | Openframeworks texture to send
 	// - bInvert | flip the image - default false
 	bool SendImage(ofTexture tex, bool bInvert = false);
-
+	
 	// Send ofImage
 	// - image   | Openframeworks image to send
 	// - bInvert | flip the image - default false

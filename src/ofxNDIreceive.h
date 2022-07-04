@@ -239,8 +239,20 @@ public:
 	// Use when ReceiveImage fails
 	bool IsAudioFrame();
 
-	// Return current audio frame data
-	void GetAudioData(float * &output, int &samplerate, int &samples, int &nChannels);
+	// Number of audio channels
+	int GetAudioChannels();
+
+	// Number of audio samples
+	int GetAudioSamples();
+
+	// Audio sample rate
+	int GetAudioSampleRate();
+
+	// Get audio frame data pointer
+	float * GetAudioData();
+
+	// Return audio frame data
+	void GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels);
 
 	// Free audio frame buffer
 	void FreeAudioData();

@@ -61,6 +61,14 @@
 	03/01/22 - Add YUV shader conversion functions
 	06.01.22 - Conditional formats for SetFormat
 	12.01.22 - "doesFileExist" instead of "_access" in SetFormat (PR #31)
+	27.04.22 - Allow for non-texture image in Send ofImage
+			 - Correct use of ndiBuffer[m_idx] directly in ReadYUVPixels
+			 - Correct missing return statement for non-texture image.
+	28.04.22 - Add GetNDIname()
+	10.05.22 - Allow for RGBX in check of format in Sendimage
+	22/06/22 - rgbg2Yuv shaders located in a "bin\data\rgbg2Yuv" folder
+	           instead of "bin\data\shaders\rgbg2Yuv" to avoid conflicts
+			   with over-write by Project Generator
 
 */
 #include "ofxNDIsender.h"
@@ -198,6 +206,18 @@ unsigned int ofxNDIsender::GetHeight()
 	return NDIsender.GetHeight();
 }
 
+// Return the sender name
+std::string ofxNDIsender::GetSenderName()
+{
+	return NDIsender.GetSenderName();
+}
+
+// Return the sender NDI name
+std::string ofxNDIsender::GetNDIname()
+{
+	return NDIsender.GetNDIname();
+}
+
 // Send ofFbo
 bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 {
@@ -262,7 +282,11 @@ bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
 	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA)
 		img.setImageType(OF_IMAGE_COLOR_ALPHA);
 	
-	return SendImage(img.getTexture(), bInvert);
+	if (img.isUsingTexture())
+		return SendImage(img.getTexture(), bInvert);
+	else
+		return SendImage(img.getPixels(), bSwapRB, bInvert);
+
 
 }
 
@@ -290,7 +314,8 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 		return false;
 
 	// NDI format must be set to RGBA to match the pixel data
-	if (GetFormat() != NDIlib_FourCC_video_type_RGBA)
+	if (!(GetFormat() == NDIlib_FourCC_video_type_RGBA
+		|| GetFormat() == NDIlib_FourCC_video_type_RGBX))
 		SetFormat(NDIlib_FourCC_video_type_RGBA);
 
 	// Update sender to match dimensions
@@ -306,7 +331,7 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	if (format == NDIlib_FourCC_video_type_UYVY) {
 		// Test required rgba2yuv shader path for yuv format
-		if (ofFile::doesFileExist("/shaders/rgba2yuv/")) { // instead of _access
+		if (ofFile::doesFileExist("/rgba2yuv/")) { // instead of _access
 			NDIsender.SetFormat(format);
 			// Buffer size will change between YUV and RGBA
 			// Retain sender dimensions, but update the sender
@@ -442,12 +467,6 @@ void ofxNDIsender::SetReadback(bool bReadback)
 bool ofxNDIsender::GetReadback()
 {
 	return m_bReadback;
-}
-
-// Get current sender name
-std::string ofxNDIsender::GetSenderName()
-{
-	return m_SenderName;
 }
 
 // Set to send Audio
@@ -615,11 +634,10 @@ void ofxNDIsender::AllocatePixelBuffers(unsigned int width, unsigned int height)
 
 //
 // Read yuv pixels from rgba fbo to buffer
-// Shaders must be in the "bin/data" folder
+// Shaders must be in a "bin\data\rgbg2Yuv" folder  folder
 //
 //  bin
 //    data
-//     shaders
 //       rgba2yuv
 //
 bool ofxNDIsender::ReadYUVpixels(ofFbo &fbo, unsigned int width, unsigned int height, ofPixels &buffer)
@@ -639,13 +657,13 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 	if (!rgba2yuv.isLoaded()) {
 		bool bResult = false;
 #ifdef TARGET_OPENGLES
-		bResult = rgba2yuv.load("/shaders/rgba2yuv/ES2/rgba2yuv");
+		bResult = rgba2yuv.load("/rgba2yuv/ES2/rgba2yuv");
 #else
 		if (ofIsGLProgrammableRenderer()) {
-			bResult = rgba2yuv.load("/shaders/rgba2yuv/GL3/rgba2yuv");
+			bResult = rgba2yuv.load("/rgba2yuv/GL3/rgba2yuv");
 		}
 		else {
-			bResult = rgba2yuv.load("/shaders/rgba2yuv/GL2/rgba2yuv");
+			bResult = rgba2yuv.load("/rgba2yuv/GL2/rgba2yuv");
 		}
 #endif
 		if (!bResult)
@@ -665,7 +683,7 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 
 	// The YUV result is in the ndiFbo texture
 	// The data is half the width of the rgba texture.
-	return ReadPixels(ndiFbo, halfwidth, height, ndiBuffer[m_idx]);
+	return ReadPixels(ndiFbo, halfwidth, height, buffer);
 
 }
 

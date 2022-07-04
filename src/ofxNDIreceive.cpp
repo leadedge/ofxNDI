@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2021 Lynn Jarvis.
+	Copyright (C) 2016-2022 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -131,6 +131,14 @@
 			   Remove video data check in GetSenderFps
 	03.12.21 - Fix audio_frame.p_data free in ReceiveImage
 			   Free captured metadata buffer
+	26.12.21 - Comment out unused usec_per_msec constant - PR #28 by dimitre
+	28.12.21 - Add default case break for NDI_frame_type in ReceiveImage - PR #31 by dimitre
+	04.01.22 - Add default case break for video_frame.FourCC in ReceiveImage
+	09.03.22 - SetSenderName/SetSenderIndex - release the current sender
+	23.04.22 - GetSenderName - return "" instead of nullptr to avoid Visual Studio warning C6387
+			   Use size_t cast for malloc to avoid warning C26451: Arithmetic overflow
+	30.04.22 - Add GetAudioChannels, GetAudioSamples, GetAudioSampleRate.
+			   Add GetAudioData overload to get audio frame data pointer
 
 */
 
@@ -147,7 +155,7 @@ double timeGetTime() {
 
 // Helpful conversion constants.
 static const unsigned usec_per_sec = 1000000;
-static const unsigned usec_per_msec = 1000;
+// static const unsigned usec_per_msec = 1000;
 
 // These functions are written to match the win32
 // signatures and behavior as closely as possible.
@@ -192,9 +200,14 @@ ofxNDIreceive::ofxNDIreceive()
 	m_Height = 0;
 	senderIndex = 0;
 	senderName = "";
+	// Audio
 	m_AudioData = nullptr;
 	m_bAudio = false;
 	m_bAudioFrame = false;
+	m_nAudioSampleRate = 0;
+	m_nAudioSamples = 0;
+	m_nAudioChannels = 0;
+
 	// Intialize global video frame data pointer
 	video_frame.p_data = nullptr;
 
@@ -205,10 +218,12 @@ ofxNDIreceive::ofxNDIreceive()
 	frameTimeNumber = 0.0;
 	lastFrame = 0.0;
 
+	// NDI documentation :
 	// For most uses you should specify NDIlib_recv_bandwidth_highest, which will
 	// result in the same stream that is being sent from the up-stream source to you.
 	// You may specify NDIlib_recv_bandwidth_lowest, which will provide you with a
 	// medium quality stream that takes significantly reduced bandwidth
+	// (see SetLowBandwidth)
 	m_bandWidth = NDIlib_recv_bandwidth_highest;
 
 	// Find and load the NDI dll
@@ -400,6 +415,9 @@ bool ofxNDIreceive::SetSenderIndex(int index)
 	if (NDIsenders.at(senderIndex) == senderName)
 		return false;
 
+	// Different sender so release the current one
+	ReleaseReceiver();
+
 	// Update the class sender name
 	senderName = NDIsenders.at(senderIndex);
 
@@ -513,7 +531,14 @@ bool ofxNDIreceive::GetSenderIndex(std::string sendername, int &index)
 // Set a sender name to receive from
 void ofxNDIreceive::SetSenderName(std::string sendername)
 {
+	// Return if the Same sender
+	if (senderName == senderName)
+		return;
+
+	// Release the current sender and change the name
+	ReleaseReceiver();
 	senderName = sendername;
+
 }
 
 // Get the name string of a sender index
@@ -541,7 +566,7 @@ std::string ofxNDIreceive::GetSenderName(int userindex)
 		return NDIsenders.at(index);
 	}
 
-	return nullptr;
+	return ""; // nullptr generates Visual Studio warning C6387
 }
 
 // Return current sender width
@@ -600,11 +625,12 @@ std::string ofxNDIreceive::GetMetadataString()
 	return m_metadataString;
 }
 
-
 // Set to receive Audio
 void ofxNDIreceive::SetAudio(bool bAudio)
 {
 	m_bAudio = bAudio;
+	if (!m_bAudio)
+		FreeAudioData();
 }
 
 // Is the current frame Audio ?
@@ -613,9 +639,36 @@ bool ofxNDIreceive::IsAudioFrame()
 	return m_bAudioFrame;
 }
 
-// Return the current audio frame data
-// output - the audio data pointer
-void ofxNDIreceive::GetAudioData(float *&output, int &samplerate, int &samples, int &nChannels)
+// Number of audio channels
+int ofxNDIreceive::GetAudioChannels()
+{
+	return m_nAudioChannels;
+}
+
+// Number of audio samples
+int ofxNDIreceive::GetAudioSamples()
+{
+	return m_nAudioSamples;
+}
+
+// Audio sample rate
+int ofxNDIreceive::GetAudioSampleRate()
+{
+	if (m_AudioData) {
+		return m_nAudioSampleRate;
+	}
+	return 0;
+}
+
+// Get audio frame data pointer
+float * ofxNDIreceive::GetAudioData()
+{
+	return m_AudioData;
+}
+
+// Return audio frame data
+// output - the audio data pointer and parameters
+void ofxNDIreceive::GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels)
 {
 	if (m_AudioData) {
 		output = m_AudioData;
@@ -718,7 +771,6 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			//
 			// If the user picks a sender from the list, the name is derived from the selected index.
 			//
-
 			if (!senderName.empty()) {
 				// Check the name against the current index
 				if (senderName != NDIsenders.at(index)) {
@@ -772,7 +824,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 
 			// Set class flag that a receiver has been created
 			bReceiverCreated = true;
-
+			// printf("pNDI_recv = 0x%.7X (%s)\n", PtrToUint(pNDI_recv), senderName);
 			return true;
 
 		}
@@ -889,14 +941,14 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 							|| m_nAudioChannels != audio_frame.no_channels) {
 							// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
 							if (m_AudioData) free((void *)m_AudioData);
-							m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
+							m_AudioData = (float *)malloc((size_t)audio_frame.no_samples * (size_t)audio_frame.no_channels * sizeof(float));
 						}
 						// printf("Audio data received data = %x, samples = %d\n", (unsigned int)audio_frame.p_data, audio_frame.no_samples);
 						m_nAudioChannels = audio_frame.no_channels;
 						m_nAudioSamples = audio_frame.no_samples;
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
-							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
+							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, ((size_t)m_nAudioSamples * (size_t)audio_frame.no_channels * sizeof(float)));
 						m_bAudioFrame = true;
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
@@ -947,8 +999,11 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 							case NDIlib_FourCC_type_BGRA: // BGRA
 							case NDIlib_FourCC_type_BGRX: // BGRX
-							default: // BGRA
 								ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, true, bInvert);
+								break;
+							
+							default:
+								// Unsupported format
 								break;
 
 						} // end switch received format
@@ -1046,7 +1101,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 				break;
 
 			case NDIlib_frame_type_audio :
+
 				if (audio_frame.p_data) {
+
 					if (m_bAudio) {
 						// Copy the audio data to a local audio buffer
 						// Allocate only for sample size change
@@ -1055,20 +1112,23 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 							|| m_nAudioChannels != audio_frame.no_channels) {
 							// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
 							if (m_AudioData) free((void *)m_AudioData);
-							m_AudioData = (float *)malloc(audio_frame.no_samples * audio_frame.no_channels * sizeof(float));
+							m_AudioData = (float *)malloc((size_t)audio_frame.no_samples * (size_t)audio_frame.no_channels * sizeof(float));
 						}
 						m_nAudioChannels = audio_frame.no_channels;
 						m_nAudioSamples = audio_frame.no_samples;
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
-							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, (m_nAudioSamples * audio_frame.no_channels * sizeof(float)));
+							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, ((size_t)m_nAudioSamples * (size_t)audio_frame.no_channels * sizeof(float)));
 						m_bAudioFrame = true;
-						// ReceiveImage will return false
+						//
+						// ReceiveImage will return false (no image received)
+						//
 						// Use IsAudioFrame() to determine whether audio has been received
 						// and GetAudioData to retrieve the sample buffer
 					}
 					// Vers 4.5
 					p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
+
 				}
 				break;
 
@@ -1102,6 +1162,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 					bReceiverConnected = false;
 				}
 				break; // endif NDIlib_frame_type_video
+
+			default:
+				break;
 
 		} // end switch frame type
 	} // endif pNDI_recv
@@ -1149,8 +1212,9 @@ void ofxNDIreceive::FreeAudioData()
 	if (m_AudioData) free((void *)m_AudioData);
 	m_AudioData =nullptr;
 	m_bAudioFrame = false;
+	m_nAudioSampleRate = 0;
 	m_nAudioSamples = 0;
-	m_nAudioChannels = 1;
+	m_nAudioChannels = 0;
 }
 
 // Get NDI dll version number

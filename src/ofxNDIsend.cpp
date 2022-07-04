@@ -89,6 +89,11 @@
 				  Comment clean up.
 	23/04/22	- Initialize m_bMetadata false
 				  Use size_t cast for malloc to avoid warning C26451: Arithmetic overflow
+	28/04/22	- Add GetSenderName() and GetNDIname()
+	05/05/22	- Inter channel stride - as per NDI video and audio send example
+	10/06/22	- define MAX_COMPUTERNAME_LENGTH in header
+	22/06/22	- GetNDIname constructed from computername included as optional code.
+				- Corrected error where width*4 was used in SendImage instead of sourcePitch
 
 */
 #include "ofxNDIsend.h"
@@ -241,15 +246,18 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 			m_audio_frame.no_samples  = m_AudioSamples;
 			m_audio_frame.timecode    = m_AudioTimecode;
 			m_audio_frame.p_data      = m_AudioData;
-			// mono/stereo inter channel stride
-			m_audio_frame.channel_stride_in_bytes = (m_AudioChannels-1)*m_AudioSamples*sizeof(float);
+			// Inter channel stride - as per NDI video and audio send example
+			m_audio_frame.channel_stride_in_bytes = m_audio_frame.no_samples * sizeof(float);
+
 		}
 
+		// For debugging
+		/*
 		if (GetFormat() == NDIlib_FourCC_video_type_UYVY)
 			printf("ofxNDIsend::CreateSender - [%s] (%dx%d) YUV\n", sendername, width, height);
 		else
 			printf("ofxNDIsend::CreateSender - [%s] (%dx%d) RGBA\n", sendername, width, height);
-
+		*/
 
 		return true;
 	}
@@ -317,15 +325,16 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 		m_audio_frame.no_samples = m_AudioSamples;
 		m_audio_frame.timecode = m_AudioTimecode;
 		m_audio_frame.p_data = m_AudioData;
-		// mono/stereo inter channel stride
-		m_audio_frame.channel_stride_in_bytes = (m_AudioChannels - 1)*m_AudioSamples * sizeof(float);
+		m_audio_frame.channel_stride_in_bytes = m_AudioSamples * sizeof(float);
 	}
 
+	// For debugging
+	/*
 	if (GetFormat() == NDIlib_FourCC_video_type_UYVY)
 		printf("ofxNDIsend::UpdateSender - [%s] (%dx%d) YUV\n", NDI_send_create_desc.p_ndi_name, width, height);
 	else
 		printf("ofxNDIsend::UpdateSender - [%s] (%dx%d) RGBA\n", NDI_send_create_desc.p_ndi_name, width, height);
-
+	*/
 
 	return true;
 }
@@ -340,11 +349,11 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 	unsigned int width, unsigned int height,
 	bool bSwapRB, bool bInvert)
 {
+
 	if (!m_bNDIinitialized)
 		return false;
 
 	if (pNDI_send && bSenderInitialized && pixels && width > 0 && height > 0) {
-
 		// Allow for forgotten UpdateSender
 		if (video_frame.xres != (int)width || video_frame.yres != (int)height) {
 			video_frame.xres = (int)width;
@@ -373,6 +382,10 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		else {
 			// No bgra conversion or invert, so use the pointer directly
 			video_frame.p_data = (uint8_t*)pixels;
+			// For debugging
+			// int aCode = video_frame.FourCC;
+			// char fourChar[5] = { (aCode >> 24) & 0xFF, (aCode >> 16) & 0xFF, (aCode >> 8) & 0xFF, aCode & 0xFF, 0 };
+			// printf("    SendImage format FourCC = %d (%s)\n", video_frame.FourCC, fourChar); // 1094862674, 1094862674
 		}
 
 		// Submit the audio buffer first.
@@ -456,7 +469,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 		if (bInvert) {
 			// Local memory buffer is only needed for invert
 			if (!p_frame) {
-				p_frame = (uint8_t*)malloc((size_t)width * (size_t)height * 4 * sizeof(unsigned char));
+				p_frame = (uint8_t*)malloc((size_t)sourcePitch * (size_t)height * sizeof(unsigned char));
 				if (!p_frame) {
 					printf("Out of memory in SendImage\n");
 					return false;
@@ -543,6 +556,45 @@ unsigned int ofxNDIsend::GetHeight()
 	return m_Height;
 }
 
+// Return the sender name
+std::string ofxNDIsend::GetSenderName()
+{
+	std::string name = "";
+	if (bSenderInitialized) {
+		// Name at creation (does not include the computer name)
+		name = NDI_send_create_desc.p_ndi_name;
+	}
+	return name;
+}
+
+// Return the sender NDI name
+std::string ofxNDIsend::GetNDIname()
+{
+	std::string ndiname = "";
+	if (bSenderInitialized) {
+		// There is an NDI function to get the exact name of any sender.
+		// SDK documentation section 13 NDI-SEND, page 22. As follows :
+		const NDIlib_source_t* source = p_NDILib->NDIlib_send_get_source_name(pNDI_send);
+		ndiname = source->p_ndi_name;
+
+		// However, for dynamic loading, a deprecated warning appears with a rebuild or
+		// Visual Studio Code Analysis. If you wish to avoid this warning, the NDI name
+		// can be constructed as "computername (sendername)". Windows only.
+		/*
+		char computername[MAX_COMPUTERNAME_LENGTH + 1];
+		DWORD dwLength = MAX_COMPUTERNAME_LENGTH + 1;
+		if (GetComputerNameA(computername, &dwLength)) {
+			ndiname = computername;
+			ndiname += " (";
+			// Sender create description does not include the computer name
+			ndiname += NDI_send_create_desc.p_ndi_name;
+			ndiname += ")";
+		}
+		*/
+	}
+	return ndiname;
+}
+
 // Set video frame format
 //  Default NDIlib_FourCC_video_type_RGBA
 //  Can be NDIlib_FourCC_video_type_BGRA to match texture format
@@ -550,6 +602,14 @@ unsigned int ofxNDIsend::GetHeight()
 void ofxNDIsend::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	m_Format = format;
+
+	// For debugging
+	// NDI_LIB_FOURCC(ch0, ch1, ch2, ch3)
+	// ((uint32_t)(uint8_t)(ch0) | ((uint32_t)(uint8_t)(ch1) << 8) | ((uint32_t)(uint8_t)(ch2) << 16) | ((uint32_t)(uint8_t)(ch3) << 24))
+	// int fcode = format;
+	// char fourcc[5] = { fcode & 0xFF, (fcode >> 8) & 0xFF, (fcode >> 16) & 0xFF, (fcode >> 24) & 0xFF, 0 };
+	// printf("    ofxNDIsend::SetFormat FourCC = %d (%s)\n", video_frame.FourCC, fourcc); // Integer value and letters
+
 }
 
 // Get output format
