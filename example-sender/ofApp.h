@@ -39,15 +39,16 @@ class ofApp : public ofBaseApp {
 		void exit();
 		void keyPressed(int key);
 
-		ofxNDIsender ndiSender;    // NDI sender
-		char senderName[256];      // Sender name
-		unsigned int senderWidth;  // Width of the sender output
-		unsigned int senderHeight; // Height of the sender output
-		ofFbo m_fbo;               // Fbo used for graphics and sending
-		ofImage textureImage;      // Texture image for the 3D cube graphics
-		float rotX, rotY;          // Cube rotation increment
-		ofImage ndiImage;          // Test image for sending
-		void DrawGraphics();       // Rotating cube draw
+		ofxNDIsender ndiSender;        // NDI sender
+		char senderName[256]{};        // Sender name
+		unsigned int senderWidth = 0;  // Width of the sender output
+		unsigned int senderHeight = 0; // Height of the sender output
+		ofFbo m_fbo;                   // Fbo used for graphics and sending
+		ofImage textureImage;          // Texture image for the 3D cube graphics
+		float rotX = 0.0f;
+		float rotY = 0.0f;             // Cube rotation increment
+		ofImage ndiImage;              // Test image for sending
+		void DrawGraphics();           // Rotating cube draw
 		
 		bool bReadback = true;
 		bool bAsync = true;

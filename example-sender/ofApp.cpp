@@ -45,6 +45,8 @@
 	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
 	08.12.20 - Change from sprintf to std::string for on-screen display
 	03.01.22 - Revise for ofxNDI with YUV sending option
+	24.04.22 - Update examples with Visual Studio 2022
+	04.07.22 - Update with revised ofxNDI. Rebuild x64/MD.
 
 */
 #include "ofApp.h"

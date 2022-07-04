@@ -24,7 +24,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	=========================================================================
 */
-
 #pragma once
 
 #include "ofMain.h"
@@ -36,8 +35,15 @@ class ofApp : public ofBaseApp {
 		void setup();
 		void update();
 		void draw();
+		void exit();
+		void keyPressed(int key);
 
-		ofVideoGrabber vidGrabber;     // Webcam
-		ofxNDIsender ndiSender;        // NDI sender object
+		// ofxNDIsender ndiSender;        // NDI sender object
+		ofVideoGrabber vidGrabber; // Webcam
+		std::vector <ofVideoDevice> camdevices; // Webcams available
+		ofxNDIsender camsender; // NDI sender object
+		std::string camsendername; // Sender name
+		int camindex = 0; // Selected webcam in the device list
+		bool bSendCam = true; // Clear to send the webcam texture
 
 };

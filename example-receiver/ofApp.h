@@ -45,8 +45,8 @@ class ofApp : public ofBaseApp{
 		ofImage ndiImage; // Image to receive
 		ofPixels ndiPixels; // Pixels to receive
 		unsigned char *ndiChars; // unsigned char image array to receive
-		unsigned int senderWidth; // sender width and height needed to receive char pixels
-		unsigned int senderHeight;
+		unsigned int senderWidth = 0; // sender width and height needed to receive char pixels
+		unsigned int senderHeight = 0;
 		void ShowInfo();
 
 };
