@@ -3,23 +3,20 @@ An Openframeworks addon to allow sending and receiving images over a network usi
 
 ## Updates
 
-Note that after the latest update from testing branch, previous applications\
-should update the location of the "rgba2yuv" shaders folder.\
-Shaders are moved from within a containing "shaders" folder to directly in "bin/data".
+The Project Generator now copies the "rgba2yuv" shaders folder into the application.\
+However if the Project Generator is not used, this folder must be copied as below.
 
-The Project Generator now copies this folder into into the application.\
-Howevre, if the Project Generator is not used, the "rgba2yuv" folder\
-must be copied to "bin/data" as below.\
-
-   bin\
-     data\
+	bin
+     data
         rgba2yuv
-			
-Details of changes are documented in each source file.\
+
+Note that for previous applications, the location of the "rgba2yuv" folder should be changed\
+from within a containing "shaders" folder to directly in "bin/data".\
 Example binaries are included for testing.
 
 --------------------------
-04.07.22 - Updated Master from testing branch. 
+04.07.22 - Updated Master from testing branch.\
+	  Details of changes are documented in each source file.\
 18.12.20 - Updated master from testing branch NDI SDK Vers 4.5 dynamic load.\
 31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3"\
 (Note changes to function argument variable types to match with Version 3.)\
