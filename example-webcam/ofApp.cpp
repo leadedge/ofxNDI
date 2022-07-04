@@ -38,6 +38,8 @@
 	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
 	10.11.19 - Revise for ofxNDI for NDI SDK Version 5.1
 	05.01.21 - Allow user selection of webcam
+	26.04.22 - Update for Visual Studio 2022
+	04.07.22 - Update with revised ofxNDI. Rebuild x64/MD.
 
 */
 #include "ofApp.h"
@@ -54,27 +56,35 @@ void ofApp::setup(){
 #else // _WIN64
 	cout << "\nofxNDI example webcam sender - 32 bit" << endl;
 #endif // _WIN64	
-	cout << ndiSender.GetNDIversion() << " (https://www.ndi.tv/)" << endl;
+	cout << camsender.GetNDIversion() << " (https://www.ndi.tv/)" << endl;
 
-	// Save webcam devices to show the user
-	vector<ofVideoDevice> devices = vidGrabber.listDevices();
+	camsendername = "Openframeworks NDI webcam"; // Set the sender name
+	ofSetWindowTitle(camsendername); // show it on the title bar
 
-	// User webcam selection
-	printf("Select the index of the device required (0 - %d)\n", devices.size() - 1);
-	int index = _getch() - 48;
-	if (index > (int)devices.size()-1 || index < 0)
-		index = 0;
+	// Get the webcam list so that we can identify by name
+	camdevices = vidGrabber.listDevices();
+	printf("Select a webcam by it's index (0-%d)\n\n", (int)camdevices.size() - 1);
 
-	// Set up webcam
-	vidGrabber.setDeviceID(index); // The first or selected webcam
-	vidGrabber.setup(640, 480); // try to grab at this size.
+	// Use the default webcam (0) or change as required
+	camindex = 0;
+	vidGrabber.setDeviceID(camindex);
+	vidGrabber.setDesiredFrameRate(30); // Try to set desired frame rate
+	vidGrabber.setup(640, 480); // Try to grab at desired size
+	cout << "Initialized webcam [" << camdevices[camindex].deviceName << "] " << vidGrabber.getWidth() << " x " << vidGrabber.getHeight() << ")" << endl;
+
+	// Try to set this frame rate
+	vidGrabber.setDesiredFrameRate(30);
+	// Set Openframeworks to send frames at this rate
+	ofSetFrameRate(30);
+	// Set the NDI sender to this rate
+	camsender.SetFrameRate(30.0);
 
 	// Set NDI asynchronous sending for best performance
-	ndiSender.SetAsync();
+	camsender.SetAsync();
 
 	// Create a new sender - default RGBA for ofPixels
-	ndiSender.CreateSender("Openframeworks NDI webcam", (unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight());
-	cout << "Created NDI sender [Openframeworks NDI webcam] (" << vidGrabber.getWidth() << "x" << vidGrabber.getHeight() << ")" << endl;
+	camsender.CreateSender(camsendername.c_str(), (unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight());
+	cout << "Created NDI sender [" << camsendername << "]" << vidGrabber.getWidth() << "x" << vidGrabber.getHeight() << endl;
 
 }
 
@@ -90,8 +100,41 @@ void ofApp::draw() {
 
 	vidGrabber.draw(0, 0, ofGetWidth(), ofGetHeight());
 	if (vidGrabber.isFrameNew())
-		ndiSender.SendImage(vidGrabber.getPixels());
+		camsender.SendImage(vidGrabber.getPixels());
 
 }
 
+//--------------------------------------------------------------
+void ofApp::exit() {
+	// Release the sender on exit
+	camsender.ReleaseSender();
+}
 
+
+//--------------------------------------------------------------
+void ofApp::keyPressed(int key) {
+
+	int i = key - 48; // Decimal number
+	if (key == 32) {
+		camdevices = vidGrabber.listDevices();
+		printf("Select a webcam by it's index (0-%d)\n", (int)camdevices.size() - 1);
+	}
+	else if (i >= 0 && i < (int)camdevices.size()) {
+		camindex = i;
+		vidGrabber.close();
+		vidGrabber.setDeviceID(camindex);
+		vidGrabber.setDesiredFrameRate(30); // Try to set desired frame rate
+		ofSetFrameRate(30); // Set Openframeworks to send frames at this rate
+		camsender.SetFrameRate(30.0); // Set the NDI sender to this rate
+		if (vidGrabber.setup(640, 480)) {  // Try to grab at desired size
+			ofSetWindowShape(vidGrabber.getWidth(), vidGrabber.getHeight());
+			// The webcam resolution might have changed. Update the sender.
+			camsender.UpdateSender((unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight());
+			cout << "Initialized webcam [" << camdevices[camindex].deviceName << "] (" << vidGrabber.getWidth() << " x " << vidGrabber.getHeight() << ")" << endl;
+		}
+		else {
+			printf("Webcam setup error. Try a different one.\n");
+		}
+	}
+
+}

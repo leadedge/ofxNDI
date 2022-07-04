@@ -58,6 +58,9 @@
 	08.12.20 - Change from sprintf to std::string for on-screen display
 	02.12,21 - Update pixel receive examples and comments
 	04.12.21 - Use Setfromexternalpixels to update display image
+	24.04.22 - Update examples for Visual Studio 2022
+	04.07.22 - Update with revised ofxNDI. Rebuild x64/MD.
+
 
 */
 #include "ofApp.h"
