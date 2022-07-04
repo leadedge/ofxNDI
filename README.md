@@ -11,8 +11,7 @@ However if the Project Generator is not used, this folder must be copied as belo
         rgba2yuv
 
 Note that for previous applications, the location of the "rgba2yuv" folder should be changed
-from within a containing "shaders" folder to directly in "bin/data".\
-Example binaries are included for testing.
+from within a containing "shaders" folder to directly in "bin/data". Example binaries are included for testing.
 
 --------------------------
 04.07.22 - Updated Master from testing branch.\
