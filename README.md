@@ -3,16 +3,23 @@ An Openframeworks addon to allow sending and receiving images over a network usi
 
 ## Updates
 
-Update pending testing and commit to Master branch.\
-This update restores the shaders for UYVY sending format.\
-Sending speed is increased due to reduced video frame data size.\
-Maximum speed is achieved together with Async sending and pbo readback.\
-The Sender example has been revised considerably to help assess performance\
-and commented to show details of the various options.\
+Note that after the latest update from testing branch, previous applications\
+should update the location of the "rgba2yuv" shaders folder.\
+Shaders are moved from within a containing "shaders" folder to directly in "bin/data".
+
+The Project Generator now copies this folder into into the application.\
+Howevre, if the Project Generator is not used, the "rgba2yuv" folder\
+must be copied to "bin/data" as below.\
+
+   bin\
+     data\
+        rgba2yuv
+			
 Details of changes are documented in each source file.\
 Example binaries are included for testing.
 
 --------------------------
+04.07.22 - Updated Master from testing branch. 
 18.12.20 - Updated master from testing branch NDI SDK Vers 4.5 dynamic load.\
 31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3"\
 (Note changes to function argument variable types to match with Version 3.)\
@@ -60,7 +67,7 @@ Refer to the example code for options available.
 ofxNDI with help from [Harvey Buchan](https://github.com/Harvey3141).
 
 ## Copyrights
-ofxNDI - Copyright (C) 2016-2020 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
+ofxNDI - Copyright (C) 2016-2022 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser  General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details. You should have received a copy of the GNU Lesser General Public License along with this program.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses).
 
