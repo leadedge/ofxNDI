@@ -3,7 +3,7 @@ An Openframeworks addon to allow sending and receiving images over a network usi
 
 ## Updates
 
-The Project Generator now copies the "rgba2yuv" shaders folder into the application.
+The Project Generator copies the "rgba2yuv" shaders folder into the application.
 However if the Project Generator is not used, this folder must be copied as below.
 
 	bin
