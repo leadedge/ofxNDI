@@ -47,6 +47,9 @@
 	03.01.22 - Revise for ofxNDI with YUV sending option
 	24.04.22 - Update examples with Visual Studio 2022
 	04.07.22 - Update with revised ofxNDI. Rebuild x64/MD.
+	06.07.22 - SenderName string instead of char to avoid sprintf
+			 - Limit fps string to 2 decmial places instead of format with sprintf
+			 - Windows only for BringWindowToTop
 
 */
 #include "ofApp.h"
@@ -54,7 +57,7 @@
 //--------------------------------------------------------------
 void ofApp::setup(){
 
-	strcpy_s(senderName, 256, "Openframeworks NDI Sender"); // Set the sender name
+	senderName = "Openframeworks NDI Sender";
 	ofSetWindowTitle(senderName); // show it on the title bar
 
 	#ifdef _WIN64
@@ -110,7 +113,7 @@ void ofApp::setup(){
 	ndiSender.SetAsync();
 
 	// Create a sender with RGBA output format
-	ndiSender.CreateSender(senderName, senderWidth, senderHeight);
+	ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight);
 
 	// 3D drawing setup for the demo graphics
 	glEnable(GL_DEPTH_TEST); // enable depth comparisons and update the depth buffer
@@ -208,9 +211,10 @@ void ofApp::draw() {
 
 		str = " NDI fps  (""F"") : ";
 		framerate = ndiSender.GetFrameRate();
-		char dstr[8];
-		sprintf_s(dstr, 8, "%4.2f", framerate);
-		str += dstr;
+		str += std::to_string(framerate);
+		// Limit display to 2 decimal places
+		size_t s = str.rfind(".");
+		str = str.substr(0, s+3);
 		ofDrawBitmapString(str, 20, 66);
 
 		str = " Async    (""A"") : ";
@@ -275,7 +279,6 @@ void ofApp::keyPressed(int key){
 
 	std::string str;
 	framerate = ndiSender.GetFrameRate(); // update global fps value
-	char dstr[8]; // for display
 	double fps = framerate; // for entry
 	int width, height = 0; // for entry
 
@@ -284,13 +287,17 @@ void ofApp::keyPressed(int key){
 
 	case 'f':
 	case 'F':
-		sprintf_s(dstr, 8, "%4.2f", framerate);
-		str = ofSystemTextBoxDialog("Frame rate", dstr);
-		if (!str.empty()) {
-			fps = stod(str);
-			if (fps <= 60.0 && fps >= 10.0) {
-				framerate = fps;
-				ndiSender.SetFrameRate(fps);
+		{
+			str = std::to_string(framerate);
+			size_t s = str.rfind(".");
+			str = str.substr(0, s+3);
+			str = ofSystemTextBoxDialog("Frame rate", str);
+			if (!str.empty()) {
+				fps = stod(str);
+				if (fps <= 60.0 && fps >= 10.0) {
+					framerate = fps;
+					ndiSender.SetFrameRate(fps);
+				}
 			}
 		}
 		break;
@@ -346,7 +353,10 @@ void ofApp::keyPressed(int key){
 	}
 
 	// Show the main window
+#ifdef TARGET_WIN32
 	BringWindowToTop(ofGetWin32Window());
+#endif
+
 
 }
 
