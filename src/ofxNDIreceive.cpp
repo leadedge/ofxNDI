@@ -139,6 +139,7 @@
 			   Use size_t cast for malloc to avoid warning C26451: Arithmetic overflow
 	30.04.22 - Add GetAudioChannels, GetAudioSamples, GetAudioSampleRate.
 			   Add GetAudioData overload to get audio frame data pointer
+	14.10.22 - Correct SetSenderNam
 
 */
 
@@ -532,7 +533,7 @@ bool ofxNDIreceive::GetSenderIndex(std::string sendername, int &index)
 void ofxNDIreceive::SetSenderName(std::string sendername)
 {
 	// Return if the Same sender
-	if (senderName == senderName)
+	if (sendername == senderName)
 		return;
 
 	// Release the current sender and change the name
@@ -708,7 +709,6 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 	// from a list of senders currently running, or -1 if no index has been selected.
 	int index = userindex;
 
-	// printf("ofxNDIreceive::CreateReceiver - format = %d, user index (%d)\n", colorFormat, userindex);
 	if (!pNDI_recv) {
 
 		// The continued check in FindSenders is for a network change and
@@ -772,6 +772,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			// If the user picks a sender from the list, the name is derived from the selected index.
 			//
 			if (!senderName.empty()) {
+
 				// Check the name against the current index
 				if (senderName != NDIsenders.at(index)) {
 					// If the name is different, does the sender exist ?
