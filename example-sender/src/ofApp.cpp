@@ -50,6 +50,9 @@
 	06.07.22 - SenderName string instead of char to avoid sprintf
 			 - Limit fps string to 2 decmial places instead of format with sprintf
 			 - Windows only for BringWindowToTop
+	05-08-22 - Update to NDI 5.5 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+	20-11-22 - Update to NDI 5.5.2 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+
 
 */
 #include "ofApp.h"

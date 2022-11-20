@@ -60,7 +60,9 @@
 	04.12.21 - Use Setfromexternalpixels to update display image
 	24.04.22 - Update examples for Visual Studio 2022
 	04.07.22 - Update with revised ofxNDI. Rebuild x64/MD.
-
+	05-08-22 - Update to NDI 5.5 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+	20-11-22 - Update to NDI 5.5.2 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+			   Rebuild example executables x64/MD
 
 */
 #include "ofApp.h"
