@@ -72,6 +72,7 @@
 	10.12.22 - SetFormat - test existence of required rgba2yuv shader
 			   in "data/rgba2yuv" or "data/shaders/rgba2yuv" for existing code
 			   UpdateSender - test for sender creation.
+	11.12.22 - ReadYUVpixels - corrected shader load for optional shaders subfolder.
 
 */
 #include "ofxNDIsender.h"
@@ -647,15 +648,21 @@ void ofxNDIsender::AllocatePixelBuffers(unsigned int width, unsigned int height)
 
 //
 // Read yuv pixels from rgba fbo to buffer
-// Shaders must be in a "bin\data\rgbg2Yuv" folder  folder
 //
-//  bin
-//    data
-//       rgba2yuv
+// Shaders should be in a "bin\data\rgbg2Yuv" folder
+//   bin
+//     data
+//        rgba2yuv
 //
-bool ofxNDIsender::ReadYUVpixels(ofFbo &fbo, unsigned int width, unsigned int height, ofPixels &buffer)
+// For back compatibility they can also be in a "shaders" subfolder
+//   bin
+//     data
+//        shaders
+//           rgba2yuv
+//
+bool ofxNDIsender::ReadYUVpixels(ofFbo &fbo, unsigned int halfwidth, unsigned int height, ofPixels &buffer)
 {
-	return ReadYUVpixels(fbo.getTexture(), width, height, buffer);
+	return ReadYUVpixels(fbo.getTexture(), halfwidth, height, buffer);
 }
 
 // Read yuv pixels from an rgba texture to buffer
@@ -671,12 +678,18 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 		bool bResult = false;
 #ifdef TARGET_OPENGLES
 		bResult = rgba2yuv.load("/rgba2yuv/ES2/rgba2yuv");
+		if(!bResult)
+			bResult = rgba2yuv.load("shaders/rgba2yuv/ES2/rgba2yuv");
 #else
 		if (ofIsGLProgrammableRenderer()) {
 			bResult = rgba2yuv.load("/rgba2yuv/GL3/rgba2yuv");
+			if (!bResult)
+				bResult = rgba2yuv.load("shaders/rgba2yuv/GL3/rgba2yuv");
 		}
 		else {
 			bResult = rgba2yuv.load("/rgba2yuv/GL2/rgba2yuv");
+			if (!bResult)
+				bResult = rgba2yuv.load("shaders/rgba2yuv/GL2/rgba2yuv");
 		}
 #endif
 		if (!bResult)
