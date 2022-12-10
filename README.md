@@ -14,6 +14,12 @@ Note that for previous applications, the location of the "rgba2yuv" folder shoul
 from within a containing "shaders" folder to directly in "bin/data". Example binaries are included for testing.
 
 --------------------------
+10.12.22 - Updated both Master and Testing branches.\
+ofxNDIsender update\
+rgbg2Yuv shaders located in a "bin\data\rgbg2Yuv" folder
+instead of "bin\data\shaders\rgbg2Yuv" to avoid conflicts with over-write by Project Generator\
+SetFormat - test existence of required rgba2yuv shader in "data/rgba2yuv" or "data/shaders/rgba2yuv" for existing code\
+UpdateSender - test for sender creation.\
 04.07.22 - Updated Master from testing branch.\
 	  Details of changes are documented in each source file.\
 18.12.20 - Updated master from testing branch NDI SDK Vers 4.5 dynamic load.\
