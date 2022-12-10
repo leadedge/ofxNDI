@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2022 Lynn Jarvis.
+	Copyright (C) 2016-2023 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -66,9 +66,12 @@
 			 - Correct missing return statement for non-texture image.
 	28.04.22 - Add GetNDIname()
 	10.05.22 - Allow for RGBX in check of format in Sendimage
-	22/06/22 - rgbg2Yuv shaders located in a "bin\data\rgbg2Yuv" folder
+	22.06.22 - rgbg2Yuv shaders located in a "bin\data\rgbg2Yuv" folder
 	           instead of "bin\data\shaders\rgbg2Yuv" to avoid conflicts
 			   with over-write by Project Generator
+	10.12.22 - SetFormat - test existence of required rgba2yuv shader
+			   in "data/rgba2yuv" or "data/shaders/rgba2yuv" for existing code
+			   UpdateSender - test for sender creation.
 
 */
 #include "ofxNDIsender.h"
@@ -150,6 +153,9 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 {
 	if (width == 0 || height == 0)
+		return false;
+
+	if (!NDIsender.SenderCreated())
 		return false;
 
 	// Re-allocate pixel buffers
@@ -314,9 +320,9 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 		return false;
 
 	// NDI format must be set to RGBA to match the pixel data
-	if (!(GetFormat() == NDIlib_FourCC_video_type_RGBA
-		|| GetFormat() == NDIlib_FourCC_video_type_RGBX))
-		SetFormat(NDIlib_FourCC_video_type_RGBA);
+	if (!(GetFormat() == NDIlib_FourCC_video_type_RGBA || GetFormat() == NDIlib_FourCC_video_type_RGBX)) {
+			SetFormat(NDIlib_FourCC_video_type_RGBA);
+	}
 
 	// Update sender to match dimensions
 	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
@@ -329,14 +335,21 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 // Set output format
 void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
+
 	if (format == NDIlib_FourCC_video_type_UYVY) {
-		// Test required rgba2yuv shader path for yuv format
-		if (ofFile::doesFileExist("/rgba2yuv/")) { // instead of _access
+		// Test existence of required rgba2yuv shader
+		// in "data/rgba2yuv" or "data/shaders/rgba2yuv"
+		if (ofFile::doesFileExist("/rgba2yuv/")
+			|| ofFile::doesFileExist("shaders/rgba2yuv/")) { // instead of _access
 			NDIsender.SetFormat(format);
 			// Buffer size will change between YUV and RGBA
 			// Retain sender dimensions, but update the sender
 			// to re-create pbos, buffers and NDI video frame
+			// Update sender if already created (UpdateSender checks)
 			UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
+		}
+		else {
+			printf("rgba2yuv shader not found\n");
 		}
 	}
 	else if (format == NDIlib_FourCC_video_type_BGRA

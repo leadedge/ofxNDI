@@ -4,7 +4,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2019-2022
+	Copyright (C) 2019-2023
 
 	Luis Rodil-Fernandez
 	https://github.com/IDArnhem/ofxNDI

@@ -6,7 +6,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2022 Lynn Jarvis.
+	Copyright (C) 2016-2023 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -250,15 +250,6 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 			m_audio_frame.channel_stride_in_bytes = m_audio_frame.no_samples * sizeof(float);
 
 		}
-
-		// For debugging
-		/*
-		if (GetFormat() == NDIlib_FourCC_video_type_UYVY)
-			printf("ofxNDIsend::CreateSender - [%s] (%dx%d) YUV\n", sendername, width, height);
-		else
-			printf("ofxNDIsend::CreateSender - [%s] (%dx%d) RGBA\n", sendername, width, height);
-		*/
-
 		return true;
 	}
 
@@ -327,14 +318,6 @@ bool ofxNDIsend::UpdateSender(unsigned int width, unsigned int height)
 		m_audio_frame.p_data = m_AudioData;
 		m_audio_frame.channel_stride_in_bytes = m_AudioSamples * sizeof(float);
 	}
-
-	// For debugging
-	/*
-	if (GetFormat() == NDIlib_FourCC_video_type_UYVY)
-		printf("ofxNDIsend::UpdateSender - [%s] (%dx%d) YUV\n", NDI_send_create_desc.p_ndi_name, width, height);
-	else
-		printf("ofxNDIsend::UpdateSender - [%s] (%dx%d) RGBA\n", NDI_send_create_desc.p_ndi_name, width, height);
-	*/
 
 	return true;
 }
@@ -602,14 +585,12 @@ std::string ofxNDIsend::GetNDIname()
 void ofxNDIsend::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	m_Format = format;
-
 	// For debugging
 	// NDI_LIB_FOURCC(ch0, ch1, ch2, ch3)
 	// ((uint32_t)(uint8_t)(ch0) | ((uint32_t)(uint8_t)(ch1) << 8) | ((uint32_t)(uint8_t)(ch2) << 16) | ((uint32_t)(uint8_t)(ch3) << 24))
 	// int fcode = format;
 	// char fourcc[5] = { fcode & 0xFF, (fcode >> 8) & 0xFF, (fcode >> 16) & 0xFF, (fcode >> 24) & 0xFF, 0 };
 	// printf("    ofxNDIsend::SetFormat FourCC = %d (%s)\n", video_frame.FourCC, fourcc); // Integer value and letters
-
 }
 
 // Get output format
