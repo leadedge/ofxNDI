@@ -37,6 +37,7 @@
 				- "using namespace std" not used due to previous advice
 	03.12.20	- Change NULL to nullptr for all pointers
 				- #include <cstddef> in header to avoid NULL definition problem
+	15.12.20	- dlclose(m_hNDILib) in destructor if not WIN32
 
 */
 
@@ -54,7 +55,13 @@ ofxNDIdynloader::~ofxNDIdynloader()
 {
 	if (p_NDILib) p_NDILib->destroy();
 #if defined(TARGET_WIN32)
-	if (m_hNDILib) FreeLibrary(m_hNDILib);
+	if (m_hNDILib)
+		FreeLibrary(m_hNDILib);
+#else
+	// (To be checked)
+	// unload the library
+	if (m_hNDILib) {
+		dlclose(m_hNDILib);
 #endif
 }
 

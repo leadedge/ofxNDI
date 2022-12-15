@@ -94,6 +94,8 @@
 	10/06/22	- define MAX_COMPUTERNAME_LENGTH in header
 	22/06/22	- GetNDIname constructed from computername included as optional code.
 				- Corrected error where width*4 was used in SendImage instead of sourcePitch
+	15/12/22	- Corrected deprecated function in GetNDIname
+				  Check for null library pointer in GetNDIversion
 
 */
 #include "ofxNDIsend.h"
@@ -555,25 +557,8 @@ std::string ofxNDIsend::GetNDIname()
 {
 	std::string ndiname = "";
 	if (bSenderInitialized) {
-		// There is an NDI function to get the exact name of any sender.
-		// SDK documentation section 13 NDI-SEND, page 22. As follows :
-		const NDIlib_source_t* source = p_NDILib->NDIlib_send_get_source_name(pNDI_send);
-		ndiname = source->p_ndi_name;
-
-		// However, for dynamic loading, a deprecated warning appears with a rebuild or
-		// Visual Studio Code Analysis. If you wish to avoid this warning, the NDI name
-		// can be constructed as "computername (sendername)". Windows only.
-		/*
-		char computername[MAX_COMPUTERNAME_LENGTH + 1];
-		DWORD dwLength = MAX_COMPUTERNAME_LENGTH + 1;
-		if (GetComputerNameA(computername, &dwLength)) {
-			ndiname = computername;
-			ndiname += " (";
-			// Sender create description does not include the computer name
-			ndiname += NDI_send_create_desc.p_ndi_name;
-			ndiname += ")";
-		}
-		*/
+		const NDIlib_source_t* source = p_NDILib->send_get_source_name(pNDI_send);
+		ndiname = source->p_ndi_name; // Can also get ip_address and url_address
 	}
 	return ndiname;
 }
@@ -767,7 +752,10 @@ void ofxNDIsend::SetMetadataString(std::string datastring)
 // Get the current NDI SDK version
 std::string ofxNDIsend::GetNDIversion()
 {
-     return p_NDILib->version();
+	if (p_NDILib)
+		return p_NDILib->version();
+	else
+		return "";
 }
 
 //

@@ -178,6 +178,9 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 // Close sender and release resources
 void ofxNDIsender::ReleaseSender()
 {
+	// Release sender first so no more frames are sent
+	NDIsender.ReleaseSender();
+
 	// Delete async sending buffers
 	if (ndiBuffer[0].isAllocated())	ndiBuffer[0].clear();
 	if (ndiBuffer[1].isAllocated())	ndiBuffer[1].clear();
@@ -188,9 +191,6 @@ void ofxNDIsender::ReleaseSender()
 
 	// Release utility fbo
 	if (ndiFbo.isAllocated()) ndiFbo.clear();
-
-	// Release sender
-	NDIsender.ReleaseSender();
 
 	m_SenderName = "";
 }
