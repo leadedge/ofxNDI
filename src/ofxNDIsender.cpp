@@ -102,11 +102,11 @@ ofxNDIsender::ofxNDIsender()
 #endif
 
 #ifdef GL_ES_VERSION_3_0
-	printf("gles3 version\n);
+	printf("gles3 version\n");
 #endif
 
 #ifdef GL_ES_VERSION_2_0
-	printf("gles2 version\n);
+	printf("gles2 version\n");
 #endif
 
 	m_SenderName = "";
