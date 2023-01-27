@@ -73,6 +73,7 @@
 			   in "data/rgba2yuv" or "data/shaders/rgba2yuv" for existing code
 			   UpdateSender - test for sender creation.
 	11.12.22 - ReadYUVpixels - corrected shader load for optional shaders subfolder.
+	28.01.23 - Fix missing comment double quotes for gles version (PR #41)
 
 */
 #include "ofxNDIsender.h"
@@ -102,11 +103,11 @@ ofxNDIsender::ofxNDIsender()
 #endif
 
 #ifdef GL_ES_VERSION_3_0
-	printf("gles3 version\n);
+	printf("gles3 version\n");
 #endif
 
 #ifdef GL_ES_VERSION_2_0
-	printf("gles2 version\n);
+	printf("gles2 version\n");
 #endif
 
 	m_SenderName = "";
@@ -178,6 +179,9 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 // Close sender and release resources
 void ofxNDIsender::ReleaseSender()
 {
+	// Release sender first so no more frames are sent
+	NDIsender.ReleaseSender();
+
 	// Delete async sending buffers
 	if (ndiBuffer[0].isAllocated())	ndiBuffer[0].clear();
 	if (ndiBuffer[1].isAllocated())	ndiBuffer[1].clear();
@@ -188,9 +192,6 @@ void ofxNDIsender::ReleaseSender()
 
 	// Release utility fbo
 	if (ndiFbo.isAllocated()) ndiFbo.clear();
-
-	// Release sender
-	NDIsender.ReleaseSender();
 
 	m_SenderName = "";
 }
