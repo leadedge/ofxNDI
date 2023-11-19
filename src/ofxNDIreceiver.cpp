@@ -541,21 +541,21 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 	switch (NDIreceiver.GetVideoType()) {
 		// Note : the receiver is set up to prefer BGRA format by default
 		// YCbCr - RGBA conversion not supported
-	case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
-	case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
-	case NDIlib_FourCC_type_P216: // YCbCr using 4:2:2 in 16bpp
-	case NDIlib_FourCC_type_PA16: // YCbCr using 4:2:2:4 in 16bpp
-		printf("UYVY/UYVA/P216/PA16 - not supported\n");
-		break;
-	case NDIlib_FourCC_type_RGBX: // RGBX
-	case NDIlib_FourCC_type_RGBA: // RGBA
-		texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_RGBA);
-		break;
-	case NDIlib_FourCC_type_BGRX: // BGRX
-	case NDIlib_FourCC_type_BGRA: // BGRA
-	default: // BGRA
-		texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_BGRA);
-		break;
+		case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
+		case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
+		case NDIlib_FourCC_type_P216: // YCbCr using 4:2:2 in 16bpp
+		case NDIlib_FourCC_type_PA16: // YCbCr using 4:2:2:4 in 16bpp
+			printf("UYVY/UYVA/P216/PA16 - not supported\n");
+			break;
+		case NDIlib_FourCC_type_RGBX: // RGBX
+		case NDIlib_FourCC_type_RGBA: // RGBA
+			texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_RGBA);
+			break;
+		case NDIlib_FourCC_type_BGRX: // BGRX
+		case NDIlib_FourCC_type_BGRA: // BGRA
+		default: // BGRA
+			texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_BGRA);
+			break;
 	} // end switch received format
 
 	// Free the NDI video buffer

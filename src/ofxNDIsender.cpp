@@ -74,6 +74,7 @@
 			   UpdateSender - test for sender creation.
 	11.12.22 - ReadYUVpixels - corrected shader load for optional shaders subfolder.
 	28.01.23 - Fix missing comment double quotes for gles version (PR #41)
+	18.11.23 - Remove glReadBuffer from ReadTexturePixels (using OoenFrameworks fbo)
 
 */
 #include "ofxNDIsender.h"
@@ -594,9 +595,6 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 
 	// Attach the texture passed in
 	ndiFbo.attachTexture(tex, GL_RGBA, 0);
-
-	// Set the target framebuffer to read
-	glReadBuffer(GL_FRONT);
 
 	// Bind the current PBO
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[PboIndex]);

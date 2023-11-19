@@ -38,6 +38,8 @@
 	03.12.20	- Change NULL to nullptr for all pointers
 				- #include <cstddef> in header to avoid NULL definition problem
 	15.12.20	- dlclose(m_hNDILib) in destructor if not WIN32
+	27.04.23	- Change unable to find "Version 4" to "Version of"
+	27.04.23	- Change headers to NDI version 5.6.0.0
 
 */
 
@@ -127,7 +129,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 			FreeLibrary(m_hNDILib);
 		m_hNDILib = NULL;
 		// The NDI run-time is not installed correctly. Let the user know and take them to the download URL.
-		MessageBoxA(NULL, "Failed to find Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
+		MessageBoxA(NULL, "Failed to find Version of NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
 		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
 		return nullptr;
 	}
@@ -135,7 +137,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 	// Get all of the DLL entry points
 	p_NDILib = NDIlib_v4_load();
 	if (!p_NDILib) {
-		MessageBoxA(NULL, "Failed to load Version 4 NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
+		MessageBoxA(NULL, "Failed to load Version of NDI library\nPlease use the correct dll files\nor re-install the NewTek NDI Runtimes to use this application", "Warning", MB_OK);
 		ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
 		return nullptr;
 	}
