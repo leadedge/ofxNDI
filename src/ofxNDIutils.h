@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2023 Lynn Jarvis.
+	Copyright (C) 2016-2024 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 

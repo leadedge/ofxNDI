@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2023 Lynn Jarvis.
+	Copyright (C) 2016-2024 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -62,6 +62,7 @@
 	30.04.22 - Add missing SetAudio function.
 			   Add GetAudioChannels, GetAudioSamples, GetAudioSampleRate.
 			   Add GetAudioData overload to get audio frame data pointer
+	05.12.23 - Remove shlwapi.h
 
 */
 #include "ofxNDIreceiver.h"

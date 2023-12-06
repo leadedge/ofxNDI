@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2023 Lynn Jarvis.
+	Copyright (C) 2016-2024 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -69,10 +69,8 @@
 #include <math.h> //
 #include <gl\GL.h>
 #include <mmsystem.h> // for timegettime if ofMain is included
-#include <shlwapi.h>  // for path functions
 #include <Shellapi.h> // for shellexecute
 #pragma comment(lib, "Winmm.lib") // for timegettime
-#pragma comment(lib, "shlwapi.lib")  // for path functions
 #pragma comment(lib, "Shell32.lib")  // for shellexecute
 #elif defined(__APPLE__)
 #if not defined(__aarch64__)
