@@ -64,6 +64,8 @@
 			   Add GetAudioData overload to get audio frame data pointer
 	05.12.23 - Remove shlwapi.h
 
+
+
 */
 #include "ofxNDIreceiver.h"
 
@@ -463,6 +465,19 @@ bool ofxNDIreceiver::IsMetadata()
 std::string ofxNDIreceiver::GetMetadataString()
 {
 	return NDIreceiver.GetMetadataString();
+}
+
+// Return the current video frame timecode
+// UTC time since the Unix Epoch (1/1/1970 00:00) with 100 ns precision.
+int64_t ofxNDIreceiver::GetVideoTimecode()
+{
+	return NDIreceiver.GetVideoTimecode();
+}
+
+// Return the video frame interval in milliseconds
+double ofxNDIreceiver::GetVideoFrameTime()
+{
+	return NDIreceiver.GetVideoFrameTime();
 }
 
 // Set to receive Audio

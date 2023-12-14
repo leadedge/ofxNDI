@@ -96,6 +96,7 @@
 				- Corrected error where width*4 was used in SendImage instead of sourcePitch
 	15/12/22	- Corrected deprecated function in GetNDIname
 				  Check for null library pointer in GetNDIversion
+	14/12/23	- Incremented version number in Sender meta-data registration to "1.005.000"
 
 */
 #include "ofxNDIsend.h"
@@ -201,7 +202,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		NDI_connection_type.p_data = (char *)"<ndi_product long_name=\"ofxNDI sender\" "
 									 "             short_name=\"ofxNDI Sender\" "
 									 "             manufacturer=\"spout@zeal.co\" "
-									 "             version=\"1.004.000\" "
+									 "             version=\"1.005.000\" "
 									 "             session=\"default\" "
 									 "             model_name=\"none\" "
 									 "             serial=\"none\"/>";
@@ -233,7 +234,8 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		else video_frame.frame_format_type = NDIlib_frame_format_type_interleaved;
 
 		// The timecode of this frame in 100ns intervals
-		video_frame.timecode = NDIlib_send_timecode_synthesize; // 0LL; // Let the API fill in the timecodes for us.
+		// Let the API fill in the timecodes for us.
+		video_frame.timecode = NDIlib_send_timecode_synthesize;
 		video_frame.p_data = nullptr;
 
 		// Keep the sender dimensions locally

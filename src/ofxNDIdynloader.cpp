@@ -1,5 +1,7 @@
 /*
 
+	ofxNDIdownloader
+	
 	Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files
 
 	http://NDI.NewTek.com
@@ -43,6 +45,7 @@
 	05.12.23	- Remove path functions and shlwapi.h
 				- Use getenv instead of _dupenv_s if not _MSC_VER compiler
 				- Revise Load messagebox warnings
+	14.12.23	- Conditional include of io.h for Windows target
 
 */
 

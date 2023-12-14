@@ -28,7 +28,10 @@ typedef NDIlib_v4* (*NDIlib_v4_load_)(void);
 #include <string>
 #include <vector>
 #include <iostream> // for cout
-#include <io.h> // for _access
+
+#if defined(TARGET_WIN32)
+#include <io.h> // for _access (Windows only)
+#endif
 
 
 class ofxNDIdynloader

@@ -76,6 +76,7 @@
 	28.01.23 - Fix missing comment double quotes for gles version (PR #41)
 	18.11.23 - Remove glReadBuffer from ReadTexturePixels
 	05.12.23 - ReadYUVpixels use absolute shader path instead of relative
+	07.12.23 - SendImage cast to int for dimensions to prevent C4267 warning
 
 */
 #include "ofxNDIsender.h"
@@ -311,7 +312,7 @@ bool ofxNDIsender::SendImage(ofPixels pix, bool bSwapRB, bool bInvert)
 		pix.setImageType(OF_IMAGE_COLOR_ALPHA);
 
 	return SendImage((const unsigned char *)pix.getData(),
-		pix.getWidth(), pix.getHeight(), bSwapRB, bInvert);
+		(int)pix.getWidth(), (int)pix.getHeight(), bSwapRB, bInvert);
 
 }
 

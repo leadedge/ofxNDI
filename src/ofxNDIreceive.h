@@ -49,6 +49,7 @@
 	19.11.19 - Add conditional audio receive
 	06.12.19 - Add dynamic load class (https://github.com/IDArnhem/ofxNDI)
 	27.02.20 - Add std::chrono functions for fps timing
+	14.12.23 - Add m_VideoTimecode, m_VideoFrameTime, GetVideoTimecode(), GetVideoFrameTime()
 
 */
 #pragma once
@@ -230,6 +231,12 @@ public:
 	// Return the current MetaData string
 	std::string GetMetadataString();
 
+	// Return the current video frame timecode
+	int64_t GetVideoTimecode();
+
+	// Return the video frame interval in milliseconds
+	double GetVideoFrameTime();
+
 	// Set to receive Audio
 	void SetAudio(bool bAudio);
 
@@ -303,6 +310,10 @@ private:
 	// Metadata
 	bool m_bMetadata;
 	std::string m_metadataString; // XML message format string NULL terminated
+
+	// Video timecode and frame interval
+	int64_t m_VideoTimecode;
+	double m_VideoFrameTime;
 
 	// Audio frame received
 	bool m_bAudio;
