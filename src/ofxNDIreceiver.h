@@ -187,6 +187,9 @@ public:
 
 	// The video frame interval in milliseconds
 	double GetVideoFrameTime();
+    
+    // The current video frame timestamp
+    int64_t GetVideoTimestamp();
 
 	// Set to receive Audio
 	void SetAudio(bool bAudio);

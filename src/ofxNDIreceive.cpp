@@ -142,6 +142,7 @@
 	14.10.22 - Correct SetSenderNam
 	14.12.23 - Add video frame timecode and video frame interval
 			 - Add GetVideoTimecode and GetVideoFrameTime
+             - Add GetVideoTimestamp
 
 */
 
@@ -216,6 +217,7 @@ ofxNDIreceive::ofxNDIreceive()
 	// Initialize video frame timecode and interval
 	m_VideoTimecode = 0LL;
 	m_VideoFrameTime = 0.0;
+    m_VideoTimestamp = 0LL;
 
 	// For received frame fps calculations
 	startTime = lastTime = (double)timeGetTime();
@@ -644,6 +646,11 @@ double ofxNDIreceive::GetVideoFrameTime()
 	return m_VideoFrameTime;
 }
 
+int64_t ofxNDIreceive::GetVideoTimestamp()
+{
+    return m_VideoTimestamp;
+}
+
 // Set to receive Audio
 void ofxNDIreceive::SetAudio(bool bAudio)
 {
@@ -837,6 +844,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			// Reset the timecode and frame time
 			m_VideoTimecode = 0LL;
 			m_VideoFrameTime = 0.0;
+            m_VideoTimestamp = 0LL;
 
 			// Start the counter for frame fps calculations
 			StartCounter();
@@ -883,6 +891,7 @@ void ofxNDIreceive::ReleaseReceiver()
 	m_Height = 0;
 	m_VideoTimecode = 0LL;
 	m_VideoFrameTime = 0.0;
+    m_VideoTimestamp = 0LL;
 
 	pNDI_recv = nullptr;
 	bReceiverCreated = false;
@@ -1045,6 +1054,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 						// Save the current video frame timecode
 						m_VideoTimecode = timecode;
+                        
+                        // Save the current video frame timestamp
+                        m_VideoTimestamp = video_frame.timestamp;
 
 						// Buffers captured must be freed
 						p_NDILib->recv_free_video_v2(pNDI_recv, &video_frame);
@@ -1199,6 +1211,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 					// Save the current video frame timecode
 					m_VideoTimecode = timecode;
+                    
+                    // Save the current video frame timestamp
+                    m_VideoTimestamp = video_frame.timestamp;
 
 					// Update received frame counter
 					UpdateFps();

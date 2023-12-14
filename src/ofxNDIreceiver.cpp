@@ -480,6 +480,12 @@ double ofxNDIreceiver::GetVideoFrameTime()
 	return NDIreceiver.GetVideoFrameTime();
 }
 
+//
+int64_t ofxNDIreceiver::GetVideoTimestamp()
+{
+    return NDIreceiver.GetVideoTimestamp();
+}
+
 // Set to receive Audio
 void ofxNDIreceiver::SetAudio(bool bAudio)
 {

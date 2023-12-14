@@ -50,6 +50,7 @@
 	06.12.19 - Add dynamic load class (https://github.com/IDArnhem/ofxNDI)
 	27.02.20 - Add std::chrono functions for fps timing
 	14.12.23 - Add m_VideoTimecode, m_VideoFrameTime, GetVideoTimecode(), GetVideoFrameTime()
+             - Add m_VideoTimestamp, GetVideoTimeStamp()
 
 */
 #pragma once
@@ -236,6 +237,9 @@ public:
 
 	// Return the video frame interval in milliseconds
 	double GetVideoFrameTime();
+    
+    //Return the current video frame timestamp
+    int64_t GetVideoTimestamp();
 
 	// Set to receive Audio
 	void SetAudio(bool bAudio);
@@ -314,6 +318,7 @@ private:
 	// Video timecode and frame interval
 	int64_t m_VideoTimecode;
 	double m_VideoFrameTime;
+    uint64_t m_VideoTimestamp;
 
 	// Audio frame received
 	bool m_bAudio;
