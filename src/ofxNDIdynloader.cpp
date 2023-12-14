@@ -56,6 +56,8 @@ ofxNDIdynloader::ofxNDIdynloader()
 	p_NDILib = nullptr;
 #if defined(TARGET_WIN32)
 	m_hNDILib = NULL;
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
+    m_hNDILib = nullptr;
 #endif
 }
 
@@ -65,11 +67,10 @@ ofxNDIdynloader::~ofxNDIdynloader()
 #if defined(TARGET_WIN32)
 	if (m_hNDILib)
 		FreeLibrary(m_hNDILib);
-#else
-	// (To be checked)
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 	// unload the library
-	if (m_hNDILib) {
-		dlclose(m_hNDILib);
+    if (m_hNDILib)
+        dlclose(m_hNDILib);
 #endif
 }
 
@@ -189,7 +190,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
     OUTS << "NDI runtime location " << ndi_path << std::endl;
 
     // attempt to load the library and get a handle to it
-    void *m_hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
+    m_hNDILib = dlopen(ndi_path.c_str(), RTLD_LOCAL | RTLD_LAZY);
     if (!m_hNDILib) {
         ERRS << "Couldn't load dynamic library at: " << ndi_path << std::endl;
         return nullptr;

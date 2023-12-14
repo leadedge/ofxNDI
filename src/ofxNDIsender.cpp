@@ -341,7 +341,8 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	if (format == NDIlib_FourCC_video_type_UYVY) {
-
+        
+#ifdef TARGET_WIN32
 		// Find the rgba2yuv shader folder relative to the executable path
 		char path[MAX_PATH]{};
 		DWORD dwSize = GetModuleFileNameA(NULL, path, sizeof(path));
@@ -351,14 +352,14 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 		std::string shaderpath = path;
 		size_t pos = shaderpath.rfind("\\");
 		shaderpath = shaderpath.substr(0, pos);
-#ifdef TARGET_OPENGLES
+    #ifdef TARGET_OPENGLES
 		shaderpath += "\\data\\rgba2yuv\\ES2";
-#else
+    #else
 		if (ofIsGLProgrammableRenderer())
 			shaderpath += "\\data\\rgba2yuv\\GL3";
 		else
 			shaderpath += "\\data\\rgba2yuv\\GL2";
-#endif
+    #endif
 		// Test existence of required rgba2yuv shader folder
 		if(_access(shaderpath.c_str(), 0) != -1) {
 			NDIsender.SetFormat(format);
@@ -368,9 +369,36 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 			// Update sender if already created (UpdateSender checks)
 			UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
 		}
-		else {
-			printf("rgba2yuv shader not found\n");
-		}
+        else {
+            printf("rgba2yuv shader not found\n");
+        }
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
+        // Test existence of required rgba2yuv shader
+        // in "data/rgba2yuv" or "data/shaders/rgba2yuv"
+        string shaderpath;
+#ifdef TARGET_OPENGLES
+        shaderpath = "shaders/rgba2yuv/ES2/rgba2yuv";
+#else
+        if (ofIsGLProgrammableRenderer()) {
+            shaderpath = "shaders/rgba2yuv/GL3/rgba2yuv";
+        }
+        else {
+            shaderpath = "shaders/rgba2yuv/GL2/rgba2yuv";
+        }
+#endif
+        if (ofFile::doesFileExist("/rgba2yuv/")
+            || ofFile::doesFileExist(shaderpath)) { // instead of _access
+            NDIsender.SetFormat(format);
+            // Buffer size will change between YUV and RGBA
+            // Retain sender dimensions, but update the sender
+            // to re-create pbos, buffers and NDI video frame
+            // Update sender if already created (UpdateSender checks)
+            UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
+        }
+        else {
+            printf("rgba2yuv shader not found\n");
+        }
+#endif
 	}
 	else if (format == NDIlib_FourCC_video_type_BGRA
 		  || format == NDIlib_FourCC_video_type_BGRX
@@ -685,31 +713,32 @@ bool ofxNDIsender::ReadYUVpixels(ofFbo &fbo, unsigned int halfwidth, unsigned in
 // The halfwidth argument is half the sender width
 bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigned int height, ofPixels &buffer)
 {
-	if (halfwidth == 0 || height == 0)
+	if (halfwidth == 0 || height == 0) {
 		return false;
-
-	// Find the rgba2yuv shader folder relative to the executable path
-	char path[MAX_PATH]{};
-	uint32_t dwSize = (uint32_t)GetModuleFileNameA(NULL, path, sizeof(path));
-	if (dwSize == 0)
-		return false;
-
-	std::string shaderpath = path;
-	size_t pos = shaderpath.rfind("\\");
-	shaderpath = shaderpath.substr(0, pos);
-#ifdef TARGET_OPENGLES
-	shaderpath += "\\data\\rgba2yuv\\ES2\\rgba2yuv";
-#else
-	if (ofIsGLProgrammableRenderer())
-		shaderpath += "\\data\\rgba2yuv\\GL3\\rgba2yuv";
-	else
-		shaderpath += "\\data\\rgba2yuv\\GL2\\rgba2yuv";
-#endif
+	}
 
 	// Load the shader
 	if (!rgba2yuv.isLoaded()) {
-		if (!rgba2yuv.load(shaderpath))
+		bool bResult = false;
+#ifdef TARGET_OPENGLES
+		bResult = rgba2yuv.load("/rgba2yuv/ES2/rgba2yuv");
+		if(!bResult)
+			bResult = rgba2yuv.load("shaders/rgba2yuv/ES2/rgba2yuv");
+#else
+		if (ofIsGLProgrammableRenderer()) {
+			bResult = rgba2yuv.load("/rgba2yuv/GL3/rgba2yuv");
+			if (!bResult)
+				bResult = rgba2yuv.load("shaders/rgba2yuv/GL3/rgba2yuv");
+		}
+		else {
+			bResult = rgba2yuv.load("/rgba2yuv/GL2/rgba2yuv");
+			if (!bResult)
+				bResult = rgba2yuv.load("shaders/rgba2yuv/GL2/rgba2yuv");
+		}
+#endif
+		if (!bResult)
 			return false;
+
 	}
 
 	// Convert the rgba texture to YUV via fbo

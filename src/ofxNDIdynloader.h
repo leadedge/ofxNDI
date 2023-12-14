@@ -50,6 +50,7 @@ private :
 #if defined(TARGET_WIN32)
 	HMODULE m_hNDILib;
 #elif defined(TARGET_OSX) || defined(TARGET_LINUX)
+    void* m_hNDILib;
 	const std::string FindRuntime();
 #endif
 	const NDIlib_v4* p_NDILib;
