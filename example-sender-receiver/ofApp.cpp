@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2022 Lynn Jarvis.
+	Copyright (C) 2016-2023 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -48,10 +48,13 @@
 	24.04.22 - Update examples with Visual Studio 2022
 	04.07.22 - Update with revised ofxNDI. Rebuild x64/MD.
 	06.07.22 - SenderName string instead of char to avoid sprintf
-			 - Limit fps string to 2 decmial places instead of format with sprintf
+			 - Limit fps string to 2 decimal places instead of format with sprintf
 			 - Windows only for BringWindowToTop
 	05-08-22 - Update to NDI 5.5 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
 	20-11-22 - Update to NDI 5.5.2 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+	11.12.22 - Round fps display first to avoid integer truncation
+			 - Use timing for frame interval instead of monitor sync
+	27-04-23 - Update from NDI 5.5.2 to 5.5.4 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
 
 
 */
@@ -116,7 +119,7 @@ void ofApp::setup(){
 	ndiSender.SetAsync();
 
 	// Create a sender with RGBA output format
-	ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight);
+	bInitialized = ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight);
 
 	// 3D drawing setup for the demo graphics
 	glEnable(GL_DEPTH_TEST); // enable depth comparisons and update the depth buffer
@@ -147,6 +150,14 @@ void ofApp::setup(){
 	// Make it the same size as the sender
 	ndiImage.resize(senderWidth, senderHeight);
 
+	// If Wait For Vertical Sync is applied by the driver,
+	// frame rate will be limited to multiples of the sync interval.
+	// Disable it here and use async NDI send for best performance.
+	ofSetVerticalSync(false);
+
+	// Limit frame rate using timing instead
+	ofSetFrameRate(60);
+
 }
 
 //--------------------------------------------------------------
@@ -160,6 +171,10 @@ void ofApp::draw() {
 
 	ofBackground(0);
 	ofSetColor(255, 255, 255, 255);
+
+	// Check success of CreateSender
+	if (!bInitialized)
+		return;
 
 	// Option 1 : Send ofFbo
 	DrawGraphics();
@@ -206,7 +221,8 @@ void ofApp::draw() {
 		str = "Sending as : ["; str += senderName; str += "] (";
 		str += to_string(senderWidth); str += "x"; str += to_string(senderHeight); str += ")";
 		ofDrawBitmapString(str, 20, 25);
-		str = "fps : "; str += to_string((int)ofGetFrameRate());
+		// Round first to avoid integer truncation
+		str = "fps : "; str += to_string((int)roundf(ofGetFrameRate()));
 		ofDrawBitmapString(str, ofGetWidth() - 140, 25);
 
 		// Show sending options
@@ -215,7 +231,7 @@ void ofApp::draw() {
 		str = " NDI fps  (""F"") : ";
 		framerate = ndiSender.GetFrameRate();
 		str += std::to_string(framerate);
-		// Limit display to 2 decimal places
+		// Limit fps display to 2 decimal places
 		size_t s = str.rfind(".");
 		str = str.substr(0, s+3);
 		ofDrawBitmapString(str, 20, 66);

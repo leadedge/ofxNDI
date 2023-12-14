@@ -5,7 +5,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2022 Lynn Jarvis.
+	Copyright (C) 2016-2024 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -43,6 +43,7 @@ class ofApp : public ofBaseApp {
 		std::string senderName;        // Sender name
 		unsigned int senderWidth = 0;  // Width of the sender output
 		unsigned int senderHeight = 0; // Height of the sender output
+		bool bInitialized = false;
 		ofFbo m_fbo;                   // Fbo used for graphics and sending
 		ofImage textureImage;          // Texture image for the 3D cube graphics
 		float rotX = 0.0f;
