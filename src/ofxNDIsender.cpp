@@ -77,6 +77,9 @@
 	18.11.23 - Remove glReadBuffer from ReadTexturePixels
 	05.12.23 - ReadYUVpixels use absolute shader path instead of relative
 	07.12.23 - SendImage cast to int for dimensions to prevent C4267 warning
+	15.12.23 - ReadYUVpixels use ofFilePath::getCurrentExeDir() instead of GetCurrentModule
+	16.12.23 - Remove "shaders/rgba2yuv/" folder option
+			 - Revise SetFormat to find the shader folder and test existence
 
 */
 #include "ofxNDIsender.h"
@@ -341,26 +344,10 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	if (format == NDIlib_FourCC_video_type_UYVY) {
-
-		// Find the rgba2yuv shader folder relative to the executable path
-		char path[MAX_PATH]{};
-		DWORD dwSize = GetModuleFileNameA(NULL, path, sizeof(path));
-		if (dwSize == 0)
-			return;
-
-		std::string shaderpath = path;
-		size_t pos = shaderpath.rfind("\\");
-		shaderpath = shaderpath.substr(0, pos);
-#ifdef TARGET_OPENGLES
-		shaderpath += "\\data\\rgba2yuv\\ES2";
-#else
-		if (ofIsGLProgrammableRenderer())
-			shaderpath += "\\data\\rgba2yuv\\GL3";
-		else
-			shaderpath += "\\data\\rgba2yuv\\GL2";
-#endif
-		// Test existence of required rgba2yuv shader folder
-		if(_access(shaderpath.c_str(), 0) != -1) {
+		// For YUV format, test existence of required rgba2yuv shader folder
+		std::string shaderpath = ofFilePath::getCurrentExeDir();
+		shaderpath += "data\\rgba2yuv\\";
+		if (ofDirectory::doesDirectoryExist(shaderpath, false)) {
 			NDIsender.SetFormat(format);
 			// Buffer size will change between YUV and RGBA
 			// Retain sender dimensions, but update the sender
@@ -670,12 +657,6 @@ void ofxNDIsender::AllocatePixelBuffers(unsigned int width, unsigned int height)
 //     data
 //        rgba2yuv
 //
-// For back compatibility they can also be in a "shaders" subfolder
-//   bin
-//     data
-//        shaders
-//           rgba2yuv
-//
 bool ofxNDIsender::ReadYUVpixels(ofFbo &fbo, unsigned int halfwidth, unsigned int height, ofPixels &buffer)
 {
 	return ReadYUVpixels(fbo.getTexture(), halfwidth, height, buffer);
@@ -688,26 +669,18 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 	if (halfwidth == 0 || height == 0)
 		return false;
 
-	// Find the rgba2yuv shader folder relative to the executable path
-	char path[MAX_PATH]{};
-	uint32_t dwSize = (uint32_t)GetModuleFileNameA(NULL, path, sizeof(path));
-	if (dwSize == 0)
-		return false;
-
-	std::string shaderpath = path;
-	size_t pos = shaderpath.rfind("\\");
-	shaderpath = shaderpath.substr(0, pos);
-#ifdef TARGET_OPENGLES
-	shaderpath += "\\data\\rgba2yuv\\ES2\\rgba2yuv";
-#else
-	if (ofIsGLProgrammableRenderer())
-		shaderpath += "\\data\\rgba2yuv\\GL3\\rgba2yuv";
-	else
-		shaderpath += "\\data\\rgba2yuv\\GL2\\rgba2yuv";
-#endif
-
 	// Load the shader
 	if (!rgba2yuv.isLoaded()) {
+		// Get the rgba2yuv shader folder full path
+		std::string shaderpath = ofFilePath::getCurrentExeDir();
+#ifdef TARGET_OPENGLES
+		shaderpath += "data\\rgba2yuv\\ES2\\rgba2yuv";
+#else
+		if (ofIsGLProgrammableRenderer())
+			shaderpath += "data\\rgba2yuv\\GL3\\rgba2yuv";
+		else
+			shaderpath += "data\\rgba2yuv\\GL2\\rgba2yuv";
+#endif
 		if (!rgba2yuv.load(shaderpath))
 			return false;
 	}

@@ -182,11 +182,11 @@ public:
 	// The current MetaData string
 	std::string GetMetadataString();
 
+	// The current video frame timestamp
+	int64_t GetVideoTimestamp();
+
 	// The current video frame timecode
 	int64_t GetVideoTimecode();
-
-	// The video frame interval in milliseconds
-	double GetVideoFrameTime();
 
 	// Set to receive Audio
 	void SetAudio(bool bAudio);

@@ -56,6 +56,8 @@ ofxNDIdynloader::ofxNDIdynloader()
 	p_NDILib = nullptr;
 #if defined(TARGET_WIN32)
 	m_hNDILib = NULL;
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
+	m_hNDILib = nullptr;
 #endif
 }
 
@@ -65,9 +67,7 @@ ofxNDIdynloader::~ofxNDIdynloader()
 #if defined(TARGET_WIN32)
 	if (m_hNDILib)
 		FreeLibrary(m_hNDILib);
-#else
-	// (To be checked)
-	// unload the library
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 	if (m_hNDILib) {
 		dlclose(m_hNDILib);
 #endif

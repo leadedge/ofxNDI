@@ -141,8 +141,8 @@
 			   Add GetAudioData overload to get audio frame data pointer
 	14.10.22 - Correct SetSenderNam
 	14.12.23 - Add video frame timecode and video frame interval
-			 - Add GetVideoTimecode and GetVideoFrameTime
-
+			 - Add GetVideoTimecode, GetVideoTimestamp, GetVideoFrametime
+	16.12.23 - Remove VideoFrametime until further investigation
 */
 
 #include "ofxNDIreceive.h"
@@ -213,9 +213,10 @@ ofxNDIreceive::ofxNDIreceive()
 
 	// Intialize global video frame data pointer
 	video_frame.p_data = nullptr;
-	// Initialize video frame timecode and interval
+
+	// Initialize video frame timecode and timestamp
 	m_VideoTimecode = 0LL;
-	m_VideoFrameTime = 0.0;
+	m_VideoTimestamp = 0LL;
 
 	// For received frame fps calculations
 	startTime = lastTime = (double)timeGetTime();
@@ -631,17 +632,17 @@ std::string ofxNDIreceive::GetMetadataString()
 	return m_metadataString;
 }
 
+// Return the current video frame timestamp
+int64_t ofxNDIreceive::GetVideoTimestamp()
+{
+	return m_VideoTimestamp;
+}
+
 // Return the current video frame timecode
 // UTC time since the Unix Epoch (1/1/1970 00:00) with 100 ns precision.
 int64_t ofxNDIreceive::GetVideoTimecode()
 {
 	return m_VideoTimecode;
-}
-
-// Return the video frame interval in milliseconds
-double ofxNDIreceive::GetVideoFrameTime()
-{
-	return m_VideoFrameTime;
 }
 
 // Set to receive Audio
@@ -834,9 +835,9 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			// Reset the current index value
 			senderIndex = index;
 
-			// Reset the timecode and frame time
+			// Reset the timestamp, timecode and frame time
+			m_VideoTimestamp = 0LL;
 			m_VideoTimecode = 0LL;
-			m_VideoFrameTime = 0.0;
 
 			// Start the counter for frame fps calculations
 			StartCounter();
@@ -876,13 +877,10 @@ void ofxNDIreceive::ReleaseReceiver()
 	if(pNDI_recv) 
 		p_NDILib->recv_destroy(pNDI_recv);
 
-	// LJ DEBUG
-	printf("ReleaseReciever\n");
-
 	m_Width = 0;
 	m_Height = 0;
+	m_VideoTimestamp = 0LL;
 	m_VideoTimecode = 0LL;
-	m_VideoFrameTime = 0.0;
 
 	pNDI_recv = nullptr;
 	bReceiverCreated = false;
@@ -1038,13 +1036,10 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 						// Get the current video frame timecode
 						// UTC time since the Unix Epoch (1/1/1970 00:00) with 100 ns precision.
-						uint64_t timecode = video_frame.timecode;
+						m_VideoTimecode = video_frame.timecode;
 
-						// Calculate time since the last frame in milliseconds
-						m_VideoFrameTime = (double)(timecode - m_VideoTimecode) / 10000.0;
-
-						// Save the current video frame timecode
-						m_VideoTimecode = timecode;
+						// Get the current video frame timestamp
+						m_VideoTimestamp = video_frame.timestamp;
 
 						// Buffers captured must be freed
 						p_NDILib->recv_free_video_v2(pNDI_recv, &video_frame);
@@ -1192,13 +1187,10 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 					// Get the current video frame timecode
 					// UTC time since the Unix Epoch (1/1/1970 00:00) with 100 ns precision.
-					uint64_t timecode = video_frame.timecode;
+					m_VideoTimecode = video_frame.timecode;
 
-					// Calculate time since the last frame in milliseconds
-					m_VideoFrameTime = (double)(timecode - m_VideoTimecode)/10000.0;
-
-					// Save the current video frame timecode
-					m_VideoTimecode = timecode;
+					// Get the current video frame timestamp
+					m_VideoTimestamp = video_frame.timestamp;
 
 					// Update received frame counter
 					UpdateFps();
@@ -1318,6 +1310,7 @@ void ofxNDIreceive::UpdateFps() {
 	lastTime = startTime;
 	startTime = GetCounter(); // msec
 	double frametime = (startTime - lastTime); // msec
+
 	if (frametime  > 0.000001) {
 		frametime = frametime / 1000.0; // seconds
 		frameRate = 1.0 / frametime; // frames per second
