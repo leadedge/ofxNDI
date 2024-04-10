@@ -63,7 +63,7 @@
 			   Add GetAudioChannels, GetAudioSamples, GetAudioSampleRate.
 			   Add GetAudioData overload to get audio frame data pointer
 	05.12.23 - Remove shlwapi.h
-
+	10.04.23 - ReceiveImage / GetPixelData - more details if format not supported
 
 
 */
@@ -280,10 +280,13 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 			// Note : the receiver is set up to prefer BGRA format by default
 			// YCbCr - RGBA conversion not supported
 			case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
+				printf("ReceiveImage pixels - UYVY format not supported\n"); break;
 			case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
+				printf("ReceiveImage pixels - UYVA format not supported\n"); break;
 			case NDIlib_FourCC_type_P216: // YCbCr using 4:2:2 in 16bpp
+				printf("ReceiveImage pixels - P216 format not supported\n"); break;
 			case NDIlib_FourCC_type_PA16: // YCbCr using 4:2:2:4 in 16bpp
-				printf("UYVY/UYVA/P216/PA16 - not supported\n");
+				printf("ReceiveImage pixels - PA16 format not supported\n");
 				break;
 			case NDIlib_FourCC_type_RGBA: // RGBA
 			case NDIlib_FourCC_type_RGBX: // RGBX
@@ -558,10 +561,13 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 		// Note : the receiver is set up to prefer BGRA format by default
 		// YCbCr - RGBA conversion not supported
 		case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
+			printf("GetPixelData - UYVY format not supported\n"); break;
 		case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
+			printf("GetPixelData - UYVA format not supported\n"); break;
 		case NDIlib_FourCC_type_P216: // YCbCr using 4:2:2 in 16bpp
+			printf("GetPixelData - P216 format not supported\n"); break;
 		case NDIlib_FourCC_type_PA16: // YCbCr using 4:2:2:4 in 16bpp
-			printf("UYVY/UYVA/P216/PA16 - not supported\n");
+			printf("GetPixelData - PA16 format not supported\n");
 			break;
 		case NDIlib_FourCC_type_RGBX: // RGBX
 		case NDIlib_FourCC_type_RGBA: // RGBA

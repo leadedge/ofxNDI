@@ -714,6 +714,7 @@ bool ofxNDIreceive::CreateReceiver(int userindex)
 #else
 	return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
 #endif
+
 }
 
 // Create a receiver with preferred colour format

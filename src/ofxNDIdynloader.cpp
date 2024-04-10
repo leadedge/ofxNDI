@@ -50,6 +50,7 @@
 				- fix redundant brace for m_hNDILib in destructor
 				- fix double declare of m_hNDILib
 	29.03.24	- Change headers and dll files to NDI version 5.6.1.0
+	10.04.24	- Change headers and dll files to NDI version 6.0.0.0
 
 
 */
