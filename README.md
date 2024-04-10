@@ -78,4 +78,4 @@ NDI SDK - Copyright NewTek Inc. [https://www.ndi.tv/](https://www.ndi.tv/).
 
 You can include the NDI dlls as part of your application as long as your EULA terms cover the specific requirements of the NDI SDK EULA, the terms of the LICENSE section of the SDK documentation and the terms outlined in “3rd party rights” towards the end of the manual. Go to the [NDI web page](https://www.ndi.tv/) and download the NDI SDK. After installation, a license document is available for review from the root of the SDK folder.
 
-If the dlls are not included with the application, the user should install the NDI runtime. Re-start may be required after installation. Download from [http://ndi.link/NDIRedistV5](http://ndi.link/NDIRedistV5).
+If the dlls are not included with the application, the user should install the NDI runtime. Re-start may be required after installation. Download from [http://ndi.link/NDIRedistV6](http://ndi.link/NDIRedistV6).
