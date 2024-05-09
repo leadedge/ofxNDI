@@ -1,11 +1,14 @@
 /*
-	OpenFrameworks NDI sender example
 
-	using the NewTek NDI SDK to send the frames via network
+	OpenFrameworks NDI receiver or sender
+
+	#define BUILDRECEIVER in ofApp.h for conditional build
+
+	using the NewTek NDI SDK to receive or send video frames via network
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2023 Lynn Jarvis.
+	Copyright (C) 2016-2024 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -15,46 +18,57 @@
 
 	=========================================================================
 	This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	it under the terms of the GNU Lesser General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+	You should have received a copy of the GNU Lesser General Public License
+	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	=========================================================================
 
-	16.10.16 - ofxNDI sender example
-	03.11.16 - corrected CreateSender dimensions
-			 - initialize pixel buffers
-			 - BGRA conversion by OpenGL during glReadPixels
-	07.11.16 - Included PBO for data read
+	13.10.16 - Addon receiver example created
+	14.10.16 - Included received frame rate
+	03.11.16 - Receive into image pixels directly
+			 - Add a sender selection dialog
+	05.11.16 - Note - dialog is Windows only
+			   the ofxNDIdialog class is used separately by the application
+			   and can be omitted along with resources
 	09.02.17 - Updated to ofxNDI with Version 2 NDI SDK
 			 - Added changes by Harvey Buchan to optionally
-			   specify RGBA with Version 2 NDI SDK
-	22.02.17 - Updated to Openframeworks 0.9.8
-	01.04.17 - update for ofxNDI with NDI Version 3
-	06.11.17 - update for ofxNDI with NDI Version 3.5
-			 - minor changes
-	08.07.18 - Update for Openframeworks 10
-			 - Include all SendImage option examples
+			   specify preferred pixel format in CreateReceiver
+	22.02.17 - updated to Openframeworks 0.9.8
+			 - corrected reallocate on size change
+	03.11.17 - update for ofxNDI with NDI Version 3
+			 - remove sender dialog
+			 - change NDI deprecated functions to Vers 3
+	01.04.18 - Revise for NDI Version 3
+			 - RGBA format not used due to SDK problem
+	11.06.18 - Updated for NDI vers 3.5
+			   ReceiveImage without memory copy to a pixel buffer
+	12.07.18 - ReceiveImage ofFbo/ofTexture/ofImage
+			 - All size change checks in ofxDNIreceiver class
+	06.08.18 - Include all receiving options in example
+	27.03.19 - Add example of using ReceiverCreated, ReceiverConnected and GetSenderFps
 	10.11.19 - Revise for ofxNDI for NDI SDK Version 4.0
+	28.02.20 - Remove initial texture clear.
+			   Add received fps to on-screen display
 	08.12.20 - Change from sprintf to std::string for on-screen display
-	03.01.22 - Revise for ofxNDI with YUV sending option
-	24.04.22 - Update examples with Visual Studio 2022
+	02.12,21 - Update pixel receive examples and comments
+	04.12.21 - Use Setfromexternalpixels to update display image
+	24.04.22 - Update examples for Visual Studio 2022
 	04.07.22 - Update with revised ofxNDI. Rebuild x64/MD.
-	06.07.22 - SenderName string instead of char to avoid sprintf
-			 - Limit fps string to 2 decimal places instead of format with sprintf
-			 - Windows only for BringWindowToTop
 	05-08-22 - Update to NDI 5.5 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
 	20-11-22 - Update to NDI 5.5.2 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
-	11.12.22 - Round fps display first to avoid integer truncation
-			 - Use timing for frame interval instead of monitor sync
-	27-04-23 - Update from NDI 5.5.2 to 5.5.4 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+	27-04-23 - Update to NDI 5.5.4 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+			   Rebuild example executables x64/MD
+	14-12-24 - Add #define BUILDRECEIVER in header for conditional build
+	09.05.24 - Update to NDI 6.0.0
+			   Rebuild example sender/receiver x64/MD
 
 
 */
@@ -63,23 +77,65 @@
 //--------------------------------------------------------------
 void ofApp::setup(){
 
+	ofBackground(0);
+	ofSetColor(255);
+
+#ifdef BUILDRECEIVER
+
+	// Set the window title to show that it is a receiver
+	ofSetWindowTitle("Openframeworks NDI receiver");
+
+#ifdef _WIN64
+	std::cout << "\nofxNDI example receiver - 64 bit" << std::endl;
+#else // _WIN64
+	std::cout << "\nofxNDI example receiver - 32 bit" << std::endl;
+#endif // _WIN64
+
+	std::cout << ndiReceiver.GetNDIversion() << " (https://www.ndi.tv/)" << std::endl;
+	std::cout << "Press 'SPACE' to list NDI senders" << std::endl;
+
+	// ofFbo
+	ndiFbo.allocate(ofGetWidth(), ofGetHeight(), GL_RGBA);
+
+	// Clear the fbo so the first frame draw is black
+	ndiFbo.begin();
+	ofClear(0, 0, 0, 0);
+	ndiFbo.end();
+
+	// ofTexture
+	ndiTexture.allocate(ofGetWidth(), ofGetHeight(), GL_RGBA);
+
+	// ofImage
+	ndiImage.allocate(ofGetWidth(), ofGetHeight(), OF_IMAGE_COLOR_ALPHA);
+
+	// ofPixels
+	ndiPixels.allocate(ofGetWidth(), ofGetHeight(), OF_IMAGE_COLOR_ALPHA);
+
+	// unsigned char pixels
+	ndiChars = new unsigned char[senderWidth*senderHeight * 4];
+
+	// Sender dimensions and fps are not known yet
+	senderWidth = (unsigned char)ofGetWidth();
+	senderHeight = (unsigned char)ofGetHeight();
+
+#else
+
 	senderName = "Openframeworks NDI Sender";
 	ofSetWindowTitle(senderName); // show it on the title bar
 
-	#ifdef _WIN64
-	cout << "\nofxNDI example sender - 64 bit" << endl;
-	#else // _WIN64
-	cout << "\nofxNDI example sender - 32 bit" << endl;
-	#endif // _WIN64
+#ifdef _WIN64
+	std::cout << "\nofxNDI example sender - 64 bit" << std::endl;
+#else // _WIN64
+	std::cout << "\nofxNDI example sender - 32 bit" << std::endl;
+#endif // _WIN64
 
-	cout << ndiSender.GetNDIversion() << " (https://www.ndi.tv/)" << endl;
+	std::cout << ndiSender.GetNDIversion() << " (https://www.ndi.tv/)" << std::endl;
 
 	// Set the dimensions of the sender output here
 	// This is independent of the display window size.
-	// 4K is set as the starting resolution to help
-	// assess performance with different options.
+	// 4K (3840x2160) can help assess performance of different options.
 	// It can be changed using the 'S' key.
-	senderWidth  = 3480;
+	senderWidth  = 3840;
 	senderHeight = 2160;
 
 	// Create an RGBA fbo for collection of data
@@ -128,7 +184,7 @@ void ofApp::setup(){
 
 	// ofDisableArbTex is needed to create a texture with
 	// normalized coordinates for bind in DrawGraphics
-	ofDisableArbTex(); 
+	ofDisableArbTex();
 	textureImage.load("NDI_Box.png");
 
 	// Back to default pixel coordinates
@@ -157,21 +213,74 @@ void ofApp::setup(){
 
 	// Limit frame rate using timing instead
 	ofSetFrameRate(60);
-
+#endif
+	
 }
+
 
 //--------------------------------------------------------------
 void ofApp::update() {
-
 
 }
 
 //--------------------------------------------------------------
 void ofApp::draw() {
 
-	ofBackground(0);
-	ofSetColor(255, 255, 255, 255);
+#ifdef BUILDRECEIVER
 
+	// Receive ofTexture
+	ndiReceiver.ReceiveImage(ndiTexture);
+	ndiTexture.draw(0, 0, ofGetWidth(), ofGetHeight());
+
+	// Receive ofFbo
+	// ndiReceiver.ReceiveImage(ndiFbo);
+	// ndiFbo.draw(0, 0, ofGetWidth(), ofGetHeight());
+
+	// Receive ofImage
+	// ndiReceiver.ReceiveImage(ndiImage);
+	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+
+	/*
+	// Receive ofPixels
+	ndiReceiver.ReceiveImage(ndiPixels);
+	// Use setFromExternalPixels to avoid an extra data copy
+	ndiImage.getPixels().setFromExternalPixels(ndiPixels.getData(), ndiPixels.getWidth(), ndiPixels.getHeight(), 4);
+	// Update the image texture
+	ndiImage.update();
+	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	*/
+
+	/*
+	// Receive unsigned char pixel image.
+	// ndiChars is the buffer to receive the pixels.
+	// Buffer size must be managed if there is a sender size change
+	unsigned int width = (unsigned int)ofGetWidth();
+	unsigned int height = (unsigned int)ofGetHeight();
+	if (ndiReceiver.ReceiveImage(ndiChars, width, height)) {
+		if (width != senderWidth || height != senderHeight) {
+			// Update sender dimensions
+			senderWidth = width;
+			senderHeight = height;
+			// Reallocate the receiving buffer
+			delete ndiChars;
+			ndiChars = new unsigned char[senderWidth*senderHeight * 4];
+			// Re-allocate display image
+			ndiImage.allocate(senderWidth, senderHeight, OF_IMAGE_COLOR_ALPHA);
+		}
+		else {
+			// Update the display image with the new pixels
+			ndiImage.getPixels().setFromExternalPixels(ndiChars, senderWidth, senderHeight, 4);
+			ndiImage.update();
+		}
+	}
+	// Draw whether received or not
+	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	*/
+
+	// Show what it's receiving
+	ShowInfo();
+
+#else
 	// Check success of CreateSender
 	if (!bInitialized)
 		return;
@@ -207,22 +316,89 @@ void ofApp::draw() {
 	// Option 5 Send char buffer
 	// Pixels must be rgba
 	// if (ndiImage.getImageType() != OF_IMAGE_COLOR_ALPHA)
-	 	// ndiImage.setImageType(OF_IMAGE_COLOR_ALPHA);
+		// ndiImage.setImageType(OF_IMAGE_COLOR_ALPHA);
 	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 	// ndiSender.SendImage(ndiImage.getPixels().getData(), senderWidth, senderHeight);
-	
+
 	//
 	// Show what it's sending
 	//
+	ShowInfo();
 
+#endif
+
+}
+
+void ofApp::ShowInfo() {
+
+	std::string str;
+
+#ifdef BUILDRECEIVER
+
+	int nsenders = ndiReceiver.GetSenderCount();
+	if (nsenders > 0) {
+		if (ndiReceiver.ReceiverCreated()) {
+			if (ndiReceiver.ReceiverConnected()) {
+				// Show received sender information and received fps
+				str = "Receiving [";
+				str += ndiReceiver.GetSenderName();
+				str += "]";
+				ofDrawBitmapString(str, 20, 30);
+
+				str = "(";
+				str += std::to_string(ndiReceiver.GetSenderWidth()); str += "x";
+				str += std::to_string(ndiReceiver.GetSenderHeight()); str += "/";
+				float fps = ndiReceiver.GetSenderFps();
+				str += std::to_string((int)fps); str += ".";
+				str += std::to_string((int)(fps * 100) - (int)fps * 100); str += "fps) - at fps ";
+				fps = ndiReceiver.GetFps();
+				str += std::to_string((int)fps); str += ".";
+				str += std::to_string((int)(fps * 100) - (int)fps * 100);
+
+				// Frame time based on NDI frame timecode
+				// double ftime = ndiReceiver.GetVideoFrameTime();
+				// Damping to steady the display
+				// ftime *= 0.99;
+				// ftime += 0.01 * frameTime;
+				// ftime = roundf(ftime*100.0)/100.0; // 2 decimal place precision
+				// std::string fstr = std::to_string(ftime);
+				// fstr = fstr.substr(0, 5); // Display with 2 decimal places
+				// str += " ("; str +=fstr; str += " msec/frame)";
+
+				ofDrawBitmapString(str, 20, 50);
+
+				// More information
+				// uint64_t timecode = ndiReceiver.GetVideoTimecode();
+				// uint64_t timestamp = ndiReceiver.GetVideoTimestamp();
+				// str = "Timecode "; str += std::to_string(timecode);
+				// str += " Timestamp "; str += std::to_string(timestamp);
+				// ofDrawBitmapString(str, 20, 70);
+
+			}
+		}
+
+		if (nsenders == 1) {
+			ofDrawBitmapString("1 network source", 20, ofGetHeight() - 20);
+		}
+		else {
+			str = std::to_string(nsenders);
+			str += " network sources";
+			ofDrawBitmapString(str, 20, ofGetHeight() - 40);
+			ofDrawBitmapString("'SPACE' to list senders", 20, ofGetHeight() - 20);
+		}
+	}
+	else {
+		ofDrawBitmapString("Connecting . . .", 20, 30);
+	}
+#else
 	if (ndiSender.SenderCreated()) {
 
 		std::string str;
 		str = "Sending as : ["; str += senderName; str += "] (";
-		str += to_string(senderWidth); str += "x"; str += to_string(senderHeight); str += ")";
+		str += std::to_string(senderWidth); str += "x"; str += std::to_string(senderHeight); str += ")";
 		ofDrawBitmapString(str, 20, 25);
 		// Round first to avoid integer truncation
-		str = "fps : "; str += to_string((int)roundf(ofGetFrameRate()));
+		str = "fps : "; str += std::to_string((int)roundf(ofGetFrameRate()));
 		ofDrawBitmapString(str, ofGetWidth() - 140, 25);
 
 		// Show sending options
@@ -233,15 +409,15 @@ void ofApp::draw() {
 		str += std::to_string(framerate);
 		// Limit fps display to 2 decimal places
 		size_t s = str.rfind(".");
-		str = str.substr(0, s+3);
+		str = str.substr(0, s + 3);
 		ofDrawBitmapString(str, 20, 66);
 
 		str = " Async    (""A"") : ";
-		str += to_string((int)ndiSender.GetAsync());
+		str += std::to_string((int)ndiSender.GetAsync());
 		ofDrawBitmapString(str, 20, 82);
 
 		str = " Readback (""P"") : ";
-		str += to_string((int)ndiSender.GetReadback());
+		str += std::to_string((int)ndiSender.GetReadback());
 		ofDrawBitmapString(str, 20, 98);
 
 		str = " Format (""Y""""/""""R"") : ";
@@ -252,74 +428,71 @@ void ofApp::draw() {
 		ofDrawBitmapString(str, 20, 114);
 
 		str = " Size     (""S"") : ";
-		str += to_string((int)senderWidth);
+		str += std::to_string((int)senderWidth);
 		str += "x";
-		str += to_string((int)senderHeight);
+		str += std::to_string((int)senderHeight);
 		ofDrawBitmapString(str, 20, 130);
-
 	}
-
-}
-
-void ofApp::DrawGraphics() {
-
-	// Draw graphics into an fbo used for the examples
-	m_fbo.begin();
-	ofEnableDepthTest();
-	ofClear(13, 25, 76, 255);
-	ofPushMatrix();
-	ofTranslate((float)senderWidth / 2.0, (float)senderHeight / 2.0, 0);
-	ofRotateYDeg(rotX);
-	ofRotateXDeg(rotY);
-	textureImage.getTexture().bind();
-	ofDrawBox(0.4*(float)senderHeight);
-	ofPopMatrix();
-	ofDisableDepthTest();
-	m_fbo.end();
-
-	// Rotate the cube
-	rotX += 0.75;
-	rotY += 0.75;
-
-	// Draw the fbo result fitted to the display window
-	m_fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
+#endif
 
 }
 
 //--------------------------------------------------------------
-void ofApp::exit() {
-	// The sender must be released 
-	// or NDI sender discovery will still find it
-	ndiSender.ReleaseSender();
-}
+void ofApp::keyPressed(int key) {
 
-//--------------------------------------------------------------
-void ofApp::keyPressed(int key){
+#ifdef BUILDRECEIVER
+	char name[256];
+	int index = key - 48;
 
+	int nsenders = ndiReceiver.GetSenderCount();
+
+	if (key == ' ') {
+		// List all the senders
+		if (nsenders > 0) {
+			std::cout << "Number of NDI senders found: " << nsenders << std::endl;
+			for (int i = 0; i < nsenders; i++) {
+				ndiReceiver.GetSenderName(name, 256, i);
+				std::cout << "    Sender " << i << " [" << name << "]" << std::endl;
+			}
+			if (nsenders > 1)
+				std::cout << "Press key [0] to [" << nsenders - 1 << "] to select a sender" << std::endl;
+		}
+		else
+			std::cout << "No NDI senders found" << std::endl;
+	}
+	else if (nsenders > 0 && index >= 0 && index < nsenders) {
+		// Update the receiver with the returned index
+		// Returns false if the current sender is selected
+		if (ndiReceiver.SetSenderIndex(index))
+			std::cout << "Selected [" << ndiReceiver.GetSenderName(index) << "]" << std::endl;
+		else
+			std::cout << "Same sender" << std::endl;
+	}
+#else
 	std::string str;
 	framerate = ndiSender.GetFrameRate(); // update global fps value
 	double fps = framerate; // for entry
 	int width, height = 0; // for entry
 
-	switch(key)
+	switch (key)
 	{
 
 	case 'f':
 	case 'F':
-		{
-			str = std::to_string(framerate);
-			size_t s = str.rfind(".");
-			str = str.substr(0, s+3);
-			str = ofSystemTextBoxDialog("Frame rate", str);
-			if (!str.empty()) {
-				fps = stod(str);
-				if (fps <= 60.0 && fps >= 10.0) {
-					framerate = fps;
-					ndiSender.SetFrameRate(fps);
-				}
+	{
+		str = std::to_string(framerate);
+		size_t s = str.rfind(".");
+		str = str.substr(0, s + 3);
+		str = ofSystemTextBoxDialog("Frame rate", str);
+		if (!str.empty()) {
+			fps = stod(str);
+			if (fps <= 60.0 && fps >= 10.0) {
+				framerate = fps;
+				ndiSender.SetFrameRate(fps);
 			}
 		}
-		break;
+	}
+	break;
 
 	case 'a':
 	case 'A':
@@ -345,7 +518,7 @@ void ofApp::keyPressed(int key){
 
 	case 's':
 	case 'S':
-		str = ofSystemTextBoxDialog("Image size", to_string(senderWidth) + "x" + to_string(senderHeight));
+		str = ofSystemTextBoxDialog("Image size", std::to_string(senderWidth) + "x" + std::to_string(senderHeight));
 		if (!str.empty()) {
 			width = height = 0;
 			if (!str.empty()) {
@@ -376,6 +549,45 @@ void ofApp::keyPressed(int key){
 	BringWindowToTop(ofGetWin32Window());
 #endif
 
+#endif
 
 }
 
+#ifndef BUILDRECEIVER
+void ofApp::DrawGraphics() {
+
+	// Draw graphics into an fbo used for the examples
+	m_fbo.begin();
+	ofEnableDepthTest();
+	ofClear(13, 25, 76, 255);
+	ofPushMatrix();
+	ofTranslate((float)senderWidth / 2.0, (float)senderHeight / 2.0, 0);
+	ofRotateYDeg(rotX);
+	ofRotateXDeg(rotY);
+	textureImage.getTexture().bind();
+	ofDrawBox(0.4 * (float)senderHeight);
+	ofPopMatrix();
+	ofDisableDepthTest();
+	m_fbo.end();
+
+	// Rotate the cube
+	rotX += 0.75;
+	rotY += 0.75;
+
+	// Draw the fbo result fitted to the display window
+	m_fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
+
+}
+#endif
+
+//--------------------------------------------------------------
+void ofApp::exit() {
+#ifdef BUILDRECEIVER
+	ndiReceiver.ReleaseReceiver();
+#else
+	// The sender must be released 
+	// or NDI sender discovery will still find it
+	ndiSender.ReleaseSender();
+#endif
+
+}
