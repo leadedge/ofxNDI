@@ -33,7 +33,8 @@ UpdateSender - test for sender creation.\
 (as per [pull request](https://github.com/leadedge/ofxNDI/pull/11) by prisonerjohn).\
 04.05.20 - Updated for NDI SDK Vers 4.5\
 20.08.21 - Merged testing branch - Updated for NDI SDK Vers 5\
-30.03.24 - Updated for NDI SDK Vers 5.6.1
+30.03.24 - Updated for NDI SDK Vers 5.6.1\
+10.06.24 - Updated for NDI SDK Vers 6.0.0.0
 
 ofxNDIsender and ofxNDIreceiver depend on Openframeworks. There are options to send and receive using ofFbo, ofTexture, ofPixels as well as an unsigned char pixel buffer. If receiving to ofFbo, ofTexture of ofPixels, it is not necessary to manage sender size change from the application. Nor is it necessary to handle receiver creation. Simply use the receive functions alone. For best efficiency, the sender class includes pbo pixel buffer readback, activated by SetReadback(). Refer to the header files for details. Examples have been updated to include all the options available. For a simple, practical example, refer to the webcam sender. The examples assume Openframeworks 10 and are not compatible with previous versions.
 
@@ -77,4 +78,4 @@ NDI SDK - Copyright NewTek Inc. [https://www.ndi.tv/](https://www.ndi.tv/).
 
 You can include the NDI dlls as part of your application as long as your EULA terms cover the specific requirements of the NDI SDK EULA, the terms of the LICENSE section of the SDK documentation and the terms outlined in “3rd party rights” towards the end of the manual. Go to the [NDI web page](https://www.ndi.tv/) and download the NDI SDK. After installation, a license document is available for review from the root of the SDK folder.
 
-If the dlls are not included with the application, the user should install the NDI runtime. Re-start may be required after installation. Download from [http://ndi.link/NDIRedistV5](http://ndi.link/NDIRedistV5).
+If the dlls are not included with the application, the user should install the NDI runtime. Re-start may be required after installation. Download from [http://ndi.link/NDIRedistV6](http://ndi.link/NDIRedistV6).
