@@ -97,6 +97,7 @@
 	15/12/22	- Corrected deprecated function in GetNDIname
 				  Check for null library pointer in GetNDIversion
 	14/12/23	- Incremented version number in Sender meta-data registration to "1.005.000"
+	11/05/24	- Corrected Sendimage overload - bSwapRB not optional
 
 */
 #include "ofxNDIsend.h"
@@ -593,8 +594,7 @@ void ofxNDIsend::SetFrameRate(int framerate)
 		// Keep scales compatible
 		m_frame_rate_N = framerate * 1000;
 		m_frame_rate_D = 1000;
-		if (m_bNDIinitialized)
-			UpdateSender(GetWidth(), GetHeight());
+		UpdateSender(GetWidth(), GetHeight());
 	}
 }
 

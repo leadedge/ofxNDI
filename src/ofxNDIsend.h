@@ -88,7 +88,7 @@ public:
 	// - bSwapRB | swap red and blue components - default false
 	// - bInvert | flip the image - default false
 	bool SendImage(const unsigned char *image, unsigned int width, unsigned int height,
-		bool bSwapRB = false, bool bInvert = false);
+		bool bSwapRB, bool bInvert = false);
 
 	// Send image pixels
 	// - image | pixel data BGRA or RGBA
