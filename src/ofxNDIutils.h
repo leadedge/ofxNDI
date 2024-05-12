@@ -50,6 +50,7 @@
 #elif defined(TARGET_WIN32)
 #include <windows.h>
 #include <intrin.h> // for _movsd
+#pragma comment (lib, "winmm.lib") // for timeBeginPeriod
 // #else // Linux
 #endif
 
@@ -114,6 +115,19 @@ namespace ofxNDIutils {
 	// Stop timing and return microseconds elapsed.
 	// Code console output can be enabled for quick timing tests.
 	double EndTiming();
+	void HoldFps(int fps);
+
+	#ifdef WIN32
+	// Windows minimum time period
+	void StartTimePeriod();
+	void EndTimePeriod();
+	// Private namespace for global variables
+	namespace
+	{
+		UINT PeriodMin = 0;
+	}
+	#endif
+
 #endif
 
 }
