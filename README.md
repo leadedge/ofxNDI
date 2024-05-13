@@ -80,7 +80,7 @@ Pre-built binaries are included in "example-binaries".
 
 ### Setup
 
-To move the project to another folder :\
+To move the project to another folder :
 1. Move the entire contents of either the examples-windows\Sender or examples-windows\Receiver folder to the destination.
 2. Create a new folder "ofxNDI" within the Sender or Receiver folder.
 3. Copy all the files from ofxND\src to the new folder except for :\
