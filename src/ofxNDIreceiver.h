@@ -61,7 +61,6 @@ public:
 	ofxNDIreceiver();
 	~ofxNDIreceiver();
 
-
 	// Create a receiver
 	// - index | index in the sender list to connect to
 	//   -1 - connect to the selected sender
@@ -77,9 +76,6 @@ public:
 	//   -1 - connect to the selected sender
 	//        if none selected connect to the first sender
 	bool CreateReceiver(NDIlib_recv_color_format_e colorFormat, int index = -1);
-
-	// Open the receiver to receive
-	bool OpenReceiver();
 
 	// Return whether a receiver has been created
 	bool ReceiverCreated();
@@ -165,9 +161,6 @@ public:
 
 	// Number of senders
 	int GetSenderCount();
-
-	// Has the user changed the sender index
-	bool SenderSelected();
 
 	// Set NDI low banwidth option
 	void SetLowBandwidth(bool bLow = true);
