@@ -104,6 +104,9 @@ public:
 	ofxNDIreceive();
 	~ofxNDIreceive();
 
+	// Open a receiver ready to receive
+	bool OpenReceiver();
+
 	// Create a receiver
 	// Default format RGBA (x64) or BGRA (Win32)
 	// - index | index in the sender list to connect to
@@ -221,9 +224,6 @@ public:
 	// Return the list of senders
 	std::vector<std::string> GetSenderList();
 
-	// Has the user changed the sender index
-	bool SenderSelected();
-
 	// Set NDI low bandwidth option
 	// Refer to NDI documentation
 	void SetLowBandwidth(bool bLow = true);
@@ -298,13 +298,12 @@ private:
 	NDIlib_recv_color_format_e m_Format;
 
 	std::vector<std::string> NDIsenders; // List of sender names
-	int nsenders;// Sender count
+	int m_nSenders;// Sender count
 	int m_senderIndex; // Current sender index
 	std::string m_senderName; // Current sender name
 	bool bNDIinitialized; // Is NDI initialized properly
 	bool bReceiverCreated; // Is the receiver created
 	bool bReceiverConnected; // Is the receiver connected and receiving frames
-	bool bSenderSelected; // Sender index has been changed by the user
 	NDIlib_recv_bandwidth_e m_bandWidth; // Bandwidth receive option
 
 	uint32_t dwStartTime; // For timing delay

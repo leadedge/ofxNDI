@@ -145,6 +145,12 @@
 	16.12.23 - Remove VideoFrametime until further investigation
 	11.05.24 - Add GetSenderList, SetFormat and m_Format
 			   Add "m_" prefix to globals senderName and senderIndex
+	13.05.24 - Remove SenderSelected() and bSenderSelected
+			   Add OpenReceiver() and use for both ReceiveImage functions
+			   Change global "nsenders" to "m_nSenders"
+			   FindSenders :
+			      Use "sendercount" instead of "nsenders" to avoid conflict
+			      Update "m_Senders"
 
 */
 
@@ -199,9 +205,8 @@ ofxNDIreceive::ofxNDIreceive()
 	no_sources = 0;
 	bNDIinitialized = false;
 	bReceiverCreated = false;
-	bSenderSelected = false;
 	m_FrameType = NDIlib_frame_type_none;
-	nsenders = 0;
+	m_nSenders = 0;
 	m_Width = 0;
 	m_Height = 0;
 	m_Format = NDIlib_recv_color_format_BGRX_BGRA;
@@ -264,7 +269,7 @@ void ofxNDIreceive::CreateFinder()
 	pNDI_find = p_NDILib->find_create_v2(&NDI_find_create_desc);
 	p_sources = nullptr;
 	no_sources = 0;
-	nsenders = 0;
+	m_nSenders = 0;
 }
 
 // Release the current finder
@@ -284,21 +289,22 @@ void ofxNDIreceive::ReleaseFinder()
 // Replacement for original function
 int ofxNDIreceive::FindSenders()
 {
-	int nSenders = 0;
-	FindSenders(nSenders);
+	int sendercount = 0;
+	FindSenders(sendercount);
 	return (int)NDIsenders.size();
 }
 
 // Find all current NDI senders
 // nSenders - number of senders
 // Return true for network change
-bool ofxNDIreceive::FindSenders(int &nSenders)
+bool ofxNDIreceive::FindSenders(int &sendercount)
 {
 	std::string name;
 	uint32_t nsources = 0; // New number of sources
 
 	if (!bNDIinitialized) {
-		nSenders = 0;
+		sendercount = 0;
+		m_nSenders = 0;
 		return false;
 	}
 
@@ -339,7 +345,8 @@ bool ofxNDIreceive::FindSenders(int &nSenders)
 					ReleaseReceiver();
 					m_senderName.clear();
 					m_senderIndex = 0;
-					nSenders = 0;
+					m_nSenders = 0;
+					sendercount = 0;
 					return true; // return true because the last one just closed
 				}
 
@@ -351,17 +358,11 @@ bool ofxNDIreceive::FindSenders(int &nSenders)
 							m_senderIndex = i;
 					}
 				}
-
-				// Signal a new sender if it is not the same one as currently selected
-				// The calling application can then query this
-				if (m_senderName != NDIsenders.at(m_senderIndex)) {
-					bSenderSelected = true;
-				}
-
 			}
 
 			// Network change - return new number of senders
-			nSenders = (int)NDIsenders.size();
+			sendercount = (int)NDIsenders.size();
+			m_nSenders = sendercount;
 			return true;
 
 		}
@@ -371,7 +372,8 @@ bool ofxNDIreceive::FindSenders(int &nSenders)
 	}
 
 	// Always update the number of senders even for no network change
-	nSenders = (int)NDIsenders.size();
+	sendercount = (int)NDIsenders.size();
+	m_nSenders = sendercount;
 
 	return false; // no network change
 
@@ -430,9 +432,6 @@ bool ofxNDIreceive::SetSenderIndex(int index)
 	// Update the class sender name
 	m_senderName = NDIsenders.at(m_senderIndex);
 
-	// Set selected flag to indicate that the user has changed sender index
-	bSenderSelected = true; 
-
 	return true;
 
 }
@@ -448,15 +447,6 @@ bool ofxNDIreceive::GetSenderIndex(const char *sendername, int &index)
 {
 	std::string name = sendername;
 	return GetSenderIndex(name, index);
-}
-
-// Has the user changed the sender index ?
-bool ofxNDIreceive::SenderSelected()
-{
-	bool bSelected = bSenderSelected;
-	bSenderSelected = false; // one off - the user has to select again
-
-	return bSelected;
 }
 
 // Return the number of senders
@@ -714,6 +704,36 @@ void ofxNDIreceive::GetAudioData(float*& output, int& samplerate, int& samples, 
 	}
 }
 
+// Test for network change
+// Create receiver if not initialized or a new sender has been selected
+bool ofxNDIreceive::OpenReceiver()
+{
+	// Update the NDI sender list to find new senders
+	// There is no delay if no new senders are found
+	int sendercount = FindSenders();
+
+	// Check the sender count
+	if(sendercount > 0) {
+
+		// Return now if receiver already created
+		if (ReceiverCreated()) {
+			return true;
+		}
+
+		// Create a new receiver if not already
+		// A receiver is created from an index into a list of sender names.
+		// The current user selected index is saved in the NDIreceiver class
+		// and is used to create the receiver. The index is changed by 
+		// SetSenderIndex or SetSenderName.
+		// The receiver is created with default preferred format BGRA
+		return CreateReceiver();
+	}
+
+	// No senders
+	return false;
+
+}
+
 
 // Create a receiver
 // If the NDI format is BGRA and the application format is RGBA,
@@ -725,8 +745,7 @@ bool ofxNDIreceive::CreateReceiver(int userindex)
 	// 64 bit required for RGBA preferred
 	// 32 bit returns BGRA even if RGBA preferred.
 	// If you find the received result is BGRA, set the receiver to prefer BGRA
-	// TODO
-	// m_Format
+	// TODO - Set format function
 	return CreateReceiver(m_Format, userindex);
 
 /*
@@ -748,12 +767,10 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 		return false;
 	}
 
-	// The index passed in can be the required sender which has been selected by the user
-	// from a list of senders currently running and set by SetSenderName
+	// The index passed in can be the required sender which has been
+	// selected by the user from a list of senders currently running
 	// or -1 if no index has been selected.
-
 	int index = userindex;
-
 
 	if (!pNDI_recv) {
 
@@ -913,7 +930,6 @@ void ofxNDIreceive::ReleaseReceiver()
 	pNDI_recv = nullptr;
 	bReceiverCreated = false;
 	bReceiverConnected = false;
-	bSenderSelected = false;
 	FreeVideoData();
 	FreeAudioData();
 
@@ -938,6 +954,11 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 	bool bRet = false;
 
 	if (!bNDIinitialized) return false;
+
+	// Create receiver if not initialized
+	// or a new sender has been selected
+	if (!OpenReceiver())
+		return false;
 
 	if (pNDI_recv) {
 
@@ -1124,6 +1145,11 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		printf("ReceiveImage not initialized\n");
 		return false;
 	}
+
+	// Create receiver if not initialized
+	// or a new sender has been selected
+	if (!OpenReceiver())
+		return false;
 
 	if (pNDI_recv) {
 
