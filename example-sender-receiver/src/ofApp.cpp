@@ -131,12 +131,12 @@ void ofApp::setup(){
 
 	std::cout << ndiSender.GetNDIversion() << " (https://www.ndi.tv/)" << std::endl;
 
-	// Set the dimensions of the sender output here
+	// Set the dimensions of the sender output here.
 	// This is independent of the display window size.
-	// 4K (3840x2160) can help assess performance of different options.
 	// It can be changed using the 'S' key.
-	senderWidth  = 3840;
-	senderHeight = 2160;
+	// 4K (3840x2160) can help assess performance of different options.
+	senderWidth  = 1920;
+	senderHeight = 1080;
 
 	// Create an RGBA fbo for collection of data
 	m_fbo.allocate(senderWidth, senderHeight, GL_RGBA);
@@ -168,7 +168,7 @@ void ofApp::setup(){
 	// Note that the NDI sender frame rate should match the render rate
 	// so that it's displayed smoothly with NDI Studio Monitor.
 	//
-	// ndiSender.SetFrameRate(30); // Disable this line for default 60 fps.
+	ndiSender.SetFrameRate(30); // Disable this line for default 60 fps.
 
 	// Option : set NDI asynchronous sending
 	// If disabled, the render rate is clocked to the sending framerate. 
@@ -201,7 +201,7 @@ void ofApp::setup(){
 
 	// Image for pixel sending examples
 	// Loads as RGB but is converted to RGBA by sending functions
-	ndiImage.load("Test_Pattern.jpg");
+	ndiImage.load("NDI_Box.png");
 
 	// Make it the same size as the sender
 	ndiImage.resize(senderWidth, senderHeight);
@@ -213,6 +213,7 @@ void ofApp::setup(){
 
 	// Limit frame rate using timing instead
 	ofSetFrameRate(60);
+
 #endif
 	
 }
