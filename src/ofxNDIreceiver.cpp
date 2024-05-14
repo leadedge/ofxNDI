@@ -64,10 +64,7 @@
 			   Add GetAudioData overload to get audio frame data pointer
 	05.12.23 - Remove shlwapi.h
 	10.04.23 - ReceiveImage / GetPixelData - more details if format not supported
-	13.04.24 - Remove SenderSelected()
-			   All ReceiveImage functions check for receiver creation
-			   using OpenReceiver in the ofxNDIreceive class
-	14.05.24 - Add GetSenderList()
+
 
 */
 #include "ofxNDIreceiver.h"
@@ -92,6 +89,47 @@ bool ofxNDIreceiver::CreateReceiver(int userindex)
 bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e color_format, int userindex)
 {
 	return NDIreceiver.CreateReceiver(color_format, userindex);
+
+}
+
+// Open the receiver to receive
+bool ofxNDIreceiver::OpenReceiver()
+{
+	// Update the NDI sender list to find new senders
+	// There is no delay if no new senders are found
+	NDIreceiver.FindSenders();
+	// Check the sender count
+	int nSenders = GetSenderCount();
+	if (nSenders > 0) {
+
+		// Has the user changed the sender index ?
+		if (NDIreceiver.SenderSelected()) {
+			// Retain the last sender in case of network delay
+			// Wait for the network to come back up or for the
+			// user to select another sender when it does
+			if (nSenders == 1)
+				return false;
+			// Release the current receiver.
+			// A new one is then created from the selected sender index.
+			NDIreceiver.ReleaseReceiver();
+			return false;
+		}
+
+		// Receiver already created
+		if (NDIreceiver.ReceiverCreated())
+			return true;
+
+		// Create a new receiver if one does not exist.
+		// A receiver is created from an index into a list of sender names.
+		// The current user selected index is saved in the NDIreceiver class
+		// and is used to create the receiver unless you specify a particular index.
+		// Receiver is created with default preferred format BGRA
+		return NDIreceiver.CreateReceiver();
+
+	}
+
+	// No senders
+	return false;
 
 }
 
@@ -131,7 +169,7 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
 
 	// Receive a pixel image first
@@ -162,9 +200,8 @@ bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
-
 
 	// Receive a pixel image first
 	unsigned int width = (unsigned int)fbo.getWidth();
@@ -190,7 +227,7 @@ bool ofxNDIreceiver::ReceiveImage(ofImage &image)
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
 
 	// Receive a pixel image first
@@ -217,7 +254,7 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
 
 	unsigned int width = (unsigned int)buffer.getWidth();
@@ -291,7 +328,7 @@ bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels,
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
 
 	return NDIreceiver.ReceiveImage(pixels, width, height, bInvert);
@@ -339,16 +376,16 @@ bool ofxNDIreceiver::GetSenderIndex(char *sendername, int &index)
 	return NDIreceiver.GetSenderIndex(sendername, index);
 }
 
+// Has the user changed the sender index ?
+bool ofxNDIreceiver::SenderSelected()
+{
+	return NDIreceiver.SenderSelected();
+}
+
 // Return the number of senders
 int ofxNDIreceiver::GetSenderCount()
 {
 	return NDIreceiver.GetSenderCount();
-}
-
-// Return the list of senders
-std::vector<std::string> ofxNDIreceiver::GetSenderList()
-{
-	return NDIreceiver.GetSenderList();
 }
 
 // Set a sender name to receive from

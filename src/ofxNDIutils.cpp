@@ -50,9 +50,8 @@
 	23.04.22 - CopyImage - Use size_t cast for memcpy functions
 			   to avoid warning C26451: Arithmetic overflow
 	09.06.22 - rgba_bgra unsigned __int32 > uint32_t (https://github.com/leadedge/ofxNDI/issues/34)
-	10.06.22 - rgba_bgra_sse2 remove uint32_t declarations for src and dst
-	12.06.24 - Add HoldFps with timeBeginPeriod/timeEndPeriod for Windows
-	14.05.24 - Corrected #ifdef WIN32 -> #if defined(TARGET_WIN32)
+	10.06.22 - rgba_bgra_sse2 remove uint32_t decrlarations for src and dst
+
 
 
 */
@@ -72,9 +71,9 @@ namespace ofxNDIutils {
 	// Timing counters
 	std::chrono::steady_clock::time_point start;
 	std::chrono::steady_clock::time_point end;
-	// For HoldFps
-	std::chrono::steady_clock::time_point FrameStartPtr;
-	std::chrono::steady_clock::time_point FrameEndPtr;
+#endif
+
+
 #if defined (__APPLE__)
 
 	static inline void *__movsd(void *d, const void *s, size_t n) {
@@ -513,92 +512,6 @@ namespace ofxNDIutils {
 		// printf("elapsed [%.3f] u/sec\n", elapsed);
 		return elapsed / 1000.0; // msec
 	}
-
-	// -----------------------------------------------
-	// Function: HoldFps
-	// Frame rate control
-	//
-	// Hold a desired frame rate if the application does not already
-	// have frame rate control. Must be called every frame.
-	//
-	// Note that this function is affected by changes to Windows timer 
-	// resolution since Windows 10 Version 2004 (April 2020)
-	// https://randomascii.wordpress.com/2020/10/04/windows-timer-resolution-the-great-rule-change/
-	//
-	// timeBeginPeriod / timeEndPeriod avoid loss of precision
-	// https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod
-	// Microsoft remark :
-	//   Call this function immediately before using timer services, and call the timeEndPeriod
-	//   function immediately after you are finished using the timer services. An application 
-	//   can make multiple timeBeginPeriod calls as long as each call is matched with a call
-	//   to timeEndPeriod.
-	// 
-	void HoldFps(int fps)
-	{
-		// Unlikely but return anyway
-		if (fps <= 0)
-			return;
-
-		// Reduce Windows timer period to minimum
-#if defined(TARGET_WIN32)
-		StartTimePeriod();
-#endif
-
-		// Target frame time
-		const double target = (1000000.0/static_cast<double>(fps))/1000.0; // msec
-
-		// Time now end point
-		FrameEndPtr = std::chrono::steady_clock::now();
-
-		// Milliseconds elapsed
-		const double elapsedTime = static_cast<double>(std::chrono::duration_cast<std::chrono::nanoseconds>(FrameEndPtr - FrameStartPtr).count()/1000000.0);
-
-		// Sleep to reach the target frame time
-		if (elapsedTime < target) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(target - elapsedTime)));
-		}
-
-		// Set start time for the next frame
-		FrameStartPtr = std::chrono::steady_clock::now();
-
-		// Reset Windows timer period
-#if defined(TARGET_WIN32)
-		EndTimePeriod();
-	#endif
-
-	}
-
-#if defined(TARGET_WIN32)
-	// -----------------------------------------------
-	// Reduce Windows timing period to the minimum
-	// supported by the system (usually 1 msec)
-	void StartTimePeriod()
-	{
-		TIMECAPS tc={};
-		PeriodMin = 0; // To allow for errors
-		MMRESULT mres = timeGetDevCaps(&tc, sizeof(TIMECAPS));
-		if (mres == MMSYSERR_NOERROR) {
-			mres = timeBeginPeriod(tc.wPeriodMin);
-			if (mres == TIMERR_NOERROR)
-				PeriodMin = tc.wPeriodMin;
-		}
-	}
-
-
-	// -----------------------------------------------
-	// Reset Windows timing period
-	void EndTimePeriod()
-	{
-		if (PeriodMin > 0) {
-			timeEndPeriod(PeriodMin);
-			PeriodMin = 0;
-		}
-	}
-#endif
-
-#endif
-
-
 #endif
 
 } // end namespace
