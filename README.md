@@ -37,6 +37,7 @@ UpdateSender - test for sender creation.\
 10.04.24 - Updated for NDI SDK Vers 6.0.0.0\
 13.05.24 - Add Windows examples using ofxNDIsend/ofxNDIrecieve independent of Openframeworks.
 Add "ofxNDIreceive::OpenReceiver()" to simplify application receiver code.
+14.05.24 - Create backup branch
 
 ## Openframeworks
 
