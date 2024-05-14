@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="WinReceiverNDI.cpp" />
+    <ClCompile Include="..\..\src\ofxNDIdynloader.cpp">
+      <Filter>ofxNDI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ofxNDIreceive.cpp">
+      <Filter>ofxNDI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ofxNDIutils.cpp">
+      <Filter>ofxNDI</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="framework.h" />
+    <ClInclude Include="Resource.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="WinReceiverNDI.h" />
+    <ClInclude Include="..\..\src\ofxNDI.h">
+      <Filter>ofxNDI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ofxNDIdynloader.h">
+      <Filter>ofxNDI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ofxNDIplatforms.h">
+      <Filter>ofxNDI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ofxNDIreceive.h">
+      <Filter>ofxNDI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ofxNDIutils.h">
+      <Filter>ofxNDI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\sse2neon.h">
+      <Filter>ofxNDI</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="WinReceiverNDI.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ofxNDI">
+      <UniqueIdentifier>{ea49546f-5163-47d4-aea4-16050c9710bd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

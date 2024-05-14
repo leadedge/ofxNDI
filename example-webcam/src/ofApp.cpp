@@ -4,7 +4,7 @@
 
 	http://NDI.NewTek.com
 
-	Copyright (C) 2016-2022 Lynn Jarvis.
+	Copyright (C) 2016-2024 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -40,6 +40,13 @@
 	05.01.21 - Allow user selection of webcam
 	26.04.22 - Update for Visual Studio 2022
 	04.07.22 - Update with revised ofxNDI. Rebuild x64/MD.
+	05-08-22 - Update to NDI 5.5 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+	20-11-22 - Update to NDI 5.5.2 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+	27-04-23 - Added select webcam details on main window
+			   Update to NDI 5.5.2 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+			   Rebuild example executables x64/MD
+	12-05-24 - Update to NDI 6.0.0 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+			   Rebuild example executable x64/MD to match Openframeworks videoInput.lib
 
 */
 #include "ofApp.h"
@@ -98,9 +105,28 @@ void ofApp::update() {
 //--------------------------------------------------------------
 void ofApp::draw() {
 
+	std::string str;
+	ofSetColor(255);
+
 	vidGrabber.draw(0, 0, ofGetWidth(), ofGetHeight());
 	if (vidGrabber.isFrameNew())
 		camsender.SendImage(vidGrabber.getPixels());
+
+	str = "Select a webcam by it's index";
+	ofDrawBitmapString(str, 20, 30);
+
+	// Show the webcam list for selection
+	int ypos = 50;
+	for (int i=0; i<(int)camdevices.size(); i++) {
+		str = "("; str+= ofToString(i); str += ") ";
+		str += camdevices[i].deviceName;
+		ofDrawBitmapString(str, 40, ypos);
+		ypos += 15;
+	}
+	str = "Press 0 to ";
+	str += ofToString(camdevices.size()-1);
+	str += " to select a webcam";
+	ofDrawBitmapString(str, 40, ypos);
 
 }
 

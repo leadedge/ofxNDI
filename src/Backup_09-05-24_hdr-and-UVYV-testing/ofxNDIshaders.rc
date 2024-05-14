@@ -1,0 +1,42 @@
+/*
+				SpoutShaders.rc
+
+		Shader source resources loaded from file
+
+	29.04.24 - first version
+
+*/
+
+//
+// Shader resource definitions
+//
+// Definitions are duplicated in SpoutShaders.h
+// to avoid a requiring a separate resource header file
+//
+#define IDC_SHADERFILE0		1000 // copy
+#define IDC_SHADERFILE1		1001 // flip
+#define IDC_SHADERFILE2		1002 // mirror
+#define IDC_SHADERFILE3		1003 // swap
+#define IDC_SHADERFILE4		1004 // temp
+#define IDC_SHADERFILE5		1005 // brcosa
+#define IDC_SHADERFILE6		1006 // hblur
+#define IDC_SHADERFILE7		1007 // vblur
+#define IDC_SHADERFILE8		1008 // bloom
+#define IDC_SHADERFILE9		1009 // sharpen
+#define IDC_SHADERFILE10	1010 // cas
+#define IDC_SHADERFILE11	1011 // kuwahara
+
+IDC_SHADERFILE0  RCDATA "SHADERS/copy.glsl"		// m_copystr
+IDC_SHADERFILE1  RCDATA "SHADERS/flip.glsl"		// m_flipstr
+IDC_SHADERFILE2  RCDATA "SHADERS/mirror.glsl"	// m_mirrorstr
+IDC_SHADERFILE3  RCDATA "SHADERS/swap.glsl"		// m_swapstr
+IDC_SHADERFILE4  RCDATA "SHADERS/temp.glsl"		// m_tempstr
+IDC_SHADERFILE5  RCDATA "SHADERS/brcosa.glsl"	// m_brcosastr
+IDC_SHADERFILE6  RCDATA "SHADERS/hblur.glsl"	// m_hblurstr;
+IDC_SHADERFILE7  RCDATA "SHADERS/vblur.glsl"	// m_vblurstr;
+IDC_SHADERFILE8  RCDATA "SHADERS/bloom.glsl"    // m_bloomstr;
+IDC_SHADERFILE9  RCDATA "SHADERS/sharpen.glsl"	// m_sharpenstr;
+IDC_SHADERFILE10 RCDATA "SHADERS/cas.glsl"		// m_casstr;
+IDC_SHADERFILE11 RCDATA "SHADERS/kuwahara.glsl" // m_kuwaharastr;
+
+// =====================================================================================
