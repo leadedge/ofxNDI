@@ -1,6 +1,8 @@
 ﻿## ofxNDI
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
+## testing branch
+
 ofxNDIsender and ofxNDIreceiver depend on Openframeworks. There are options to send and receive using ofFbo, ofTexture, ofPixels as well as an unsigned char pixel buffer. If receiving to ofFbo, ofTexture of ofPixels, it is not necessary to manage sender size change from the application. Nor is it necessary to handle receiver creation. Simply use the receive functions alone. For best efficiency, the sender class includes pbo pixel buffer readback, activated by SetReadback(). Refer to the header files for details. Examples have been updated to include all the options available. For a simple, practical example, refer to the webcam sender. The examples assume Openframeworks 10 and are not compatible with previous versions.
 
 ofxNDIsend and ofxNDIreceive classes can be used independently for applications other than Openframeworks. Sender size update and receiving buffer size change have to be manged from the application.
