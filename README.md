@@ -54,11 +54,11 @@ The OF Project Generator will create your project with correct paths. Make sure 
 
 ### Manual Setup
 
-1. Add files from "ofxNDI" to your Visual Studio project.
+1. Add files from "ofxNDI" to your Visual Studio project. A new project filter such as "ofxNDI" recommended.
 2. Copy .dll's from "ofxNDI/libs/NDI/export/vs/Win32" and "ofxNDI/libs/NDI/export/vs/x64" to the application "bin" folder
 3. In your Visual Studio project properties
-- Add "ofxNDI/src" to additional "C/C++/General/Additional Include Directories"
-- Add "ofxNDI/libs/NDI/include" to  "C/C++/General/Additional Include Directories"
+- Add "../../../addons/ofxNDI/src" to additional "C/C++/General/Additional Include Directories"
+- Add "../../../addons/ofxNDI/libs/NDI/include" to "C/C++/General/Additional Include Directories"
 - Add "#include ofxNDI.h" to your source header file
 
 ## Example sender
