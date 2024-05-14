@@ -162,6 +162,9 @@ public:
 	// Number of senders
 	int GetSenderCount();
 
+	// Return the list of senders
+	std::vector<std::string> GetSenderList();
+
 	// Set NDI low banwidth option
 	void SetLowBandwidth(bool bLow = true);
 

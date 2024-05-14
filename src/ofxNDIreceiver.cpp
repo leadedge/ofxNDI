@@ -67,7 +67,7 @@
 	13.04.24 - Remove SenderSelected()
 			   All ReceiveImage functions check for receiver creation
 			   using OpenReceiver in the ofxNDIreceive class
-
+	14.05.24 - Add GetSenderList()
 
 */
 #include "ofxNDIreceiver.h"
@@ -343,6 +343,12 @@ bool ofxNDIreceiver::GetSenderIndex(char *sendername, int &index)
 int ofxNDIreceiver::GetSenderCount()
 {
 	return NDIreceiver.GetSenderCount();
+}
+
+// Return the list of senders
+std::vector<std::string> ofxNDIreceiver::GetSenderList()
+{
+	return NDIreceiver.GetSenderList();
 }
 
 // Set a sender name to receive from
