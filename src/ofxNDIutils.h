@@ -117,7 +117,7 @@ namespace ofxNDIutils {
 	double EndTiming();
 	void HoldFps(int fps);
 
-	#ifdef WIN32
+#if defined(TARGET_WIN32)
 	// Windows minimum time period
 	void StartTimePeriod();
 	void EndTimePeriod();
@@ -126,7 +126,7 @@ namespace ofxNDIutils {
 	{
 		UINT PeriodMin = 0;
 	}
-	#endif
+#endif
 
 #endif
 

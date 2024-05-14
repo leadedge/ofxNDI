@@ -52,6 +52,7 @@
 	09.06.22 - rgba_bgra unsigned __int32 > uint32_t (https://github.com/leadedge/ofxNDI/issues/34)
 	10.06.22 - rgba_bgra_sse2 remove uint32_t declarations for src and dst
 	12.06.24 - Add HoldFps with timeBeginPeriod/timeEndPeriod for Windows
+	14.05.24 - Corrected #ifdef WIN32 -> #if defined(TARGET_WIN32)
 
 
 */
@@ -539,9 +540,9 @@ namespace ofxNDIutils {
 			return;
 
 		// Reduce Windows timer period to minimum
-		#ifdef TARGET_WIN32
+#if defined(TARGET_WIN32)
 		StartTimePeriod();
-		#endif
+#endif
 
 		// Target frame time
 		const double target = (1000000.0/static_cast<double>(fps))/1000.0; // msec
@@ -561,13 +562,13 @@ namespace ofxNDIutils {
 		FrameStartPtr = std::chrono::steady_clock::now();
 
 		// Reset Windows timer period
-		#ifdef TARGET_WIN32
+#if defined(TARGET_WIN32)
 		EndTimePeriod();
-		#endif
+	#endif
 
 	}
 
-	#ifdef WIN32
+#if defined(TARGET_WIN32)
 	// -----------------------------------------------
 	// Reduce Windows timing period to the minimum
 	// supported by the system (usually 1 msec)
@@ -593,8 +594,8 @@ namespace ofxNDIutils {
 			PeriodMin = 0;
 		}
 	}
-
 #endif
+
 #endif
 
 
