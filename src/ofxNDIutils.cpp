@@ -55,6 +55,7 @@
 	14.05.24 - Corrected #ifdef WIN32 -> #if defined(TARGET_WIN32)
 	15.05.24 - Remove anonymous namespace for UINT PeriodMin
 	15.05.24 - Correct missing #endif for #ifdef USE_CHRONO
+			   Remove extra #endif at file end
 
 
 */
@@ -600,9 +601,6 @@ namespace ofxNDIutils {
 		}
 	}
 #endif
-
-#endif
-
 
 #endif
 
