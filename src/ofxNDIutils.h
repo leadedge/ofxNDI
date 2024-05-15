@@ -121,11 +121,6 @@ namespace ofxNDIutils {
 	// Windows minimum time period
 	void StartTimePeriod();
 	void EndTimePeriod();
-	// Private namespace for global variables
-	namespace
-	{
-		UINT PeriodMin = 0;
-	}
 #endif
 
 #endif

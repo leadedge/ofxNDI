@@ -53,6 +53,7 @@
 	10.06.22 - rgba_bgra_sse2 remove uint32_t declarations for src and dst
 	12.06.24 - Add HoldFps with timeBeginPeriod/timeEndPeriod for Windows
 	14.05.24 - Corrected #ifdef WIN32 -> #if defined(TARGET_WIN32)
+	15.05.24 - Remove anonymous namespace for UINT PeriodMin
 
 
 */
@@ -75,6 +76,7 @@ namespace ofxNDIutils {
 	// For HoldFps
 	std::chrono::steady_clock::time_point FrameStartPtr;
 	std::chrono::steady_clock::time_point FrameEndPtr;
+	UINT PeriodMin = 0;
 #if defined (__APPLE__)
 
 	static inline void *__movsd(void *d, const void *s, size_t n) {
