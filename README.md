@@ -1,43 +1,6 @@
 ﻿# ofxNDI
 An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
 
-## Updates
-
-The Project Generator copies the "rgba2yuv" shaders folder into the application.
-However if the Project Generator is not used, this folder must be copied as below.
-
-	bin
-     data
-        rgba2yuv
-
-Note that for previous applications, the location of the "rgba2yuv" folder should be changed
-from within a containing "shaders" folder to directly in "bin/data". Example binaries are included for testing.
-
---------------------------
-10.12.22 - Updated both Master and Testing branches.\
-ofxNDIsender update\
-rgbg2Yuv shaders located in a "bin\data\rgbg2Yuv" folder instead of\
-"bin\data\shaders\rgbg2Yuv" to avoid conflicts with over-write by Project Generator\
-SetFormat - test existence of required rgba2yuv shader in "data/rgba2yuv" or "data/shaders/rgba2yuv" for existing code\
-UpdateSender - test for sender creation.\
-04.07.22 - Updated Master from testing branch.\
-	  Details of changes are documented in each source file.\
-18.12.20 - Updated master from testing branch NDI SDK Vers 4.5 dynamic load.\
-31.03.18 - Updated for NDI SDK Vers 3. Search source for "Vers 3"\
-(Note changes to function argument variable types to match with Version 3.)\
-06.08.18 - Updated for NDI SDK Vers 3.5 Visual Studio 2017 and Openframeworks 10.\
-10.03.19 - Updated for NDI SDK Vers 3.8\
-10.11.19 - Updated for NDI SDK Vers 4.0\
-15.11.19 - Change to dynamic load of NDI dlls\
-16.11.19 - Reconfigure folders and include make files for the project generator\
-(as per [pull request](https://github.com/leadedge/ofxNDI/pull/11) by prisonerjohn).\
-04.05.20 - Updated for NDI SDK Vers 4.5\
-20.08.21 - Merged testing branch - Updated for NDI SDK Vers 5\
-30.03.24 - Updated for NDI SDK Vers 5.6.1\
-10.04.24 - Updated for NDI SDK Vers 6.0.0.0\
-13.05.24 - Add Windows examples using ofxNDIsend/ofxNDIrecieve independent of Openframeworks.
-Add "ofxNDIreceive::OpenReceiver()" to simplify application receiver code.
-
 ## Openframeworks
 
 ofxNDIsender and ofxNDIreceiver depend on Openframeworks.
@@ -46,11 +9,19 @@ There are options to send and receive using ofFbo, ofTexture, ofPixels as well a
 
 ### Setup
 
-For Windows
-
 ### Project Generator
 
 The OF Project Generator will create your project with correct paths. Make sure "ofxNDI" is selected in the addons section and all headers, and DLLs will be imported in the Visual Studio project.
+
+The Project Generator copies the "rgba2yuv" shaders folder into the application. However if the Project Generator is not used, this folder must be copied as below.
+
+	bin
+     data
+        rgba2yuv
+
+Note that for previous applications, the location of the "rgba2yuv" folder should be changed from within  "bin/data/shaders" to directly within "bin/data".
+
+When the project generation is complete, copy main.cpp, ofApp.cpp and ofApp.h from the required example "src" folder to the project "src" folder. Also copy any files in the example "data" folder to the project.
 
 ### Manual Setup
 
