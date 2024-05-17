@@ -63,8 +63,8 @@ common:
 	# ADDON_LIBS_EXCLUDE =
 	
 	ADDON_DLLS_TO_COPY =
-	ADDON_DLLS_TO_COPY += libs/NDI/export/vs/Processing.NDI.Lib.x64.dll
-	ADDON_DLLS_TO_COPY += libs/NDI/export/vs/Processing.NDI.Lib.x86.dll
+	# ADDON_DLLS_TO_COPY += libs/NDI/bin/vs/Processing.NDI.Lib.x64.dll
+	# ADDON_DLLS_TO_COPY += libs/NDI/bin/vs/Processing.NDI.Lib.x86.dll
 
 	# binary libraries, these will be usually parsed from the file system but some 
 	# libraries need to passed to the linker in a specific order/
@@ -76,6 +76,8 @@ common:
 	# ADDON_LIBS += libs/opencv/lib/linuxarmv6l/libopencv_calib3d.a
 	# ...
 
+osx:
+	ADDON_LDFLAGS = -Xlinker -rpath -Xlinker @executable_path
 linux64:
 linux:
 linuxarmv6l:
