@@ -21,24 +21,22 @@ The Project Generator copies the "rgba2yuv" shaders folder into the application.
 
 Note that for previous applications, the location of the "rgba2yuv" folder should be changed from within  "bin/data/shaders" to directly within "bin/data".
 
-When the project generation is complete, copy main.cpp, ofApp.cpp and ofApp.h from the required example "src" folder to the project "src" folder. Also copy any files in the example "data" folder to the project.
+When the project generation is complete, copy main.cpp, ofApp.cpp and ofApp.h from the required example "src" folder to the project "src" folder. Also copy any files in the example "data" folder to the project. Refer to the example code for options available.
 
 ### Manual Setup
 
 1. Add files from "ofxNDI" to your Visual Studio project. A new project filter such as "ofxNDI" recommended.
-2. Copy .dll's from "ofxNDI/libs/NDI/export/vs/Win32" and "ofxNDI/libs/NDI/export/vs/x64" to the application "bin" folder
+2. Copy .dll's from "ofxNDI/libs/NDI/bin/vs" to the application "bin" folder
 3. In your Visual Studio project properties
 - Add "../../../addons/ofxNDI/src" to additional "C/C++/General/Additional Include Directories"
 - Add "../../../addons/ofxNDI/libs/NDI/include" to "C/C++/General/Additional Include Directories"
 - Add "#include ofxNDI.h" to your source header file
 
-## Example sender
-Copy the images from "ofxNDI/example-sender/bin/data" to the application "bin/data" folder.
+### NDI library files
 
-## Example receiver
-Press 's' for a listing NDI senders. Press '0' to 'x' to select a sender. 
+For Windows, the NDI library files are distributed with this addon in "libs/NDI/bin/vs". They are copied to the application "bin" folder by the Openframeworks Project Generator or by manually as outlined above. The library file version matches that of the NDI header files in "libs/NDI/include" and have been tested. However, you can use the most recent library files. To do so, remove the NDI dll files from the application executable folder. When you open the example application again, you will be prompted to download the runtime installer. You can also download the installer directly from "http://ndi.link/NDIRedistV6". After installation, the example programs will load the installed file version.
 
-Refer to the example code for options available.
+For Mac OSX, Linux and other platforms, the NDI library files are not distributed with this addon and should be installed. You will be prompted for download of the installer when you first run the examples. After installation, the examples will find and use the installed library file.
 
 ## Sub-classes
 ofxNDIsend and ofxNDIreceive classes can be used independently of Openframeworks for pixel buffer send and receive.
