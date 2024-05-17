@@ -6,7 +6,7 @@
 
 	using the NDI SDK to send or receive frames via network
 
-	http://NDI.NewTek.com
+	https://ndi.video/
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 

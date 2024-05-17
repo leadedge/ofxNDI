@@ -4,9 +4,9 @@
 
 	#define BUILDRECEIVER in ofApp.h for conditional build
 
-	using the NewTek NDI SDK to receive or send video frames via network
+	using the NDI SDK to receive or send video frames via network
 
-	http://NDI.NewTek.com
+	https://ndi.video/
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -68,6 +68,7 @@
 			   Rebuild example executables x64/MD
 	14-12-24 - Add #define BUILDRECEIVER in header for conditional build
 	09.05.24 - Update to NDI 6.0.0
+	17.05.24 - Update to NDI 6.0.1.0
 			   Rebuild example sender/receiver x64/MD
 
 
@@ -128,8 +129,6 @@ void ofApp::setup(){
 #else // _WIN64
 	std::cout << "\nofxNDI example sender - 32 bit" << std::endl;
 #endif // _WIN64
-
-	std::cout << ndiSender.GetNDIversion() << " (https://www.ndi.tv/)" << std::endl;
 
 	// Set the dimensions of the sender output here.
 	// This is independent of the display window size.
