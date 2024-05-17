@@ -51,7 +51,14 @@
 				- fix double declare of m_hNDILib
 	29.03.24	- Change headers and dll files to NDI version 5.6.1.0
 	10.04.24	- Change headers and dll files to NDI version 6.0.0.0
-
+	16.05.24	- Add Windows "FindWinRuntime" function with registry read as well as getenv
+				- Add ReadPathFromRegistry
+				- Change from deprecated NDIlib_v4* to NDIlib_v5* p_NDILib
+	17.05.24	- OSX FindRuntime - use a fixed installation path due to missing environment variable
+				- FindWinRuntime - return to _dupenv_s due to compiler warning, with conditional free of data
+				- Search for dll in executable path within FindWinRuntime
+				- Change addon library path from "libs/NDI/export/vs" to "libs/NDI/bin/vs"
+				- Change headers and dll files to NDI version 6.0.1.0
 
 */
 
@@ -81,63 +88,34 @@ ofxNDIdynloader::~ofxNDIdynloader()
 
 
 #if defined(TARGET_WIN32)
-const NDIlib_v4* ofxNDIdynloader::Load()
+const NDIlib_v5* ofxNDIdynloader::Load()
 {
 	// Guard against reloading
 	if (p_NDILib)
 		return p_NDILib;
 
-	// First look in the executable folder for the dlls
-	// in case they are distributed with the application.
+	// Look for the NDI dll in the executable folder
+	// or in the runtime installation folder.
 	std::string ndi_path;
-	std::string str_path;
-	char path[MAX_PATH]{};
-	DWORD dwSize = GetModuleFileNameA(NULL, path, sizeof(path));
-	if (dwSize == 0) {
-		MessageBoxA(NULL, "ofxNDIdynloader::Load - could not get executable path", "Warning", MB_OK);
-		return p_NDILib;
-	}
-
-	// Replace the executable name with NDI library name
-	str_path = path;
-	size_t pos = str_path.rfind("\\");
-	str_path = str_path.substr(0, pos + 1);
-	str_path += NDILIB_LIBRARY_NAME;
-	// Does the file exist in the executable folder ?
-	if (_access(str_path.c_str(), 0) != -1) {
-		// Use the exe path
-		ndi_path = str_path;
-	}
-	else {
-		// The dll does not exist in exe folder
-		// Check whether the NDI run-time is installed
-		char* p_ndi_runtime_v4 = nullptr;
-#if defined(_MSC_VER)
-		_dupenv_s((char**)&p_ndi_runtime_v4, NULL, NDILIB_REDIST_FOLDER);
-#else
-		p_ndi_runtime_v4 = getenv("NDILIB_REDIST_FOLDER");
-#endif
-		if (!p_ndi_runtime_v4) {
-			// The NDI run-time is not installed.
-			// Let the user know and take them to the download URL.
-			str_path = "The NDI run-time is not installed\n";
-			str_path += "Install from : ";
-			str_path += NDILIB_REDIST_URL;
-			str_path += "\nDo you want to install it now?";
-			if (MessageBoxA(NULL, str_path.c_str(), "Warning", MB_YESNO) == IDYES) {
-				ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
-			}
-			return nullptr;
+	if (!FindWinRuntime(ndi_path)) {
+		// Not installed - invite the user to install it
+		ndi_path = "The NDI run-time is not installed\n";
+		ndi_path += "Download from : ";
+		ndi_path += NDILIB_REDIST_URL;
+		ndi_path += "\nDo you want to download it now?";
+		if (MessageBoxA(NULL, ndi_path.c_str(), "Warning", MB_YESNO) == IDYES) {
+			ndi_path = "After download, run the installer,\n";
+			ndi_path += "close and restart this program.";
+			MessageBoxA(NULL, ndi_path.c_str(), "Information", MB_OK);
+			ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
 		}
-
-		// Get the full path of the installed dll
-		ndi_path = p_ndi_runtime_v4;
-		ndi_path += "\\";
-		ndi_path += NDILIB_LIBRARY_NAME;
-		free(p_ndi_runtime_v4); // free the buffer allocated by _dupenv_s
+		// Return to try again
+		return nullptr;
 	}
 
-	// Now we have the DLL path, try to load the library
+	// The dll path has now been found either in the
+	// executable folder or in the runtime installation folder.
+	// Try to load the library from the file path.
 	m_hNDILib = LoadLibraryA(ndi_path.c_str());
 	if (!m_hNDILib) {
 		MessageBoxA(NULL, "Could not load NDI library", "Warning", MB_OK);
@@ -145,9 +123,9 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 	}
 
 	// The main NDI entry point for dynamic loading if we got the library
-	const NDIlib_v4* (*NDIlib_v4_load)(void) = nullptr;
-	*((FARPROC*)&NDIlib_v4_load) = GetProcAddress(m_hNDILib, "NDIlib_v4_load");
-	if (!NDIlib_v4_load) {	
+	const NDIlib_v5* (*NDIlib_v5_load)(void) = nullptr;
+	*((FARPROC*)&NDIlib_v5_load) = GetProcAddress(m_hNDILib, "NDIlib_v5_load");
+	if (!NDIlib_v5_load) {
 		MessageBoxA(NULL, "Could not find NDI library address", "Warning", MB_OK);
 		if (m_hNDILib) FreeLibrary(m_hNDILib);
 		m_hNDILib = NULL;
@@ -155,7 +133,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 	}
 
 	// Get all of the DLL entry points
-	p_NDILib = NDIlib_v4_load();
+	p_NDILib = NDIlib_v5_load();
 	if (!p_NDILib) {
 		MessageBoxA(NULL, "Could not get NDI library functions", "Warning", MB_OK);
 		if (m_hNDILib) FreeLibrary(m_hNDILib);
@@ -171,6 +149,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 		return nullptr;
 	}
 	else {
+		// Initialize the library
 		if (!p_NDILib->initialize()) {
 			MessageBoxA(NULL, "Could not run NDI - NDILib initialization failed", "Warning", MB_OK);
 			if (m_hNDILib) FreeLibrary(m_hNDILib);
@@ -178,13 +157,115 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 			return nullptr;
 		}
 	}
+	
+	std::cout << "\nLoaded NDI library - " << ndi_path.c_str() << std::endl;
+	std::cout << p_NDILib->version() << " (https://ndi.video/)" << std::endl;
 
 	return p_NDILib;
 
 }
+
+//
+// Library file finder - Windows version
+//
+// Tests for an environment variable set by the NDI runtime installation.
+// Note that if the runtime has been installed, the environment variable
+// cannnot be accessed with out a machine re-boot. However, there is also
+// a registry key that can be queried to find the file location.
+//
+bool ofxNDIdynloader::FindWinRuntime(std::string &runtime)
+{
+	std::string rt;
+
+	// First look in the executable folder for the dll
+	// in case it is distributed with the application.
+	// A file name without full path is in the executable folder
+	rt = NDILIB_LIBRARY_NAME;
+	if (_access(rt.c_str(), 0) != -1) {
+		runtime = rt;
+		return true;
+	}
+
+	// Look for an NDI runtime installation with the
+	// environment variable NDILIB_REDIST_FOLDER
+	// "C:\Program Files\NDI\NDI 6 Runtime\v6"
+	char* p_NDI_runtime_folder = nullptr;
+#if defined(_MSC_VER)
+	_dupenv_s((char**)&p_NDI_runtime_folder, NULL, NDILIB_REDIST_FOLDER);
+#else
+	p_ndi_runtime = getenv("NDILIB_REDIST_FOLDER");
+#endif
+	if (p_NDI_runtime_folder) {
+		// Full path to the dll
+		rt = p_NDI_runtime_folder;
+		rt += "\\";
+		rt += NDILIB_LIBRARY_NAME;
+#if defined(_MSC_VER)
+		free(p_NDI_runtime_folder); // free the buffer allocated by _dupenv_s
+#endif
+		// Does the file exist?
+		if (_access(rt.c_str(), 0) != -1) {
+			runtime = rt;
+			return true;
+		}
+	}
+
+	// Environment variable Not found.
+	// Look for a registry key in case the system has not been re-started yet.
+	// HLKM/System/CurrentControlSet/Control/Session Manager/Environment/NDI_RUNTIME_DIR_V6
+	char path[MAX_PATH]{};
+	if (ReadPathFromRegistry(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", "NDI_RUNTIME_DIR_V6", path)) {
+		rt = path;
+		rt += "\\";
+		rt += NDILIB_LIBRARY_NAME;
+		// Does the file exist?
+		if (_access(rt.c_str(), 0) != -1) {
+			runtime = rt;
+			return true;
+		}
+	}
+
+	// No runtime environment variable
+	return false;
+}
+
+// Function: ReadPathFromRegistry
+// Read subkey character string
+bool ofxNDIdynloader::ReadPathFromRegistry(HKEY hKey, const char* subkey, const char* valuename, char* filepath, DWORD dwSize)
+{
+	if (!subkey || !*subkey || !valuename || !*valuename || !filepath)
+		return false;
+
+	HKEY  hRegKey = NULL;
+	LONG  regres = 0;
+	DWORD dwKey = 0;
+	DWORD dwSizePath = dwSize;
+
+	// Does the key exist
+	regres = RegOpenKeyExA(hKey, subkey, NULL, KEY_READ, &hRegKey);
+	if (regres == ERROR_SUCCESS) {
+		// Read the key Filepath value
+		regres = RegQueryValueExA(hRegKey, valuename, NULL, &dwKey, (BYTE*)filepath, &dwSizePath);
+		RegCloseKey(hRegKey);
+		if (regres == ERROR_SUCCESS) {
+			return true;
+		}
+		if (regres == ERROR_MORE_DATA) {
+			printf("ReadPathFromRegistry -  buffer size (%d) not large enough (%d)\n", dwSize, dwSizePath);
+		}
+		else {
+			printf("ReadPathFromRegistry - could not read [%s] from registry\n", valuename);
+		}
+	}
+
+	// Quit if the key does not exist
+	return false;
+
+}
+
 #elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 // OSX and LINUX
-const NDIlib_v4* ofxNDIdynloader::Load()
+const NDIlib_v5* ofxNDIdynloader::Load()
 {
  
 	// Guard against reloading
@@ -203,7 +284,7 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 
     // binding dynamic library
     // see this for reference: https://raw.githubusercontent.com/Palakis/obs-ndi/master/src/obs-ndi.cpp
-    NDIlib_v4_load_ lib_load = reinterpret_cast<NDIlib_v4_load_>(dlsym(m_hNDILib, "NDIlib_v4_load"));
+    NDIlib_v5_load_ lib_load = reinterpret_cast<NDIlib_v5_load_>(dlsym(m_hNDILib, "NDIlib_v5_load"));
 
     // if lib is loaded but couldn't bind, user probably needs to reinstall
     if (!lib_load)
@@ -223,21 +304,23 @@ const NDIlib_v4* ofxNDIdynloader::Load()
 }
 
 const std::string ofxNDIdynloader::FindRuntime() {
+
 	std::string rt;
 
-	const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
+	// Use a fixed path instead of getenv(NDILIB_REDIST_FOLDER)
+	// due to missing environment variable after runtime installation.
+	// If the runtime folder is not found, return the library file name.
+	const char* p_NDI_runtime_folder = "/usr/local/lib/libndi.dylib";
 	if (p_NDI_runtime_folder)
-	{
 		rt = p_NDI_runtime_folder;
-		rt += NDILIB_LIBRARY_NAME;
-	}
-	else rt = NDILIB_LIBRARY_NAME;
+	else
+		rt = NDILIB_LIBRARY_NAME;
 
 	return rt;
 }
 
 #else
-const NDIlib_v4* ofxNDIdynloader::Load()
+const NDIlib_v5* ofxNDIdynloader::Load()
 {
     return p_NDILib;
 }
