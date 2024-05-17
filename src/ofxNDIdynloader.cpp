@@ -4,7 +4,7 @@
 	
 	Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files
 
-	http://NDI.NewTek.com
+	https://ndi.video/
 
 	Copyright (C) 2019-2024
 
@@ -59,6 +59,7 @@
 				- Search for dll in executable path within FindWinRuntime
 				- Change addon library path from "libs/NDI/export/vs" to "libs/NDI/bin/vs"
 				- Change headers and dll files to NDI version 6.0.1.0
+	17.05.24	- Return to using GetModuleFileName to get a full path to the dll
 
 */
 
@@ -94,8 +95,7 @@ const NDIlib_v5* ofxNDIdynloader::Load()
 	if (p_NDILib)
 		return p_NDILib;
 
-	// Look for the NDI dll in the executable folder
-	// or in the runtime installation folder.
+	// Look for the NDI dll
 	std::string ndi_path;
 	if (!FindWinRuntime(ndi_path)) {
 		// Not installed - invite the user to install it
@@ -179,11 +179,20 @@ bool ofxNDIdynloader::FindWinRuntime(std::string &runtime)
 
 	// First look in the executable folder for the dll
 	// in case it is distributed with the application.
-	// A file name without full path is in the executable folder
-	rt = NDILIB_LIBRARY_NAME;
-	if (_access(rt.c_str(), 0) != -1) {
-		runtime = rt;
-		return true;
+	// A file name without full path can be used if the application 
+	// is run directly from the executable folder, but not when run
+	// from within Visual Studio, so create a full path here.
+	char path[MAX_PATH]{};
+	DWORD dwSize = GetModuleFileNameA(NULL, path, sizeof(path));
+	if (dwSize > 0) {
+		// Replace the executable name with NDI library name
+		rt = path;
+		rt = rt.substr(0, rt.rfind("\\") + 1);
+		rt += NDILIB_LIBRARY_NAME;
+		if (_access(rt.c_str(), 0) != -1) {
+			runtime = rt;
+			return true;
+		}
 	}
 
 	// Look for an NDI runtime installation with the
@@ -213,7 +222,6 @@ bool ofxNDIdynloader::FindWinRuntime(std::string &runtime)
 	// Environment variable Not found.
 	// Look for a registry key in case the system has not been re-started yet.
 	// HLKM/System/CurrentControlSet/Control/Session Manager/Environment/NDI_RUNTIME_DIR_V6
-	char path[MAX_PATH]{};
 	if (ReadPathFromRegistry(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", "NDI_RUNTIME_DIR_V6", path)) {
 		rt = path;
 		rt += "\\";
