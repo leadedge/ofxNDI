@@ -5,7 +5,7 @@ An Openframeworks addon to allow sending and receiving images over a network usi
 
 ofxNDIsender and ofxNDIreceiver depend on Openframeworks.
 
-There are options to send and receive using ofFbo, ofTexture, ofPixels as well as an unsigned char pixel buffer. If receiving to ofFbo, ofTexture of ofPixels, it is not necessary to manage sender size change from the application. Nor is it necessary to handle receiver creation. Simply use the receive functions alone. For best efficiency, the sender class includes pbo pixel buffer readback, activated by SetReadback(). Refer to the header files for details. Examples have been updated to include all the options available. For a simple, practical example, refer to the webcam sender. The examples assume Openframeworks 10 and are not compatible with previous versions.
+There are options to send and receive using ofFbo, ofTexture, ofPixels as well as an unsigned char pixel buffer. If receiving to ofFbo, ofTexture of ofPixels, it is not necessary to manage sender size change from the application. Nor is it necessary to handle receiver creation. Simply use the receive functions alone. For best efficiency, the sender class includes pbo pixel buffer readback, activated by SetReadback(). Refer to the header files for details. Examples have been updated to include all the options available. For a simple, practical example, refer to the webcam sender. The examples assume Openframeworks version > 10. Pre-built binaries are included with the latest release.
 
 ### Setup
 
@@ -36,7 +36,7 @@ When the project generation is complete, copy main.cpp, ofApp.cpp and ofApp.h fr
 
 For Windows, the NDI library files are distributed with this addon in "libs/NDI/bin/vs". They are copied to the application "bin" folder by the Openframeworks Project Generator or by manually as outlined above. The library file version matches that of the NDI header files in "libs/NDI/include" and they have been tested. However, you can use the most recent library files. To do so, remove the NDI dll files from the application executable folder. When you open the example application again, you will be prompted to download the runtime installer. You can also download the installer directly from "http://ndi.link/NDIRedistV6". After installation, the example programs will load the installed file version.
 
-For Mac OSX, Linux and other platforms, the NDI library files are not distributed with this addon and should be installed. After installation, the examples will find and use the installed library file.
+For Mac OSX, Linux and other platforms, the NDI library files are not distributed with this addon and should be installed. After installation, the examples will find and use the installed library file. If there is any problem locating the NDI release library file, copy it to the application executable folder.
 
 ## Sub-classes
 ofxNDIsend and ofxNDIreceive classes can be used independently of Openframeworks for pixel buffer send and receive.
@@ -45,7 +45,6 @@ ofxNDIReceive manages receiver creation and sender name and size change. The rec
 
 The Visual Studio solutions "WinSenderNDI.sln" and "WinReceiverNDI.sln" can be opened and built using the addon folder structure.\
 After build, copy "Processing.NDI.Lib.x64.dll" from "ofxNDI/libs/NDI/export/vs/x64" to the x64\Release or x64\debug folder.\
-Pre-built binaries are included in "example-binaries".
 
 ### Setup
 
