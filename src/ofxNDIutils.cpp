@@ -56,7 +56,7 @@
 	15.05.24 - Remove anonymous namespace for UINT PeriodMin
 	15.05.24 - Correct missing #endif for #ifdef USE_CHRONO
 			   Remove extra #endif at file end
-
+	19.05.24 - Add GetVersion() - return addon version number string
 
 */
 #include "ofxNDIutils.h"
@@ -70,6 +70,10 @@
 #define ROR( val, steps ) ( ( val >> Shift( val, steps ) ) | ( val << ( BitsCount( val )
 
 namespace ofxNDIutils {
+
+	// ofxNDI version number string
+	// Major, minor, release
+	std::string ofxNDIversion = "2.000.001";
 
 #ifdef USE_CHRONO
 	// Timing counters
@@ -243,7 +247,8 @@ namespace ofxNDIutils {
 
 		}
 	} // end rgba_bgra_sse2
-#endif
+
+#endif // endif TARGET_WIN32 || TARGET_OSX
 
 	// Without SSE
 	void rgba_bgra(const void *rgba_source, void *bgra_dest,
@@ -361,6 +366,14 @@ namespace ofxNDIutils {
 
 		return true;
 	}
+
+	// ofxNDI version number string
+	// Major, minor, release
+	std::string GetVersion()
+	{
+		return ofxNDIversion;
+	}
+
 
 	// Copy rgba source image to dest.
 	// Images must be the same size with no line padding.
@@ -570,7 +583,7 @@ namespace ofxNDIutils {
 		// Reset Windows timer period
 #if defined(TARGET_WIN32)
 		EndTimePeriod();
-	#endif
+#endif
 
 	}
 

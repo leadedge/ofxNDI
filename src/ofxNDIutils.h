@@ -76,6 +76,9 @@
 
 namespace ofxNDIutils {
 
+	// ofxNDI version number
+	std::string GetVersion();
+
 	// Copy rgba source image to dest.
 	// Images must be the same size with no line padding.
 	// Option flip image vertically (invert).
@@ -105,18 +108,19 @@ namespace ofxNDIutils {
 	void memcpy_movsd(void* dst, const void* src, size_t Size);
 	void rgba_bgra_sse2(const void *source, void *dest, unsigned int width, unsigned int height, bool bInvert = false);
 #endif
+
 	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert = false);
 	void FlipBuffer(const unsigned char *src, unsigned char *dst, unsigned int width, unsigned int height);
 	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride);
 
 #ifdef USE_CHRONO
+
 	// Start timing period
 	void StartTiming();
 	// Stop timing and return microseconds elapsed.
 	// Code console output can be enabled for quick timing tests.
 	double EndTiming();
 	void HoldFps(int fps);
-
 #if defined(TARGET_WIN32)
 	// Windows minimum time period
 	void StartTimePeriod();
