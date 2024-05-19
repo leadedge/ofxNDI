@@ -34,9 +34,9 @@ When the project generation is complete, copy main.cpp, ofApp.cpp and ofApp.h fr
 
 ### NDI library files
 
-For Windows, the NDI library files are distributed with this addon in "libs/NDI/bin/vs". They are copied to the application "bin" folder by the Openframeworks Project Generator or by manually as outlined above. The library file version matches that of the NDI header files in "libs/NDI/include" and have been tested. However, you can use the most recent library files. To do so, remove the NDI dll files from the application executable folder. When you open the example application again, you will be prompted to download the runtime installer. You can also download the installer directly from "http://ndi.link/NDIRedistV6". After installation, the example programs will load the installed file version.
+For Windows, the NDI library files are distributed with this addon in "libs/NDI/bin/vs". They are copied to the application "bin" folder by the Openframeworks Project Generator or by manually as outlined above. The library file version matches that of the NDI header files in "libs/NDI/include" and they have been tested. However, you can use the most recent library files. To do so, remove the NDI dll files from the application executable folder. When you open the example application again, you will be prompted to download the runtime installer. You can also download the installer directly from "http://ndi.link/NDIRedistV6". After installation, the example programs will load the installed file version.
 
-For Mac OSX, Linux and other platforms, the NDI library files are not distributed with this addon and should be installed. You will be prompted for download of the installer when you first run the examples. After installation, the examples will find and use the installed library file.
+For Mac OSX, Linux and other platforms, the NDI library files are not distributed with this addon and should be installed. After installation, the examples will find and use the installed library file.
 
 ## Sub-classes
 ofxNDIsend and ofxNDIreceive classes can be used independently of Openframeworks for pixel buffer send and receive.
