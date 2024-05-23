@@ -3,7 +3,7 @@
 
 	using the NDI SDK to receive frames from the network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -68,6 +68,10 @@
 			   All ReceiveImage functions check for receiver creation
 			   using OpenReceiver in the ofxNDIreceive class
 	14.05.24 - Add GetSenderList()
+	19.05.24 - Add LoadTexturePixels for more efficient asynchronous texture update
+			   Add OpenReceiver() wth pbo create
+	20.05.24 - Add SetUpload/GetUpload/m_bUpload
+			   Add GLformat argument to LoadTexturePixels
 
 */
 #include "ofxNDIreceiver.h"
@@ -82,6 +86,20 @@ ofxNDIreceiver::~ofxNDIreceiver()
 	
 }
 
+// Create receiver if not initialized or a new sender has been selected
+bool ofxNDIreceiver::OpenReceiver()
+{
+	if (NDIreceiver.OpenReceiver()) {
+		// Initialize pbos for asynchronous pixel load
+		if (!m_pbo[0]) {
+			glGenBuffers(2, m_pbo);
+			PboIndex = NextPboIndex = 0;
+		}
+		return true;
+	}
+	return false;
+}
+
 // Create a receiver
 bool ofxNDIreceiver::CreateReceiver(int userindex)
 {
@@ -92,7 +110,6 @@ bool ofxNDIreceiver::CreateReceiver(int userindex)
 bool ofxNDIreceiver::CreateReceiver(NDIlib_recv_color_format_e color_format, int userindex)
 {
 	return NDIreceiver.CreateReceiver(color_format, userindex);
-
 }
 
 // Return whether the receiver has been created
@@ -131,7 +148,7 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
 
 	// Receive a pixel image first
@@ -162,9 +179,8 @@ bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
-
 
 	// Receive a pixel image first
 	unsigned int width = (unsigned int)fbo.getWidth();
@@ -190,7 +206,7 @@ bool ofxNDIreceiver::ReceiveImage(ofImage &image)
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
 
 	// Receive a pixel image first
@@ -217,7 +233,7 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
 
 	unsigned int width = (unsigned int)buffer.getWidth();
@@ -276,7 +292,7 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 
 }
 
-// Receive image pixels to a char buffer
+// Receive image pixels to aun unsigned char buffer
 // Retained for compatibility with previous version of ofxNDI
 // Return sender width and height
 // Test width and height for change with true return
@@ -291,7 +307,7 @@ bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels,
 		return false;
 
 	// Check for receiver creation
-	if (!NDIreceiver.OpenReceiver())
+	if (!OpenReceiver())
 		return false;
 
 	return NDIreceiver.ReceiveImage(pixels, width, height, bInvert);
@@ -400,19 +416,6 @@ float ofxNDIreceiver::GetSenderFps()
 	return NDIreceiver.GetSenderFps();
 }
 
-
-//
-// Bandwidth
-//
-// NDIlib_recv_bandwidth_lowest will provide a medium quality stream that takes almost no bandwidth,
-// this is normally of about 640 pixels in size on it is longest side and is a progressive video stream.
-// NDIlib_recv_bandwidth_highest will result in the same stream that is being sent from the up-stream source
-//
-void ofxNDIreceiver::SetLowBandwidth(bool bLow)
-{
-	NDIreceiver.SetLowBandwidth(bLow);
-}
-
 // Return the received frame type.
 // Note that "allow_video_fields" is currently set false when
 // the receiver is created, so all video received will be progressive
@@ -444,6 +447,33 @@ int64_t ofxNDIreceiver::GetVideoTimestamp()
 int64_t ofxNDIreceiver::GetVideoTimecode()
 {
 	return NDIreceiver.GetVideoTimecode();
+}
+
+//
+// Bandwidth
+//
+// true
+// NDIlib_recv_bandwidth_lowest will provide a medium quality stream that takes almost no bandwidth,
+// this is normally of about 640 pixels in size on it is longest side and is a progressive video stream.
+// false (default)
+// NDIlib_recv_bandwidth_highest will result in the same stream that is being sent from the up-stream source
+//
+void ofxNDIreceiver::SetLowBandwidth(bool bLow)
+{
+	NDIreceiver.SetLowBandwidth(bLow);
+}
+
+// Set asynchronous upload of pixels to texture
+// Default false
+void ofxNDIreceiver::SetUpload(bool bUpload)
+{
+	m_bUpload = bUpload;
+}
+
+// Get current upload mode
+bool ofxNDIreceiver::GetUpload()
+{
+	return m_bUpload;
 }
 
 // Set to receive Audio
@@ -489,8 +519,6 @@ void ofxNDIreceiver::GetAudioData(float*& output, int& samplerate, int& samples,
 	NDIreceiver.GetAudioData(output, samplerate, samples, nChannels);
 }
 
-
-
 // Return the NDI dll version number
 std::string ofxNDIreceiver::GetNDIversion()
 {
@@ -534,12 +562,18 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 			break;
 		case NDIlib_FourCC_type_RGBX: // RGBX
 		case NDIlib_FourCC_type_RGBA: // RGBA
-			texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_RGBA);
+			if (m_bUpload)
+				LoadTexturePixels(texture.getTextureData().textureID, texture.getTextureData().textureTarget, (unsigned int)texture.getWidth(), (unsigned int)texture.getHeight(), (unsigned char*)videoData, GL_RGBA);
+			else
+				texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_RGBA);
 			break;
 		case NDIlib_FourCC_type_BGRX: // BGRX
 		case NDIlib_FourCC_type_BGRA: // BGRA
 		default: // BGRA
-			texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_BGRA);
+			if(m_bUpload)
+				LoadTexturePixels(texture.getTextureData().textureID, texture.getTextureData().textureTarget, (unsigned int)texture.getWidth(),	(unsigned int)texture.getHeight(),	(unsigned char*)videoData, GL_BGRA);
+			else
+				texture.loadData((const unsigned char*)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_BGRA);
 			break;
 	} // end switch received format
 
@@ -549,3 +583,49 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 	return true;
 
 }
+
+// Streaming texture pixel load
+// From : http://www.songho.ca/opengl/gl_pbo.html
+// Approximately 20% faster than using glTexSubImage2D alone
+// GLformat can be default GL_BGRA or GL_RGBA
+bool ofxNDIreceiver::LoadTexturePixels(GLuint TextureID, GLuint TextureTarget,
+	unsigned int width, unsigned int height, unsigned char* data, int GLformat)
+{
+	void* pboMemory = NULL;
+
+	PboIndex = (PboIndex + 1) % 2;
+	NextPboIndex = (PboIndex + 1) % 2;
+
+	// Bind the texture and PBO
+	glBindTexture(TextureTarget, TextureID);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pbo[PboIndex]);
+
+	// Copy pixels from PBO to the texture - use offset instead of pointer.
+	glTexSubImage2D(TextureTarget, 0, 0, 0, width, height, GLformat, GL_UNSIGNED_BYTE, 0);
+
+	// Bind PBO to update the texture
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pbo[NextPboIndex]);
+
+	// Call glBufferData() with a NULL pointer to clear the PBO data and avoid a stall.
+	glBufferData(GL_PIXEL_UNPACK_BUFFER, width*height*4, 0, GL_STREAM_DRAW);
+
+	// Map the buffer object into client's memory
+	pboMemory = (void*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+	if (pboMemory) {
+		// Update data directly on the mapped buffer
+		// Use sse2 if the width is divisible by 16
+		ofxNDIutils::CopyImage(data, (unsigned char*)pboMemory, width, height);
+		glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER); // release the mapped buffer
+	}
+	else {
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+		return false;
+	}
+
+	// Release PBOs
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+	return true;
+
+}
+
