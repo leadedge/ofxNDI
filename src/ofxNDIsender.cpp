@@ -3,7 +3,7 @@
 
 	using the NDI SDK to send the frames via network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -80,6 +80,8 @@
 	15.12.23 - ReadYUVpixels use ofFilePath::getCurrentExeDir() instead of GetCurrentModule
 	16.12.23 - Remove "shaders/rgba2yuv/" folder option
 			 - Revise SetFormat to find the shader folder and test existence
+	23.05.24 - SendImage ofTexture - RGBA only
+
 
 */
 #include "ofxNDIsender.h"
@@ -247,8 +249,10 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
 		return false;
 
-	// Quit if the texture is not RGBA or RGBA8
-	if (!(tex.getTextureData().glInternalFormat != GL_RGBA || tex.getTextureData().glInternalFormat != GL_RGBA8))
+	// Quit if the texture is not RGBA, RGBA8 or BGRA
+	if (!(tex.getTextureData().glInternalFormat != GL_RGBA 
+		|| tex.getTextureData().glInternalFormat != GL_RGBA8
+		|| tex.getTextureData().glInternalFormat != GL_BGRA))
 		return false;
 
 	ofDisableDepthTest(); // In case this was enabled, or textures do not show
