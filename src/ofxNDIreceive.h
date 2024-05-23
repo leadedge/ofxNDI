@@ -3,7 +3,7 @@
 
 	using the NDI SDK to receive frames from the network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -264,7 +264,7 @@ public:
 	int GetAudioSampleRate();
 
 	// Get audio frame data pointer
-	float * GetAudioData();
+	float* GetAudioData();
 
 	// Return audio frame data
 	void GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels);
@@ -315,8 +315,9 @@ private:
 	double startTime, lastTime;
 	void StartCounter();
 	double GetCounter();
-	double frameRate, fps;
-	double frameTimeTotal, frameTimeNumber, lastFrame;
+	double m_fps;
+	double m_frameTimeTotal;
+	double m_frameTimeNumber;
 	void UpdateFps();
 
 	// Metadata
@@ -330,7 +331,7 @@ private:
 	// Audio frame received
 	bool m_bAudio;
 	bool m_bAudioFrame;
-	float * m_AudioData;
+	float* m_AudioData;
 	int m_nAudioSampleRate;
 	int m_nAudioSamples;
 	int m_nAudioChannels;

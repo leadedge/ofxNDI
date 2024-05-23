@@ -4,7 +4,7 @@
 	
 	Dynamic loading of the NDI dlls to avoid needing to use the NDI SDK lib files
 
-	https://ndi.video/
+	https://ndi.video
 
 	Copyright (C) 2019-2024
 

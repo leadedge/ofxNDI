@@ -4,7 +4,7 @@
 
 	using the NDI SDK to send the frames via network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -395,7 +395,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 
 		if (m_bAsync) {
 			// Submit the frame asynchronously. This means that this call will return 
-			// immediately and the  API will "own" the memory location until there is
+			// immediately and the API will "own" the memory location until there is
 			// a synchronizing event. A synchronizing event is one of : 
 			//  - NDIlib_send_send_video_async
 			//  - NDIlib_send_send_video, NDIlib_send_destroy.
