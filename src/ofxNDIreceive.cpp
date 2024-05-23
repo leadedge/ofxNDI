@@ -3,7 +3,7 @@
 
 	using the NDI SDK to receive frames from the network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -151,6 +151,8 @@
 			   FindSenders :
 			      Use "sendercount" instead of "nsenders" to avoid conflict
 			      Update "m_Senders"
+	15.05.24 - ReceiveImage - add specific cases for unsupported formats to avoid warning
+	20.05.24 - UpdateFps - change from damping to the average fps over 200 frames
 
 */
 
@@ -229,10 +231,9 @@ ofxNDIreceive::ofxNDIreceive()
 
 	// For received frame fps calculations
 	startTime = lastTime = (double)timeGetTime();
-	fps = frameRate = 1.0; // starting values
-	frameTimeTotal = 0.0; // damping
-	frameTimeNumber = 0.0;
-	lastFrame = 0.0;
+	m_fps = 30.0; // starting value
+	m_frameTimeTotal = 0.0; // averaging
+	m_frameTimeNumber = 0.0;
 
 	// NDI documentation :
 	// For most uses you should specify NDIlib_recv_bandwidth_highest, which will
@@ -353,7 +354,7 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 				// Reset the current sender index
 				if (NDIsenders.size() > 0) {
 					m_senderIndex = 0;
-					for (int i = 0; i < (int)NDIsenders.size(); i++) {
+					for (unsigned int i = 0; i < (int)NDIsenders.size(); i++) {
 						if (m_senderName == NDIsenders.at(i))
 							m_senderIndex = i;
 					}
@@ -1063,6 +1064,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 							// and the conversion functions never used.
 							// NDIlib_FourCC_type_UYVA not supported
 							case NDIlib_FourCC_type_UYVY: // YCbCr color space
+							case NDIlib_FourCC_type_UYVA: // With alpha (not used)
 								// Not recommended - CPU conversion
 								ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
 								break;
@@ -1081,8 +1083,12 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 								ofxNDIutils::CopyImage((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes, true, bInvert);
 								break;
 							
+							// Unsupported formats
+							case NDIlib_FourCC_type_NV12:
+							case NDIlib_FourCC_type_I420:
+							case NDIlib_FourCC_type_YV12:
+							case NDIlib_frame_type_max:
 							default:
-								// Unsupported format
 								break;
 
 						} // end switch received format
@@ -1111,6 +1117,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 				} // end video frame type
 				break;
 
+			case NDIlib_frame_type_max:	// Not used
 			default :
 				break;
 
@@ -1267,6 +1274,10 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 				}
 				break; // endif NDIlib_frame_type_video
 
+			case NDIlib_frame_type_max:
+				// Not used
+				break;
+
 			default:
 				break;
 
@@ -1289,13 +1300,13 @@ NDIlib_FourCC_video_type_e ofxNDIreceive::GetVideoType()
 // Video frame line stride in bytes
 unsigned int ofxNDIreceive::GetVideoStride()
 {
-	return video_frame.data_size_in_bytes;
+	return (unsigned int)video_frame.data_size_in_bytes;
 }
 
 // Get a pointer to the current video frame data
 unsigned char *ofxNDIreceive::GetVideoData()
 {
-	return video_frame.p_data;
+	return (unsigned char *)video_frame.p_data;
 }
 
 // Free NDI video frame buffers
@@ -1339,7 +1350,10 @@ std::string ofxNDIreceive::GetNDIversion()
 // Get the received frame rate
 int ofxNDIreceive::GetFps()
 {
-	return static_cast<int>(floor(fps + 0.5));
+	return static_cast<int>(floor(m_fps + 0.5));
+	// LJ DEBUG
+	// return static_cast<int>(round(m_fps));
+	// return static_cast<int>(round(m_fps));
 }
 
 //
@@ -1373,16 +1387,19 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 
 // Received fps is independent of the application draw rate
 void ofxNDIreceive::UpdateFps() {
-	// Calculate the actual received fps
+	// Calculate the actual received fps over 200 frames
 	lastTime = startTime;
 	startTime = GetCounter(); // msec
 	double frametime = (startTime - lastTime); // msec
-
 	if (frametime  > 0.000001) {
 		frametime = frametime / 1000.0; // seconds
-		frameRate = 1.0 / frametime; // frames per second
-		fps *= 0.95; // damping from a starting fps value
-		fps += 0.05*frameRate;
+		m_frameTimeTotal += frametime;
+		m_frameTimeNumber += 1.0;
+		m_fps = 1.0/(m_frameTimeTotal/m_frameTimeNumber); // average fps
+		if(m_frameTimeNumber > 200.0) {
+			m_frameTimeTotal = 0.0;
+			m_frameTimeNumber = 0.0;
+		}
 	}
 }
 
@@ -1397,7 +1414,7 @@ void ofxNDIreceive::StartCounter()
 	QueryPerformanceCounter(&li);
 	CounterStart = li.QuadPart;
 	// Reset starting frame rate value
-	fps = frameRate = 1.0;
+	m_fps = 30.0;
 }
 
 double ofxNDIreceive::GetCounter()
