@@ -3,7 +3,7 @@
 
 	using the NDI SDK to receive frames from the network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -73,7 +73,7 @@ namespace ofxNDIutils {
 
 	// ofxNDI version number string
 	// Major, minor, release
-	std::string ofxNDIversion = "2.000.001";
+	std::string ofxNDIversion = "2.000.002";
 
 #ifdef USE_CHRONO
 	// Timing counters

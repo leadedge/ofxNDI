@@ -3,7 +3,7 @@
 
 	using the NDI SDK to receive frames from the network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
