@@ -72,6 +72,9 @@
 			   Add OpenReceiver() wth pbo create
 	20.05.24 - Add SetUpload/GetUpload/m_bUpload
 			   Add GLformat argument to LoadTexturePixels
+	28.05.24 - ReceiveImage(ofTexture &texture) Check for changed sender dimensions
+			   GetPixelData - test RGBA for upload flag as well as BGRA
+
 
 */
 #include "ofxNDIreceiver.h"
@@ -148,22 +151,21 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 		return false;
 
 	// Check for receiver creation
-	if (!OpenReceiver())
+	if (!OpenReceiver()) {
 		return false;
+	}
 
 	// Receive a pixel image first
 	unsigned int width = (unsigned int)texture.getWidth();
 	unsigned int height = (unsigned int)texture.getHeight();
 
 	if (NDIreceiver.ReceiveImage(width, height)) {
-
 		// Check for changed sender dimensions
-		if (width != (unsigned int)texture.getWidth() || height != (unsigned int)texture.getHeight())
+		if (width != (unsigned int)texture.getWidth() || height != (unsigned int)texture.getHeight()) {
 			texture.allocate(width, height, GL_RGBA);
-
+		}
 		// Get NDI pixel data from the video frame
 		return GetPixelData(texture);
-
 	}
 
 	return false;
@@ -565,7 +567,7 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 			if (m_bUpload)
 				LoadTexturePixels(texture.getTextureData().textureID, texture.getTextureData().textureTarget, (unsigned int)texture.getWidth(), (unsigned int)texture.getHeight(), (unsigned char*)videoData, GL_RGBA);
 			else
-				texture.loadData((const unsigned char *)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_RGBA);
+				texture.loadData((const unsigned char*)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_RGBA);
 			break;
 		case NDIlib_FourCC_type_BGRX: // BGRX
 		case NDIlib_FourCC_type_BGRA: // BGRA
