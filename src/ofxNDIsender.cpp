@@ -82,7 +82,6 @@
 			 - Revise SetFormat to find the shader folder and test existence
 	23.05.24 - SendImage ofTexture - RGBA only
 
-
 */
 #include "ofxNDIsender.h"
 
@@ -165,6 +164,7 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 	if (width == 0 || height == 0)
 		return false;
 
+	// Return if no sender created
 	if (!NDIsender.SenderCreated())
 		return false;
 

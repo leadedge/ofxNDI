@@ -98,6 +98,8 @@
 				  Check for null library pointer in GetNDIversion
 	14/12/23	- Incremented version number in Sender meta-data registration to "1.005.000"
 	11/05/24	- Corrected Sendimage overload - bSwapRB not optional
+	27/05/24	- ReleaseSender - clear metadata
+				- CreateSender - add sender name to metadata
 
 */
 #include "ofxNDIsend.h"
@@ -162,7 +164,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		printf("ofxNDIsend::CreateSender - no width or height\n");
 		return false;
 	}
-
+	
 	// Create an NDI source
 	NDI_send_create_desc.p_ndi_name = sendername;
 	NDI_send_create_desc.p_groups = nullptr;
@@ -188,28 +190,32 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 	else
 		m_picture_aspect_ratio = (float)m_horizontal_aspect/(float)m_vertical_aspect;
 
-	// We create the NDI sender
+	// Create the NDI sender
 	pNDI_send = p_NDILib->send_create(&NDI_send_create_desc);
 
 	if (pNDI_send) {
 
-		// Provide a meta-data registration that allows people to know what we are. Note that this is optional.
+		// Option : provide a meta-data registration that identifies the sender.
 		// Note that it is possible for senders to also register their preferred video formats.
 		//
 		// Default string length
 		// Default Timecode NDIlib_send_timecode_synthesize (synthesized for us)
 		//
 		NDIlib_metadata_frame_t NDI_connection_type;
-		NDI_connection_type.p_data = (char *)"<ndi_product long_name=\"ofxNDI sender\" "
-									 "             short_name=\"ofxNDI Sender\" "
-									 "             manufacturer=\"spout@zeal.co\" "
-									 "             version=\"1.005.000\" "
-									 "             session=\"default\" "
-									 "             model_name=\"none\" "
-									 "             serial=\"none\"/>";
+		std::string type = "<ndi_product long_name=\"ofxNDI sender ";
+		type += sendername; type += "\" ";
+		type += "             short_name=\"";
+		type += sendername; type += "\" ";
+		type += "             manufacturer=\"spout@zeal.co\" ";
+		type += "             version=\"";
+		type += ofxNDIutils::GetVersion(); type += "\" ";
+		type += "             session=\"default\" ";
+		type += "             model_name=\"none\" ";
+		type += "             serial=\"none\"/>";
+		NDI_connection_type.p_data = (char *)type.c_str();
 		p_NDILib->send_add_connection_metadata(pNDI_send, &NDI_connection_type);
 		
-		// We are going to create an non-interlaced frame at 60fps
+		// Create an non-interlaced frame at 60fps
 		if(p_frame) free((void *)p_frame);
 		p_frame = nullptr; // invert  buffer
 
@@ -510,6 +516,12 @@ void ofxNDIsend::ReleaseSender()
 	bSenderInitialized = false; // Do this now so no more frames are sent
 
 	if (!m_bNDIinitialized) return;
+
+	// Clear metadata
+	if (m_bMetadata && !m_metadataString.empty()) {
+		p_NDILib->send_clear_connection_metadata(pNDI_send);
+		m_metadataString.clear();
+	}
 
 	// Destroy the NDI sender
 	if (pNDI_send)
