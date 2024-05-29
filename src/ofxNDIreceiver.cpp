@@ -74,7 +74,7 @@
 			   Add GLformat argument to LoadTexturePixels
 	28.05.24 - ReceiveImage(ofTexture &texture) Check for changed sender dimensions
 			   GetPixelData - test RGBA for upload flag as well as BGRA
-
+	29.05.24 - SetUpload - reset starting received frame rate
 
 */
 #include "ofxNDIreceiver.h"
@@ -470,6 +470,8 @@ void ofxNDIreceiver::SetLowBandwidth(bool bLow)
 void ofxNDIreceiver::SetUpload(bool bUpload)
 {
 	m_bUpload = bUpload;
+	// Reset starting received frame rate
+	NDIreceiver.ResetFps(30.0);
 }
 
 // Get current upload mode
@@ -532,7 +534,6 @@ int ofxNDIreceiver::GetFps()
 {
 	return NDIreceiver.GetFps();
 }
-
 
 //
 // Private functions
