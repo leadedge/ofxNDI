@@ -154,6 +154,8 @@
 	15.05.24 - ReceiveImage - add specific cases for unsupported formats to avoid warning
 	20.05.24 - UpdateFps - change from damping to the average fps over 200 frames
 	27.05.24 - FindSenders - check for a name change at the same index and update m_senderName
+	29.05.24 - Return to rolling average for received fps calculation with 0.02 update
+			   Add ResetFps to reset starting received frame rate
 
 */
 
@@ -1357,6 +1359,12 @@ int ofxNDIreceive::GetFps()
 	return static_cast<int>(floor(m_fps + 0.5));
 }
 
+// Reset starting received frame rate
+void ofxNDIreceive::ResetFps(double fps)
+{
+	m_fps = fps;
+}
+
 //
 // Private functions
 //
@@ -1388,19 +1396,15 @@ const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_in
 
 // Received fps is independent of the application draw rate
 void ofxNDIreceive::UpdateFps() {
-	// Calculate the actual received fps over 200 frames
+
+	// Calculate the actual received fps
 	lastTime = startTime;
 	startTime = GetCounter(); // msec
 	double frametime = (startTime - lastTime); // msec
 	if (frametime  > 0.000001) {
 		frametime = frametime / 1000.0; // seconds
-		m_frameTimeTotal += frametime;
-		m_frameTimeNumber += 1.0;
-		m_fps = 1.0/(m_frameTimeTotal/m_frameTimeNumber); // average fps
-		if(m_frameTimeNumber > 200.0) {
-			m_frameTimeTotal = 0.0;
-			m_frameTimeNumber = 0.0;
-		}
+		m_fps *= 0.98; // damping from a starting fps value
+		m_fps += 0.02*(1.0 / frametime);
 	}
 }
 

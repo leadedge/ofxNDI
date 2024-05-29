@@ -278,6 +278,9 @@ public:
 	// Timed received frame rate
 	int GetFps();
 
+	// Reset starting received frame rate
+	void ResetFps(double fps);
+
 	// ====================================================================
 
 private:
