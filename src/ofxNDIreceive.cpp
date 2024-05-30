@@ -1065,21 +1065,18 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 						// Video frame type
 						switch (video_frame.FourCC) {
-
 							// Note :
 							// If the receiver is set up to prefer BGRA or RGBA format,
-							// other formats should be converted to by the API
-							// and the conversion functions never used.
-							// NDIlib_FourCC_type_UYVA not supported
+							// other formats are converted to by the API, and the
+							// slower YUV422_to_RGBA conversion function is not used.
 							case NDIlib_FourCC_type_UYVY: // YCbCr color space
+							// Alpha component of NDIlib_FourCC_type_UYVA not supported
 							case NDIlib_FourCC_type_UYVA: // With alpha (not used)
-								// Not recommended - CPU conversion
+								// CPU conversion
 								ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
 								break;
-
 							case NDIlib_FourCC_video_type_P216:	break;
 							case NDIlib_FourCC_video_type_PA16:	break;
-
 							case NDIlib_FourCC_type_RGBA: // RGBA
 							case NDIlib_FourCC_type_RGBX: // RGBX
 								// Do not swap red/green
