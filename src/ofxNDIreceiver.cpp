@@ -259,7 +259,6 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 		// Get the NDI frame pixel data into the pixel buffer
 		switch (NDIreceiver.GetVideoType()) {
 			// Note : the receiver is set up to prefer BGRA format by default
-			// YCbCr - RGBA conversion not supported
 			case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
 				printf("ReceiveImage pixels - UYVY format not supported\n"); break;
 			case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
@@ -553,7 +552,8 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 	// Get the NDI video frame pixel data into the texture
 	switch (NDIreceiver.GetVideoType()) {
 		// Note : the receiver is set up to prefer BGRA format by default
-		// YCbCr - RGBA conversion not supported
+		// If set to prefer NDIlib_recv_color_format_fastest, YUV data is received.
+		// YCbCr - Load texture with YUV data by way of PBO
 		case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
 			printf("GetPixelData - UYVY format not supported\n"); break;
 		case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
@@ -604,6 +604,8 @@ bool ofxNDIreceiver::LoadTexturePixels(GLuint TextureID, GLuint TextureTarget,
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pbo[PboIndex]);
 
 	// Copy pixels from PBO to the texture - use offset instead of pointer.
+	// glTexSubImage2D redefines a contiguous subregion of an existing
+	// two-dimensional texture image. NULL data pointer reserves space.
 	glTexSubImage2D(TextureTarget, 0, 0, 0, width, height, GLformat, GL_UNSIGNED_BYTE, 0);
 
 	// Bind PBO to update the texture
@@ -614,8 +616,9 @@ bool ofxNDIreceiver::LoadTexturePixels(GLuint TextureID, GLuint TextureTarget,
 
 	// Map the buffer object into client's memory
 	pboMemory = (void*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+	// Update the mapped buffer directly
 	if (pboMemory) {
-		// Update data directly on the mapped buffer
+		// RGBA pixel data
 		// Use sse2 if the width is divisible by 16
 		ofxNDIutils::CopyImage(data, (unsigned char*)pboMemory, width, height);
 		glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER); // release the mapped buffer
