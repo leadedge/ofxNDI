@@ -156,6 +156,7 @@
 	27.05.24 - FindSenders - check for a name change at the same index and update m_senderName
 	29.05.24 - Return to rolling average for received fps calculation with 0.02 update
 			   Add ResetFps to reset starting received frame rate
+	01.06.24 - UpdateFps - rolling average damping based on received frame time
 
 */
 
@@ -1398,10 +1399,13 @@ void ofxNDIreceive::UpdateFps() {
 	lastTime = startTime;
 	startTime = GetCounter(); // msec
 	double frametime = (startTime - lastTime); // msec
-	if (frametime  > 0.000001) {
-		frametime = frametime / 1000.0; // seconds
-		m_fps *= 0.98; // damping from a starting fps value
-		m_fps += 0.02*(1.0 / frametime);
+	if (frametime > 1.0) {
+		frametime = frametime/1000.0; // frame time in seconds
+		// damping based on received frame time
+		if (frametime <= 1.0) {
+			m_fps *= (1.0-frametime);
+			m_fps += frametime*(1.0/frametime);
+		}
 	}
 }
 
