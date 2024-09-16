@@ -100,6 +100,7 @@
 	11/05/24	- Corrected Sendimage overload - bSwapRB not optional
 	27/05/24	- ReleaseSender - clear metadata
 				- CreateSender - add sender name to metadata
+	16.09.24	- SetVideoStride - remove test for global format
 
 */
 #include "ofxNDIsend.h"
@@ -164,7 +165,7 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		printf("ofxNDIsend::CreateSender - no width or height\n");
 		return false;
 	}
-	
+
 	// Create an NDI source
 	NDI_send_create_desc.p_ndi_name = sendername;
 	NDI_send_create_desc.p_groups = nullptr;
@@ -781,14 +782,12 @@ std::string ofxNDIsend::GetNDIversion()
 // Dimensions xres and yres must have been set already.
 void ofxNDIsend::SetVideoStride(NDIlib_FourCC_video_type_e format)
 {
-	if (format != m_Format) {
-		// Stop async send before changing the video frame
-		if (pNDI_send && m_bAsync)
-			p_NDILib->send_send_video_async_v2(pNDI_send, nullptr);
-		if (format == NDIlib_FourCC_video_type_UYVY)
-			video_frame.line_stride_in_bytes = video_frame.xres * 2;
-		else
-			video_frame.line_stride_in_bytes = video_frame.xres * 4;
-	}
+	// Stop async send before changing the video frame
+	if (pNDI_send && m_bAsync)
+		p_NDILib->send_send_video_async_v2(pNDI_send, nullptr);
+	if (format == NDIlib_FourCC_video_type_UYVY)
+		video_frame.line_stride_in_bytes = video_frame.xres * 2;
+	else
+		video_frame.line_stride_in_bytes = video_frame.xres * 4;
 }
 
