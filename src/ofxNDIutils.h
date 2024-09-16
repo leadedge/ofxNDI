@@ -28,6 +28,8 @@
 	11.06.18 - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
 	06.12.19 - Remove SSE functions for Linux
 	07.12.19 - remove includes emmintrin.h, xmmintrin.h, iostream, cstdint
+	16.09.24 - #define USE_CHRONO for OSX
+
 
 */
 #pragma once
@@ -42,6 +44,7 @@
 
 // TODO : test includes for OSX
 #if defined(TARGET_OSX)
+#define USE_CHRONO
 #if defined(__aarch64__)
 #include "sse2neon.h"
 #else

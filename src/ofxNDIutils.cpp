@@ -58,6 +58,7 @@
 			   Remove extra #endif at file end
 	19.05.24 - Add GetVersion() - return addon version number string
 	30.05.24 - Revise YUV422_to_RGBA conversion equations
+	16.09.24 - change UINT to uint32_t PeriodMin
 
 */
 #include "ofxNDIutils.h"
@@ -83,7 +84,7 @@ namespace ofxNDIutils {
 	// For HoldFps
 	std::chrono::steady_clock::time_point FrameStartPtr;
 	std::chrono::steady_clock::time_point FrameEndPtr;
-	UINT PeriodMin = 0;
+	uint32_t PeriodMin = 0;
 #endif
 
 #if defined (__APPLE__)
