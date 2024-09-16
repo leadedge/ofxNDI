@@ -81,6 +81,8 @@
 	16.12.23 - Remove "shaders/rgba2yuv/" folder option
 			 - Revise SetFormat to find the shader folder and test existence
 	23.05.24 - SendImage ofTexture - RGBA only
+	16.09.24 - SendImage ofTexture and pixel data,
+			   Update class resources as well as NDI sender for changed size.
 
 */
 #include "ofxNDIsender.h"
@@ -165,8 +167,9 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 		return false;
 
 	// Return if no sender created
-	if (!NDIsender.SenderCreated())
+	if (!NDIsender.SenderCreated()) {
 		return false;
+	}
 
 	// Re-allocate pixel buffers
 	m_idx = 0;
@@ -260,8 +263,10 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 	unsigned int width  = (unsigned int)tex.getWidth();
 	unsigned int height = (unsigned int)tex.getHeight();
 
-	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
-		NDIsender.UpdateSender(width, height);
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight()) {
+		// Update class resources and NDI sender
+		UpdateSender(width, height);
+	}
 
 	if (GetAsync())
 		m_idx = (m_idx + 1) % 2;
@@ -337,8 +342,10 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 	}
 
 	// Update sender to match dimensions
-	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
-		NDIsender.UpdateSender(width, height);
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight()) {
+		// Update class resources and NDI sender
+		UpdateSender(width, height);
+	}
 	
 	return NDIsender.SendImage(pixels, width, height, bSwapRB, bInvert);
 
@@ -561,6 +568,21 @@ bool ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height
 	else {
 		// Read fbo directly
 		// Specify width and height
+		// LJ DEBUG
+		/*
+		1. Make sure that fbo is complete (aStstus == GL_FRAMEBUFFER_COMPLETE)
+		aStatus := glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		2. Add error check glGetError() after 
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, fFBOHandle); 
+		*/
+
+		/*
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, fFBOHandle);
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glReadPixels(x, y, 1, 1, GL_RGBA, GL_FLOAT, @PixelID[0]);
+		glReadBuffer(GL_NONE);
+		*/
+
 		fbo.bind();
 		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (void *)buffer.getData());
 		fbo.unbind();
