@@ -256,10 +256,11 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 	}
 
 	// Quit if the texture is not RGBA, RGBA8 or BGRA
-	if (tex.getTextureData().glInternalFormat    != GL_RGBA  // 0x1908
-		|| tex.getTextureData().glInternalFormat != GL_RGBA8 // 0x8058
-		|| tex.getTextureData().glInternalFormat != GL_BGRA) // 0x80E1
+	if (!(tex.getTextureData().glInternalFormat  == GL_RGBA  // 0x1908
+		|| tex.getTextureData().glInternalFormat == GL_RGBA8 // 0x8058
+		|| tex.getTextureData().glInternalFormat == GL_BGRA)) { // 0x80E1
 		return false;
+	}
 
 	ofDisableDepthTest(); // In case this was enabled, or textures do not show
 
@@ -341,7 +342,8 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 		return false;
 
 	// NDI format must be set to RGBA to match the pixel data
-	if (!(GetFormat() == NDIlib_FourCC_video_type_RGBA || GetFormat() == NDIlib_FourCC_video_type_RGBX)) {
+	if (!(GetFormat() == NDIlib_FourCC_video_type_RGBA
+	   || GetFormat() == NDIlib_FourCC_video_type_RGBX)) {
 			SetFormat(NDIlib_FourCC_video_type_RGBA);
 	}
 
