@@ -83,6 +83,8 @@
 	23.05.24 - SendImage ofTexture - RGBA only
 	16.09.24 - SendImage ofTexture and pixel data,
 			   Update class resources as well as NDI sender for changed size.
+	19.09.24 - Correct SendImage(ofTexture) for incorrect data format
+			   SendImage texture, image or pixels, test for sender created
 
 */
 #include "ofxNDIsender.h"
@@ -246,16 +248,17 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 // Send ofTexture
 bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 {
-	if (!tex.isAllocated())
-		return false;
-
-	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
-		return false;
+	// Quit is not initialized, texture not allocated
+	// or sending pixel buffers not allocated
+	if (!NDIsender.SenderCreated() || !tex.isAllocated()
+		|| !ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated()) {
+			return false;
+	}
 
 	// Quit if the texture is not RGBA, RGBA8 or BGRA
-	if (!(tex.getTextureData().glInternalFormat != GL_RGBA 
-		|| tex.getTextureData().glInternalFormat != GL_RGBA8
-		|| tex.getTextureData().glInternalFormat != GL_BGRA))
+	if (tex.getTextureData().glInternalFormat    != GL_RGBA  // 0x1908
+		|| tex.getTextureData().glInternalFormat != GL_RGBA8 // 0x8058
+		|| tex.getTextureData().glInternalFormat != GL_BGRA) // 0x80E1
 		return false;
 
 	ofDisableDepthTest(); // In case this was enabled, or textures do not show
@@ -290,7 +293,6 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 	if (bResult)
 		return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
-
 	return false;
 
 }
@@ -298,7 +300,8 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 // Send ofImage
 bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
 {
-	if (!img.isAllocated())
+	// Not initialized of image not allocated
+	if (!NDIsender.SenderCreated() || !img.isAllocated())
 		return false;
 	
 	// RGBA for images
@@ -316,7 +319,8 @@ bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
 // Send ofPixels
 bool ofxNDIsender::SendImage(ofPixels pix, bool bSwapRB, bool bInvert)
 {
-	if (!pix.isAllocated())
+	// Not initialized of pixels not allocated
+	if (!NDIsender.SenderCreated() || !pix.isAllocated())
 		return false;
 
 	// RGBA for ofPixels
@@ -568,21 +572,6 @@ bool ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height
 	else {
 		// Read fbo directly
 		// Specify width and height
-		// LJ DEBUG
-		/*
-		1. Make sure that fbo is complete (aStstus == GL_FRAMEBUFFER_COMPLETE)
-		aStatus := glCheckFramebufferStatus(GL_FRAMEBUFFER);
-		2. Add error check glGetError() after 
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, fFBOHandle); 
-		*/
-
-		/*
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, fFBOHandle);
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		glReadPixels(x, y, 1, 1, GL_RGBA, GL_FLOAT, @PixelID[0]);
-		glReadBuffer(GL_NONE);
-		*/
-
 		fbo.bind();
 		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (void *)buffer.getData());
 		fbo.unbind();
@@ -726,4 +715,3 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 	return ReadPixels(ndiFbo, halfwidth, height, buffer);
 
 }
-
