@@ -84,7 +84,12 @@
 	16.09.24 - SendImage ofTexture and pixel data,
 			   Update class resources as well as NDI sender for changed size.
 	19.09.24 - Correct SendImage(ofTexture) for incorrect data format
-			   SendImage texture, image or pixels, test for sender created
+			   SendImage texture, image or pixels - test for sender created
+	20.09.24 - SendImage ofImage and ofPixels - pass by reference to avoid
+			   repeated conversion of type if not RGBA
+			   SendImage ofTexture - quit is not initialized, texture or sending buffers
+			   not allocated, or if the texture is not RGBA, RGBA8, BGRA, RGB or BGR
+			   ReadPixels - use glGetTexImage instead of readToPixels to support RGB textures
 
 */
 #include "ofxNDIsender.h"
@@ -255,10 +260,13 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 			return false;
 	}
 
-	// Quit if the texture is not RGBA, RGBA8 or BGRA
-	if (!(tex.getTextureData().glInternalFormat  == GL_RGBA  // 0x1908
-		|| tex.getTextureData().glInternalFormat == GL_RGBA8 // 0x8058
-		|| tex.getTextureData().glInternalFormat == GL_BGRA)) { // 0x80E1
+	// Quit if the texture is not RGBA, RGBA8, BGRA, RGB or BGR
+	if (!(tex.getTextureData().glInternalFormat  == GL_RGBA    // 0x1908
+		|| tex.getTextureData().glInternalFormat == GL_RGBA8   // 0x8058
+		|| tex.getTextureData().glInternalFormat == GL_BGRA    // 0x80E1
+		|| tex.getTextureData().glInternalFormat == GL_RGB     // 0x1907
+		|| tex.getTextureData().glInternalFormat == GL_RGB8    // 0x8058
+		|| tex.getTextureData().glInternalFormat == GL_BGR)) { // 0x80E0
 		return false;
 	}
 
@@ -299,16 +307,17 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 }
 
 // Send ofImage
-bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
+bool ofxNDIsender::SendImage(ofImage &img, bool bSwapRB, bool bInvert)
 {
 	// Not initialized of image not allocated
 	if (!NDIsender.SenderCreated() || !img.isAllocated())
 		return false;
 	
 	// RGBA for images
-	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA)
+	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA) {
 		img.setImageType(OF_IMAGE_COLOR_ALPHA);
-	
+	}
+
 	if (img.isUsingTexture())
 		return SendImage(img.getTexture(), bInvert);
 	else
@@ -318,15 +327,16 @@ bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
 }
 
 // Send ofPixels
-bool ofxNDIsender::SendImage(ofPixels pix, bool bSwapRB, bool bInvert)
+bool ofxNDIsender::SendImage(ofPixels &pix, bool bSwapRB, bool bInvert)
 {
 	// Not initialized of pixels not allocated
 	if (!NDIsender.SenderCreated() || !pix.isAllocated())
 		return false;
 
 	// RGBA for ofPixels
-	if (pix.getImageType() != OF_IMAGE_COLOR_ALPHA)
+	if (pix.getImageType() != OF_IMAGE_COLOR_ALPHA) {
 		pix.setImageType(OF_IMAGE_COLOR_ALPHA);
+	}
 
 	return SendImage((const unsigned char *)pix.getData(),
 		(int)pix.getWidth(), (int)pix.getHeight(), bSwapRB, bInvert);
@@ -588,12 +598,28 @@ bool ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int he
 	if (!tex.isAllocated() || !buffer.isAllocated())
 		return false;
 
+	// Pixel buffer must be RGBA (0x1908)
+	if (ofGetGLFormat(buffer) != GL_RGBA)
+		return false;
+
 	bool bRet = true;
 	if (m_bReadback) {
 		bRet = ReadTexturePixels(tex, width, height, buffer.getData());
 	}
 	else {
-		tex.readToPixels(buffer); // Uses glGetTexImage
+		//
+		// Read the texture to RGBA pixels using glGetTexImage
+		// with RGBA specified as the pixel format for the returned data.
+		// RGB/BGR textures are accepted
+		// https://learn.microsoft.com/en-us/windows/win32/opengl/glgetteximage
+		//    three-component textures are treated as RGBA buffers with red set to component zero,
+		//    green set to component one, blue set to component two, and alpha set to zero.
+		//
+		glPixelStorei(tex.texData.textureTarget, 1); // Alignment in case of RGB data
+		glBindTexture(tex.texData.textureTarget, tex.texData.textureID);
+		glGetTexImage(tex.texData.textureTarget, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.getData());
+		glBindTexture(tex.texData.textureTarget, 0);
+		glPixelStorei(tex.texData.textureTarget, 4); // Restore default alignment
 	}
 
 	return bRet;
