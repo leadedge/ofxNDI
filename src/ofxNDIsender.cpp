@@ -372,8 +372,11 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	if (format == NDIlib_FourCC_video_type_UYVY) {
 		// For YUV format, test existence of required rgba2yuv shader folder
-		std::string shaderpath = ofFilePath::getCurrentExeDir();
-		shaderpath += "data\\rgba2yuv\\";
+#ifdef TARGET_WIN32
+		std::string shaderpath = ofToDataPath("rgba2yuv\\");
+#else
+		std::string shaderpath = ofToDataPath("rgba2yuv/");
+#endif
 		if (ofDirectory::doesDirectoryExist(shaderpath, false)) {
 			NDIsender.SetFormat(format);
 			// Buffer size will change between YUV and RGBA
@@ -383,7 +386,7 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 			UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
 		}
 		else {
-			printf("rgba2yuv shader not found\n");
+			printf("rgba2yuv shader not found in `%s`\n", shaderpath.c_str());
 		}
 	}
 	else if (format == NDIlib_FourCC_video_type_BGRA
@@ -715,14 +718,26 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 	// Load the shader
 	if (!rgba2yuv.isLoaded()) {
 		// Get the rgba2yuv shader folder full path
-		std::string shaderpath = ofFilePath::getCurrentExeDir();
+		std::string shaderpath;
 #ifdef TARGET_OPENGLES
-		shaderpath += "data\\rgba2yuv\\ES2\\rgba2yuv";
+#	ifdef TARGET_WIN32
+		shaderpath = ofToDataPath("rgba2yuv\\ES2\\rgba2yuv");
+#else
+		shaderpath = ofToDataPath("rgba2yuv/ES2/rgba2yuv");
+#endif
 #else
 		if (ofIsGLProgrammableRenderer())
-			shaderpath += "data\\rgba2yuv\\GL3\\rgba2yuv";
+#	ifdef TARGET_WIN32
+			shaderpath = ofToDataPath("rgba2yuv\\GL3\\rgba2yuv");
+#	else
+			shaderpath = ofToDataPath("rgba2yuv/GL3/rgba2yuv");
+#	endif
 		else
-			shaderpath += "data\\rgba2yuv\\GL2\\rgba2yuv";
+#	ifdef TARGET_WIN32
+			shaderpath = ofToDataPath("rgba2yuv\\GL2\\rgba2yuv");
+#	else
+			shaderpath = ofToDataPath("rgba2yuv/GL2/rgba2yuv");
+#	endif
 #endif
 		if (!rgba2yuv.load(shaderpath))
 			return false;
