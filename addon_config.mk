@@ -77,7 +77,7 @@ common:
 	# ...
 
 osx:
-	ADDON_LDFLAGS = -Xlinker -rpath -Xlinker @executable_path
+        ADDON_LDFLAGS = -rpath @executable_path
 linux64:
 linux:
 linuxarmv6l:
