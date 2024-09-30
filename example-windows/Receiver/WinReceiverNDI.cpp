@@ -17,7 +17,16 @@
 		SetAudio
 		SetFormat
 	
-	Receive send pixels
+	Receiver sender monitoring
+		FindSenders
+		GetSenderCount
+		SenderSelected
+		ReceiverCreated
+
+	Receiver creation
+		CreateReceiver
+
+	Receive sender pixels
 		ReceiveImage
 
 	Hold render frame rate
@@ -26,6 +35,7 @@
 	Select sender
 		GetSenderList
 		GetSenderIndex
+   
 
    Compare with the Spout DirectX Windows example.
 
@@ -80,6 +90,7 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    SenderProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+bool CheckSenders();
 void ReleaseNDIreceiver();
 void Render();
 void ShowSenderInfo(HDC hdc); // Show sender information on screen
@@ -97,7 +108,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
  	
 	// For debugging
 	// Console window so printf works
-	/*
 	FILE* pCout; // should really be freed on exit
 	AllocConsole();
 	freopen_s(&pCout, "CONOUT$", "w", stdout);
@@ -105,7 +115,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	HMENU hmenu = GetSystemMenu(GetConsoleWindow(), FALSE);
 	EnableMenuItem(hmenu, SC_CLOSE, MF_GRAYED);
 	printf("WinReceiverNDI\n");
-	*/
 
 
     // Initialize global strings
@@ -154,49 +163,58 @@ void Render()
 {
 	// =======================================
 	// Receive a pixel buffer
-	//
-	// ReceiveImage succeeds if it finds a sender
-	// The ofxNDIreceive class handles receiver creation and name change
-	// The receiving pixel buffer must be managed for sender size change
-	//
-	
-	unsigned int width  = 0;
-	unsigned int height = 0;
-	if (receiver.ReceiveImage(width, height)) {
-		// Have the sender dimensions changed ?
-		if (g_SenderWidth != width || g_SenderHeight != height) {
-			// Update global variables
-			g_senderName = receiver.GetSenderName(g_senderIndex);
-			g_SenderWidth = width;
-			g_SenderHeight = height;
-			// Update the receiving pixel buffer
-			if (pixelBuffer) free((void*)pixelBuffer);
-			pixelBuffer = (unsigned char*)malloc(width*height * 4 * sizeof(unsigned char));
+
+
+	// Test for network change and presence of senders.
+	// Create or re-create a receiver if the selected sender is changed.
+	if(CheckSenders()) {
+
+		unsigned int width = 0;
+		unsigned int height = 0;
+
+		// Receive from the NDI sender
+		// Frame rate might be much less than the draw cycle
+		// ReceiveImage succeeds if it finds a sender
+		if (receiver.ReceiveImage(width, height)) {
+			// Have the sender dimensions changed ?
+			if (g_SenderWidth != width || g_SenderHeight != height) {
+				// Update the sender name name in case the one in this position has changed
+				g_senderName = receiver.GetSenderName(g_senderIndex);
+				// Set the sender name or the old one will be used
+				receiver.SetSenderName(g_senderName.c_str());
+				g_SenderWidth  = width;
+				g_SenderHeight = height;
+				// Update the receiving pixel buffer
+				if (pixelBuffer) free((void*)pixelBuffer);
+				pixelBuffer = (unsigned char*)malloc(width*height * 4 * sizeof(unsigned char));
+			}
+
+			// Copy NDI pixels to the local pixel buffer
+			// CopyImage uses SSE2 functions if the width is 16bit aligned
+			ofxNDIutils::CopyImage((const unsigned char*)receiver.GetVideoData(),
+				pixelBuffer, width, height, receiver.GetVideoStride());
+
+			// Free NDI video frame data
+			receiver.FreeVideoData();
+
+			// Trigger a re-paint to draw the pixel buffer - see WM_PAINT
+			InvalidateRect(g_hWnd, NULL, FALSE);
+
+			// Update immediately
+			UpdateWindow(g_hWnd);
+
+		}
+		else {
+			// No senders or the sender closed
+			// Take no action if the sender closed
+			// Receiving will resume when it re-opens
 		}
 
-		// Copy NDI pixels to the local pixel buffer
-		// CopyImage uses SSE2 functions if the width is 16bit aligned
-		ofxNDIutils::CopyImage((const unsigned char*)receiver.GetVideoData(),
-								pixelBuffer, width, height, receiver.GetVideoStride());
-
-		// Free NDI video frame data
-		receiver.FreeVideoData();
-
-		// Trigger a re-paint to draw the pixel buffer - see WM_PAINT
-		InvalidateRect(g_hWnd, NULL, FALSE);
-
-		// Update immediately
-		UpdateWindow(g_hWnd);
-
-	}
-	else {
-		// No senders or the sender closed
-		// Take no action if the sender closed
-		// Receiving will resume when it re-opens
 	}
 
 	// =======================================
 	// Control the render cycle rate
+
 	// Hold a target frame rate - e.g. 60 or 30fps.
 	// This is not necessary if the application already has
 	// fps control. But in this example, rendering is done
@@ -204,6 +222,50 @@ void Render()
 	ofxNDIutils::HoldFps(30);
 
 } // end Render
+
+
+// =======================================
+// Test for network change
+// Create receiver if nor initialized
+// or a new sender has been selected
+//
+bool CheckSenders() {
+
+	// Update the NDI sender list to find new senders
+	// There is no delay if no new senders are found
+	int nsenders = receiver.FindSenders();
+
+	// Check the sender count
+	if (nsenders > 0) {
+		// Has the user changed the sender index ?
+		if (receiver.SenderSelected()) {
+			// Retain the last sender in case of network delay
+			// Wait for the network to come back up or for the
+			// user to select another sender when it does
+			if (nsenders > 1) {
+				// Release the current receiver.
+				// A new one is then created from the selected sender index.
+				receiver.ReleaseReceiver();
+			}
+		}
+		// Update global variables
+		g_senderName = receiver.GetSenderName();
+		g_senderIndex = receiver.GetSenderIndex();
+
+		// Create a new receiver if not already
+		if (!receiver.ReceiverCreated()) {
+			// A receiver is created from an index into a list of sender names.
+			// The current user selected index is saved in the NDIreceiver class
+			// and is used to create the receiver unless you specify a particular index.
+			// The receiver is created with default preferred format BGRA
+			bInitialized = receiver.CreateReceiver();
+		}
+
+	}
+
+	return (nsenders > 0);
+
+} // end CheckSenders
 
 
 // Release receiver and resources
@@ -606,9 +668,8 @@ INT_PTR  CALLBACK SenderProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPar
 				g_senderIndex = activeindex;
 				// Set the new sender name for the receiver class
 				receiver.SetSenderName(senderList[g_senderIndex]);
-				// A new index is created by SetSenderName in the
-				// ofxNDIreceive class. The updated index is detected 
-				// by CreateReceiver and a new receiver created
+				// A new sender is detected by CheckSenders
+				// and the receiver is re-created.
 			}
 			EndDialog(hDlg, 1);
 			break;

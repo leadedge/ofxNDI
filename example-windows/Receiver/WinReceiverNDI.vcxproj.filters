@@ -40,6 +40,9 @@
     <ResourceCompile Include="WinReceiverNDI.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="WinReceiverNDI.ico" />
+  </ItemGroup>
+  <ItemGroup>
     <Filter Include="ofxNDI">
       <UniqueIdentifier>{ea49546f-5163-47d4-aea4-16050c9710bd}</UniqueIdentifier>
     </Filter>

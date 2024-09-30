@@ -192,6 +192,9 @@
   <ItemGroup>
     <ResourceCompile Include="WinReceiverNDI.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="WinReceiverNDI.ico" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
