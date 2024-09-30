@@ -22,7 +22,7 @@ void main()
 	vec4 rgba1 = texture2DRect(rgbatex, vec2(currentPosition.x*2+1, currentPosition.y));
 	
 	// Calculate Y0 Y1 U V
-	// NDI uses Rec.719 for 720p and 1920p
+	// NDI uses Rec.709 for 720p and 1920p
 	//
 	// BT.709
 	// https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a

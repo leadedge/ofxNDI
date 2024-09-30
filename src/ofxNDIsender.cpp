@@ -3,7 +3,7 @@
 
 	using the NDI SDK to send the frames via network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -80,6 +80,21 @@
 	15.12.23 - ReadYUVpixels use ofFilePath::getCurrentExeDir() instead of GetCurrentModule
 	16.12.23 - Remove "shaders/rgba2yuv/" folder option
 			 - Revise SetFormat to find the shader folder and test existence
+	23.05.24 - SendImage ofTexture - RGBA only
+	16.09.24 - SendImage ofTexture and pixel data,
+			   Update class resources as well as NDI sender for changed size.
+	19.09.24 - Correct SendImage(ofTexture) for incorrect data format
+			   SendImage texture, image or pixels - test for sender created
+	20.09.24 - SendImage ofImage and ofPixels - pass by reference to avoid
+			   repeated conversion of type if not RGBA
+			   SendImage ofTexture - quit is not initialized, texture or sending buffers
+			   not allocated, or if the texture is not RGBA, RGBA8, BGRA, RGB or BGR
+			   ReadPixels - use glGetTexImage instead of readToPixels to support RGB textures
+	30.09.24 - Modify PR# 55
+			   (Fix rgb2yuv on non-windows platforms and use ofToDataPath instead of getCurrentExeDir)
+			   Change to ofToDataPath
+			   Change all "\\" to "/" for OSX compatibility
+			   Tested successfully on Windows
 
 */
 #include "ofxNDIsender.h"
@@ -163,8 +178,10 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 	if (width == 0 || height == 0)
 		return false;
 
-	if (!NDIsender.SenderCreated())
+	// Return if no sender created
+	if (!NDIsender.SenderCreated()) {
 		return false;
+	}
 
 	// Re-allocate pixel buffers
 	m_idx = 0;
@@ -241,23 +258,32 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 // Send ofTexture
 bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 {
-	if (!tex.isAllocated())
-		return false;
+	// Quit is not initialized, texture not allocated
+	// or sending pixel buffers not allocated
+	if (!NDIsender.SenderCreated() || !tex.isAllocated()
+		|| !ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated()) {
+			return false;
+	}
 
-	if (!ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated())
+	// Quit if the texture is not RGBA, RGBA8, BGRA, RGB or BGR
+	if (!(tex.getTextureData().glInternalFormat  == GL_RGBA    // 0x1908
+		|| tex.getTextureData().glInternalFormat == GL_RGBA8   // 0x8058
+		|| tex.getTextureData().glInternalFormat == GL_BGRA    // 0x80E1
+		|| tex.getTextureData().glInternalFormat == GL_RGB     // 0x1907
+		|| tex.getTextureData().glInternalFormat == GL_RGB8    // 0x8058
+		|| tex.getTextureData().glInternalFormat == GL_BGR)) { // 0x80E0
 		return false;
-
-	// Quit if the texture is not RGBA or RGBA8
-	if (!(tex.getTextureData().glInternalFormat != GL_RGBA || tex.getTextureData().glInternalFormat != GL_RGBA8))
-		return false;
+	}
 
 	ofDisableDepthTest(); // In case this was enabled, or textures do not show
 
 	unsigned int width  = (unsigned int)tex.getWidth();
 	unsigned int height = (unsigned int)tex.getHeight();
 
-	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
-		NDIsender.UpdateSender(width, height);
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight()) {
+		// Update class resources and NDI sender
+		UpdateSender(width, height);
+	}
 
 	if (GetAsync())
 		m_idx = (m_idx + 1) % 2;
@@ -281,21 +307,22 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 	if (bResult)
 		return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
-
 	return false;
 
 }
 
 // Send ofImage
-bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
+bool ofxNDIsender::SendImage(ofImage &img, bool bSwapRB, bool bInvert)
 {
-	if (!img.isAllocated())
+	// Not initialized of image not allocated
+	if (!NDIsender.SenderCreated() || !img.isAllocated())
 		return false;
 	
 	// RGBA for images
-	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA)
+	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA) {
 		img.setImageType(OF_IMAGE_COLOR_ALPHA);
-	
+	}
+
 	if (img.isUsingTexture())
 		return SendImage(img.getTexture(), bInvert);
 	else
@@ -305,14 +332,16 @@ bool ofxNDIsender::SendImage(ofImage img, bool bSwapRB, bool bInvert)
 }
 
 // Send ofPixels
-bool ofxNDIsender::SendImage(ofPixels pix, bool bSwapRB, bool bInvert)
+bool ofxNDIsender::SendImage(ofPixels &pix, bool bSwapRB, bool bInvert)
 {
-	if (!pix.isAllocated())
+	// Not initialized of pixels not allocated
+	if (!NDIsender.SenderCreated() || !pix.isAllocated())
 		return false;
 
 	// RGBA for ofPixels
-	if (pix.getImageType() != OF_IMAGE_COLOR_ALPHA)
+	if (pix.getImageType() != OF_IMAGE_COLOR_ALPHA) {
 		pix.setImageType(OF_IMAGE_COLOR_ALPHA);
+	}
 
 	return SendImage((const unsigned char *)pix.getData(),
 		(int)pix.getWidth(), (int)pix.getHeight(), bSwapRB, bInvert);
@@ -328,13 +357,16 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 		return false;
 
 	// NDI format must be set to RGBA to match the pixel data
-	if (!(GetFormat() == NDIlib_FourCC_video_type_RGBA || GetFormat() == NDIlib_FourCC_video_type_RGBX)) {
+	if (!(GetFormat() == NDIlib_FourCC_video_type_RGBA
+	   || GetFormat() == NDIlib_FourCC_video_type_RGBX)) {
 			SetFormat(NDIlib_FourCC_video_type_RGBA);
 	}
 
 	// Update sender to match dimensions
-	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight())
-		NDIsender.UpdateSender(width, height);
+	if (width != NDIsender.GetWidth() || height != NDIsender.GetHeight()) {
+		// Update class resources and NDI sender
+		UpdateSender(width, height);
+	}
 	
 	return NDIsender.SendImage(pixels, width, height, bSwapRB, bInvert);
 
@@ -345,8 +377,7 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	if (format == NDIlib_FourCC_video_type_UYVY) {
 		// For YUV format, test existence of required rgba2yuv shader folder
-		std::string shaderpath = ofFilePath::getCurrentExeDir();
-		shaderpath += "data\\rgba2yuv\\";
+		std::string shaderpath = ofToDataPath("rgba2yuv/");
 		if (ofDirectory::doesDirectoryExist(shaderpath, false)) {
 			NDIsender.SetFormat(format);
 			// Buffer size will change between YUV and RGBA
@@ -356,7 +387,7 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 			UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
 		}
 		else {
-			printf("rgba2yuv shader not found\n");
+			printf("rgba2yuv shader not found in [%s]\n", shaderpath.c_str());
 		}
 	}
 	else if (format == NDIlib_FourCC_video_type_BGRA
@@ -571,12 +602,28 @@ bool ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int he
 	if (!tex.isAllocated() || !buffer.isAllocated())
 		return false;
 
+	// Pixel buffer must be RGBA (0x1908)
+	if (ofGetGLFormat(buffer) != GL_RGBA)
+		return false;
+
 	bool bRet = true;
 	if (m_bReadback) {
 		bRet = ReadTexturePixels(tex, width, height, buffer.getData());
 	}
 	else {
-		tex.readToPixels(buffer); // Uses glGetTexImage
+		//
+		// Read the texture to RGBA pixels using glGetTexImage
+		// with RGBA specified as the pixel format for the returned data.
+		// RGB/BGR textures are accepted
+		// https://learn.microsoft.com/en-us/windows/win32/opengl/glgetteximage
+		//    three-component textures are treated as RGBA buffers with red set to component zero,
+		//    green set to component one, blue set to component two, and alpha set to zero.
+		//
+		glPixelStorei(tex.texData.textureTarget, 1); // Alignment in case of RGB data
+		glBindTexture(tex.texData.textureTarget, tex.texData.textureID);
+		glGetTexImage(tex.texData.textureTarget, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.getData());
+		glBindTexture(tex.texData.textureTarget, 0);
+		glPixelStorei(tex.texData.textureTarget, 4); // Restore default alignment
 	}
 
 	return bRet;
@@ -672,14 +719,14 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 	// Load the shader
 	if (!rgba2yuv.isLoaded()) {
 		// Get the rgba2yuv shader folder full path
-		std::string shaderpath = ofFilePath::getCurrentExeDir();
+		std::string shaderpath;
 #ifdef TARGET_OPENGLES
-		shaderpath += "data\\rgba2yuv\\ES2\\rgba2yuv";
+		shaderpath = ofToDataPath("rgba2yuv/ES2/rgba2yuv");
 #else
 		if (ofIsGLProgrammableRenderer())
-			shaderpath += "data\\rgba2yuv\\GL3\\rgba2yuv";
+			shaderpath = ofToDataPath("rgba2yuv/GL3/rgba2yuv");
 		else
-			shaderpath += "data\\rgba2yuv\\GL2\\rgba2yuv";
+			shaderpath = ofToDataPath("rgba2yuv/GL2/rgba2yuv");
 #endif
 		if (!rgba2yuv.load(shaderpath))
 			return false;
@@ -700,4 +747,3 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 	return ReadPixels(ndiFbo, halfwidth, height, buffer);
 
 }
-

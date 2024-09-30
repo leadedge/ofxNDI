@@ -3,7 +3,7 @@
 
 	using the NDI SDK to send the frames via network
 
-	http://NDI.NewTek.com
+	https://ndi.video/
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -101,13 +101,13 @@ public:
 	// - image   | Openframeworks image to send
 	// - bInvert | flip the image - default false
 	// - image is converted to RGBA if not already
-	bool SendImage(ofImage img, bool bSwapRB = false, bool bInvert = false);
+	bool SendImage(ofImage &img, bool bSwapRB = false, bool bInvert = false);
 
 	// Send ofPixels
 	// - pix     | Openframeworks pixel buffer to send
 	// - bInvert | flip the image - default false
-	// - buffer is converted to RGBA if not already
-	bool SendImage(ofPixels pix, bool bSwapRB = false, bool bInvert = false);
+	// - pixel buffer is converted to RGBA if not already
+	bool SendImage(ofPixels &pix, bool bSwapRB = false, bool bInvert = false);
 
 	// Send RGBA image pixels
 	// - image   | pixel data
@@ -268,7 +268,6 @@ private:
 
 	// Read YUV pixels from RGBA texture to pixel buffer
 	bool ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigned int height, ofPixels &buffer);
-
 
 };
 

@@ -3,7 +3,7 @@
 
 	using the NDI SDK to receive frames from the network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -60,6 +60,9 @@ public:
 
 	ofxNDIreceiver();
 	~ofxNDIreceiver();
+
+	// Open a receiver ready to receive
+	bool OpenReceiver();
 
 	// Create a receiver
 	// - index | index in the sender list to connect to
@@ -165,9 +168,6 @@ public:
 	// Return the list of senders
 	std::vector<std::string> GetSenderList();
 
-	// Set NDI low banwidth option
-	void SetLowBandwidth(bool bLow = true);
-
 	// Received frame type
 	NDIlib_frame_type_e GetFrameType();
 
@@ -184,8 +184,19 @@ public:
 	// The current video frame timecode
 	int64_t GetVideoTimecode();
 
+	// Set NDI low banwidth option
+	// Default false
+	void SetLowBandwidth(bool bLow = true);
+
+	// Set asynchronous upload of pixels to texture
+	// Default false
+	void SetUpload(bool bUpload = true);
+
+	// Get current upload mode
+	bool GetUpload();
+
 	// Set to receive Audio
-	void SetAudio(bool bAudio);
+	void SetAudio(bool bAudio = true);
 
 	// Is the current frame Audio data ?
 	// Use when ReceiveImage fails
@@ -218,7 +229,13 @@ public:
 private :
 
 	bool GetPixelData(ofTexture &texture);
-
+	bool LoadTexturePixels(GLuint TextureID, GLuint TextureTarget, 
+		unsigned int width, unsigned int height, 
+		const unsigned char* data, int GLformat = GL_BGRA);
+	GLuint m_pbo[2]; // PBOs used for asynchronous pixel load
+	int PboIndex = 0; // Index used for asynchronous pixel load
+	int NextPboIndex = 0;
+	bool m_bUpload = false; // Asynchronous upload of pixels to texture using two PBOs
 
 };
 
