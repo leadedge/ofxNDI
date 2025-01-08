@@ -67,6 +67,16 @@
 */
 #include "ofxNDIdynloader.h"
 
+#if defined(__APPLE__)
+#include <mach-o/dyld.h> // for _NSGetExecutablePath function
+#endif
+
+#if defined(TARGET_OSX) || defined(TARGET_LINUX)
+#include <unistd.h> // for access function (linux, osx)
+#elif defined(TARGET_WIN32)
+#include <io.h> // for _access (Windows only)
+#endif
+
 ofxNDIdynloader::ofxNDIdynloader()
 {
 	p_NDILib = nullptr;

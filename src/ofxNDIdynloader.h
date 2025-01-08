@@ -21,7 +21,6 @@
 #pragma comment(lib, "Shell32.lib")  // for shellexecute
 #elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 #include <dlfcn.h> // dynamic library loading in Linux
-#include <unistd.h> // for access function
 // typedef used for Linux
 typedef NDIlib_v5* (*NDIlib_v5_load_)(void);
 #endif
@@ -29,9 +28,6 @@ typedef NDIlib_v5* (*NDIlib_v5_load_)(void);
 #include <string>
 #include <vector>
 #include <iostream> // for cout
-#if defined(TARGET_WIN32)
-#include <io.h> // for _access (Windows only)
-#endif
 
 
 class ofxNDIdynloader
