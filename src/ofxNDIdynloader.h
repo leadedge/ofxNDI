@@ -51,7 +51,7 @@ private :
 	const std::string FindRuntime();
 	
 	// LJ DEBUG
-	const std::string getCurrentExePath();
+	const std::string GetCurrentExePath();
 
 	void* m_hNDILib;
 #endif
