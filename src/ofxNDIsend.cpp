@@ -4,7 +4,7 @@
 
 	using the NDI SDK to send the frames via network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -97,6 +97,10 @@
 	15/12/22	- Corrected deprecated function in GetNDIname
 				  Check for null library pointer in GetNDIversion
 	14/12/23	- Incremented version number in Sender meta-data registration to "1.005.000"
+	11/05/24	- Corrected Sendimage overload - bSwapRB not optional
+	27/05/24	- ReleaseSender - clear metadata
+				- CreateSender - add sender name to metadata
+	16.09.24	- SetVideoStride - remove test for global format
 
 */
 #include "ofxNDIsend.h"
@@ -187,28 +191,32 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 	else
 		m_picture_aspect_ratio = (float)m_horizontal_aspect/(float)m_vertical_aspect;
 
-	// We create the NDI sender
+	// Create the NDI sender
 	pNDI_send = p_NDILib->send_create(&NDI_send_create_desc);
 
 	if (pNDI_send) {
 
-		// Provide a meta-data registration that allows people to know what we are. Note that this is optional.
+		// Option : provide a meta-data registration that identifies the sender.
 		// Note that it is possible for senders to also register their preferred video formats.
 		//
 		// Default string length
 		// Default Timecode NDIlib_send_timecode_synthesize (synthesized for us)
 		//
 		NDIlib_metadata_frame_t NDI_connection_type;
-		NDI_connection_type.p_data = (char *)"<ndi_product long_name=\"ofxNDI sender\" "
-									 "             short_name=\"ofxNDI Sender\" "
-									 "             manufacturer=\"spout@zeal.co\" "
-									 "             version=\"1.005.000\" "
-									 "             session=\"default\" "
-									 "             model_name=\"none\" "
-									 "             serial=\"none\"/>";
+		std::string type = "<ndi_product long_name=\"ofxNDI sender ";
+		type += sendername; type += "\" ";
+		type += "             short_name=\"";
+		type += sendername; type += "\" ";
+		type += "             manufacturer=\"spout@zeal.co\" ";
+		type += "             version=\"";
+		type += ofxNDIutils::GetVersion(); type += "\" ";
+		type += "             session=\"default\" ";
+		type += "             model_name=\"none\" ";
+		type += "             serial=\"none\"/>";
+		NDI_connection_type.p_data = (char *)type.c_str();
 		p_NDILib->send_add_connection_metadata(pNDI_send, &NDI_connection_type);
 		
-		// We are going to create an non-interlaced frame at 60fps
+		// Create an non-interlaced frame at 60fps
 		if(p_frame) free((void *)p_frame);
 		p_frame = nullptr; // invert  buffer
 
@@ -394,7 +402,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 
 		if (m_bAsync) {
 			// Submit the frame asynchronously. This means that this call will return 
-			// immediately and the  API will "own" the memory location until there is
+			// immediately and the API will "own" the memory location until there is
 			// a synchronizing event. A synchronizing event is one of : 
 			//  - NDIlib_send_send_video_async
 			//  - NDIlib_send_send_video, NDIlib_send_destroy.
@@ -510,6 +518,12 @@ void ofxNDIsend::ReleaseSender()
 
 	if (!m_bNDIinitialized) return;
 
+	// Clear metadata
+	if (m_bMetadata && !m_metadataString.empty()) {
+		p_NDILib->send_clear_connection_metadata(pNDI_send);
+		m_metadataString.clear();
+	}
+
 	// Destroy the NDI sender
 	if (pNDI_send)
 		p_NDILib->send_destroy(pNDI_send);
@@ -593,8 +607,7 @@ void ofxNDIsend::SetFrameRate(int framerate)
 		// Keep scales compatible
 		m_frame_rate_N = framerate * 1000;
 		m_frame_rate_D = 1000;
-		if (m_bNDIinitialized)
-			UpdateSender(GetWidth(), GetHeight());
+		UpdateSender(GetWidth(), GetHeight());
 	}
 }
 
@@ -769,14 +782,12 @@ std::string ofxNDIsend::GetNDIversion()
 // Dimensions xres and yres must have been set already.
 void ofxNDIsend::SetVideoStride(NDIlib_FourCC_video_type_e format)
 {
-	if (format != m_Format) {
-		// Stop async send before changing the video frame
-		if (pNDI_send && m_bAsync)
-			p_NDILib->send_send_video_async_v2(pNDI_send, nullptr);
-		if (format == NDIlib_FourCC_video_type_UYVY)
-			video_frame.line_stride_in_bytes = video_frame.xres * 2;
-		else
-			video_frame.line_stride_in_bytes = video_frame.xres * 4;
-	}
+	// Stop async send before changing the video frame
+	if (pNDI_send && m_bAsync)
+		p_NDILib->send_send_video_async_v2(pNDI_send, nullptr);
+	if (format == NDIlib_FourCC_video_type_UYVY)
+		video_frame.line_stride_in_bytes = video_frame.xres * 2;
+	else
+		video_frame.line_stride_in_bytes = video_frame.xres * 4;
 }
 

@@ -3,7 +3,7 @@
 
 	using the NDI SDK to receive frames from the network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -104,6 +104,9 @@ public:
 	ofxNDIreceive();
 	~ofxNDIreceive();
 
+	// Open a receiver ready to receive
+	bool OpenReceiver();
+
 	// Create a receiver
 	// Default format RGBA (x64) or BGRA (Win32)
 	// - index | index in the sender list to connect to
@@ -150,6 +153,9 @@ public:
 	// NDIlib_FourCC_type_e GetVideoType();
 	NDIlib_FourCC_video_type_e GetVideoType();
 
+	// Video frame line stride in bytes
+	unsigned int GetVideoStride();
+
 	// Get a pointer to the current video frame data
 	unsigned char *GetVideoData();
 
@@ -194,6 +200,7 @@ public:
 	void SetSenderName(std::string sendername);
 
 	// Return the name string of a sender index
+	// no index argument means the current sender
 	std::string GetSenderName(int index = -1);
 
 	// Get the name characters of a sender index
@@ -214,12 +221,15 @@ public:
 	// Return the number of senders
 	int GetSenderCount();
 
-	// Has the user changed the sender index
-	bool SenderSelected();
+	// Return the list of senders
+	std::vector<std::string> GetSenderList();
 
 	// Set NDI low bandwidth option
 	// Refer to NDI documentation
 	void SetLowBandwidth(bool bLow = true);
+
+	// Set receiver preferred format
+	void SetFormat(NDIlib_recv_color_format_e format);
 
 	// Received frame type
 	NDIlib_frame_type_e GetFrameType();
@@ -254,7 +264,7 @@ public:
 	int GetAudioSampleRate();
 
 	// Get audio frame data pointer
-	float * GetAudioData();
+	float* GetAudioData();
 
 	// Return audio frame data
 	void GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels);
@@ -267,6 +277,9 @@ public:
 
 	// Timed received frame rate
 	int GetFps();
+
+	// Reset starting received frame rate
+	void ResetFps(double fps);
 
 	// ====================================================================
 
@@ -283,15 +296,17 @@ private:
 	NDIlib_video_frame_v2_t video_frame;
 	NDIlib_frame_type_e m_FrameType;
 
-	unsigned int m_Width, m_Height;
+	unsigned int m_Width;
+	unsigned int m_Height;
+	NDIlib_recv_color_format_e m_Format;
+
 	std::vector<std::string> NDIsenders; // List of sender names
-	int nsenders;// Sender count
-	int senderIndex; // Current sender index
-	std::string senderName; // Current sender name
+	int m_nSenders;// Sender count
+	int m_senderIndex; // Current sender index
+	std::string m_senderName; // Current sender name
 	bool bNDIinitialized; // Is NDI initialized properly
 	bool bReceiverCreated; // Is the receiver created
 	bool bReceiverConnected; // Is the receiver connected and receiving frames
-	bool bSenderSelected; // Sender index has been changed by the user
 	NDIlib_recv_bandwidth_e m_bandWidth; // Bandwidth receive option
 
 	uint32_t dwStartTime; // For timing delay
@@ -303,8 +318,9 @@ private:
 	double startTime, lastTime;
 	void StartCounter();
 	double GetCounter();
-	double frameRate, fps;
-	double frameTimeTotal, frameTimeNumber, lastFrame;
+	double m_fps;
+	double m_frameTimeTotal;
+	double m_frameTimeNumber;
 	void UpdateFps();
 
 	// Metadata
@@ -318,7 +334,7 @@ private:
 	// Audio frame received
 	bool m_bAudio;
 	bool m_bAudioFrame;
-	float * m_AudioData;
+	float* m_AudioData;
 	int m_nAudioSampleRate;
 	int m_nAudioSamples;
 	int m_nAudioChannels;

@@ -3,7 +3,7 @@
 
 	using the NDI SDK to receive frames from the network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
 	Copyright (C) 2016-2024 Lynn Jarvis.
 
@@ -50,9 +50,15 @@
 	23.04.22 - CopyImage - Use size_t cast for memcpy functions
 			   to avoid warning C26451: Arithmetic overflow
 	09.06.22 - rgba_bgra unsigned __int32 > uint32_t (https://github.com/leadedge/ofxNDI/issues/34)
-	10.06.22 - rgba_bgra_sse2 remove uint32_t decrlarations for src and dst
-
-
+	10.06.22 - rgba_bgra_sse2 remove uint32_t declarations for src and dst
+	12.06.24 - Add HoldFps with timeBeginPeriod/timeEndPeriod for Windows
+	14.05.24 - Corrected #ifdef WIN32 -> #if defined(TARGET_WIN32)
+	15.05.24 - Remove anonymous namespace for UINT PeriodMin
+	15.05.24 - Correct missing #endif for #ifdef USE_CHRONO
+			   Remove extra #endif at file end
+	19.05.24 - Add GetVersion() - return addon version number string
+	30.05.24 - Revise YUV422_to_RGBA conversion equations
+	16.09.24 - change UINT to uint32_t PeriodMin
 
 */
 #include "ofxNDIutils.h"
@@ -67,12 +73,19 @@
 
 namespace ofxNDIutils {
 
+	// ofxNDI version number string
+	// Major, minor, release
+	std::string ofxNDIversion = "2.000.002";
+
 #ifdef USE_CHRONO
 	// Timing counters
 	std::chrono::steady_clock::time_point start;
 	std::chrono::steady_clock::time_point end;
+	// For HoldFps
+	std::chrono::steady_clock::time_point FrameStartPtr;
+	std::chrono::steady_clock::time_point FrameEndPtr;
+	uint32_t PeriodMin = 0;
 #endif
-
 
 #if defined (__APPLE__)
 
@@ -236,7 +249,8 @@ namespace ofxNDIutils {
 
 		}
 	} // end rgba_bgra_sse2
-#endif
+
+#endif // endif TARGET_WIN32 || TARGET_OSX
 
 	// Without SSE
 	void rgba_bgra(const void *rgba_source, void *bgra_dest,
@@ -355,6 +369,14 @@ namespace ofxNDIutils {
 		return true;
 	}
 
+	// ofxNDI version number string
+	// Major, minor, release
+	std::string GetVersion()
+	{
+		return ofxNDIversion;
+	}
+
+
 	// Copy rgba source image to dest.
 	// Images must be the same size with no line padding.
 	// Option flip image vertically (invert).
@@ -445,17 +467,27 @@ namespace ofxNDIutils {
 	// U and V sampled at every second pixel 
 	// 2 pixels in 1 DWORD
 	//
-	//	R = Y + 1.403V
-	//	G = Y - 0.344U - 0.714V
-	//	B = Y + 1.770U
+	// https://github.com/rzwm/YUVRGBFormulaGenerator
 	//
-	//	R = 298*y + 409*v + 128 >> 8
-	//  G = 298*y - 100*u-208*v +128 >> 8
-	//  B = 298*y + 516*u +128 >> 8
+	// BT.601 : 16-235 > 0-255
+	// R = 1.164384(Y - 16) + 1.596027(V - 128)
+	// G = 1.164384(Y - 16) - 0.391762(U - 128) - 0.812968(V - 128)
+	// B = 1.164384(Y - 16) + 2.017232(U - 128)
+	// R = (297(Y - 16) + 407(V - 128) + 127) / 255
+	// G = (297(Y - 16) - 100(U - 128) - 207(V - 128) + 127) / 255
+	// B = (297(Y - 16) + 514(U - 128) + 127) / 255
+	//
+	// BT.709 : 16-235 > 0-255
+	// R = 1.164384(Y - 16) + 1.792741(V - 128)
+	// G = 1.164384(Y - 16) - 0.213249(U - 128) - 0.532909(V - 128)
+	// B = 1.164384(Y - 16) + 2.112402(U - 128)
+	// R = (297(Y - 16) + 457(V - 128) + 127) / 255
+	// G = (297(Y - 16) - 54(U - 128) - 136(V - 128) + 127) / 255
+	// B = (297(Y - 16) + 539(U - 128) + 127) / 255
 	//
 	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride)
 	{
-		// Clamp out of range values
+		// Clamp out of range values 0-255
 		#define CLAMPRGB(t) (((t)>255)?255:(((t)<0)?0:(t)))
 
 		const unsigned char *yuv = source;
@@ -463,27 +495,40 @@ namespace ofxNDIutils {
 		int r1 = 0 , g1 = 0 , b1 = 0; // , a1 = 0;
 		int r2 = 0 , g2 = 0 , b2 = 0; // a2 = 0;
 		int u0 = 0 , y0 = 0 , v0 = 0, y1 = 0;
-
 		unsigned int padding = stride - width*4;
+		bool b709 = true; // HD BT.709 default
+		if (width < 1920) b709 = false; // SD BT.601
 
 	    // Loop through 4 bytes at a time
+		// half width source data for yuv
 		for (unsigned int y = 0; y <height; y ++ ) {
 			for (unsigned int x = 0; x <width*2; x +=4 ) {
+
 				u0  = (int)*yuv++;
 				y0  = (int)*yuv++;
 				v0  = (int)*yuv++;
 				y1  = (int)*yuv++;
-				// u and v are +-0.5
-				u0 -= 128;
-				v0 -= 128;
+				// u and v are +/- 128 
 
 				// Color space conversion for RGB
-				r1 = CLAMPRGB((298*y0+409*v0+128)>>8);
-				g1 = CLAMPRGB((298*y0-100*u0-208*v0+128)>>8);
-				b1 = CLAMPRGB((298*y0+516*u0+128)>>8);
-				r2 = CLAMPRGB((298*y1+409*v0+128)>>8);
-				g2 = CLAMPRGB((298*y1-100*u0-208*v0+128)>>8);
-				b2 = CLAMPRGB((298*y1+516*u0+128)>>8);
+				if (b709) {
+					// BT.709
+					r1 = CLAMPRGB((297*(y0 - 16) + 457*(v0 - 128) + 127)>>8);
+					g1 = CLAMPRGB((297*(y0 - 16) - 54*(u0 - 128) - 136*(v0 - 128) + 127)>>8);
+					b1 = CLAMPRGB((297*(y0 - 16) + 539*(u0 - 128) + 127)>>8);
+					r2 = CLAMPRGB((297*(y1 - 16) + 457*(v0 - 128) + 127)>>8);
+					g2 = CLAMPRGB((297*(y1 - 16) - 54*(u0 - 128) - 136*(v0 - 128) + 127)>>8);
+					b2 = CLAMPRGB((297*(y1 - 16) + 539*(u0 - 128) + 127)>>8);
+				}
+				else {
+					// BT.601
+					r1 = CLAMPRGB((297*(y0 - 16) + 407*(v0 - 128) + 127)>>8);
+					g1 = CLAMPRGB((297*(y0 - 16) - 100*(u0 - 128) - 207*(v0 - 128) + 127)>>8);
+					b1 = CLAMPRGB((297*(y0 - 16) + 514*(u0 - 128) + 127)>>8);
+					r2 = CLAMPRGB((297*(y1 - 16) + 407*(v0 - 128) + 127)>>8);
+					g2 = CLAMPRGB((297*(y1 - 16) - 100*(u0 - 128) - 207*(v0 - 128) + 127)>>8);
+					b2 = CLAMPRGB((297*(y1 - 16) + 514*(u0 - 128) + 127)>>8);
+				}
 
 				*rgba++ = (unsigned char)r1;
 				*rgba++ = (unsigned char)g1;
@@ -494,7 +539,6 @@ namespace ofxNDIutils {
 				*rgba++ = (unsigned char)b2;
 				*rgba++ = 255;
 			}
-			yuv += (size_t)width*2; // half width source data
 			yuv += padding; // if any
 		}
 	}  // end YUV422_to_RGBA
@@ -512,6 +556,89 @@ namespace ofxNDIutils {
 		// printf("elapsed [%.3f] u/sec\n", elapsed);
 		return elapsed / 1000.0; // msec
 	}
+
+	// -----------------------------------------------
+	// Function: HoldFps
+	// Frame rate control
+	//
+	// Hold a desired frame rate if the application does not already
+	// have frame rate control. Must be called every frame.
+	//
+	// Note that this function is affected by changes to Windows timer 
+	// resolution since Windows 10 Version 2004 (April 2020)
+	// https://randomascii.wordpress.com/2020/10/04/windows-timer-resolution-the-great-rule-change/
+	//
+	// timeBeginPeriod / timeEndPeriod avoid loss of precision
+	// https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod
+	// Microsoft remark :
+	//   Call this function immediately before using timer services, and call the timeEndPeriod
+	//   function immediately after you are finished using the timer services. An application 
+	//   can make multiple timeBeginPeriod calls as long as each call is matched with a call
+	//   to timeEndPeriod.
+	// 
+	void HoldFps(int fps)
+	{
+		// Unlikely but return anyway
+		if (fps <= 0)
+			return;
+
+		// Reduce Windows timer period to minimum
+#if defined(TARGET_WIN32)
+		StartTimePeriod();
+#endif
+
+		// Target frame time
+		const double target = (1000000.0/static_cast<double>(fps))/1000.0; // msec
+
+		// Time now end point
+		FrameEndPtr = std::chrono::steady_clock::now();
+
+		// Milliseconds elapsed
+		const double elapsedTime = static_cast<double>(std::chrono::duration_cast<std::chrono::nanoseconds>(FrameEndPtr - FrameStartPtr).count()/1000000.0);
+
+		// Sleep to reach the target frame time
+		if (elapsedTime < target) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(target - elapsedTime)));
+		}
+
+		// Set start time for the next frame
+		FrameStartPtr = std::chrono::steady_clock::now();
+
+		// Reset Windows timer period
+#if defined(TARGET_WIN32)
+		EndTimePeriod();
+#endif
+
+	}
+
+#if defined(TARGET_WIN32)
+	// -----------------------------------------------
+	// Reduce Windows timing period to the minimum
+	// supported by the system (usually 1 msec)
+	void StartTimePeriod()
+	{
+		TIMECAPS tc={};
+		PeriodMin = 0; // To allow for errors
+		MMRESULT mres = timeGetDevCaps(&tc, sizeof(TIMECAPS));
+		if (mres == MMSYSERR_NOERROR) {
+			mres = timeBeginPeriod(tc.wPeriodMin);
+			if (mres == TIMERR_NOERROR)
+				PeriodMin = tc.wPeriodMin;
+		}
+	}
+
+
+	// -----------------------------------------------
+	// Reset Windows timing period
+	void EndTimePeriod()
+	{
+		if (PeriodMin > 0) {
+			timeEndPeriod(PeriodMin);
+			PeriodMin = 0;
+		}
+	}
+#endif
+
 #endif
 
 } // end namespace
