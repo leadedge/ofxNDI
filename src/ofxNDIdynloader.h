@@ -21,6 +21,7 @@
 #pragma comment(lib, "Shell32.lib")  // for shellexecute
 #elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 #include <dlfcn.h> // dynamic library loading in Linux
+#include <unistd.h> // for access function
 // typedef used for Linux
 typedef NDIlib_v5* (*NDIlib_v5_load_)(void);
 #endif
@@ -52,6 +53,10 @@ private :
 	HMODULE m_hNDILib;
 #elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 	const std::string FindRuntime();
+	
+	// LJ DEBUG
+	const std::string getCurrentExePath();
+
 	void* m_hNDILib;
 #endif
 	const NDIlib_v5* p_NDILib;

@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2024 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -75,6 +75,7 @@
 	28.05.24 - ReceiveImage(ofTexture &texture) Check for changed sender dimensions
 			   GetPixelData - test RGBA for upload flag as well as BGRA
 	29.05.24 - SetUpload - reset starting received frame rate
+	29.06.24 - LoadTexturePixels const pixel data
 
 */
 #include "ofxNDIreceiver.h"
@@ -133,6 +134,7 @@ void ofxNDIreceiver::ReleaseReceiver()
 	NDIreceiver.ReleaseReceiver();
 }
 
+//
 // Receive ofTexture
 // Receive ofFbo
 // Receive ofImage
@@ -142,7 +144,7 @@ void ofxNDIreceiver::ReleaseReceiver()
 //   Check for metadata using IsMetadata()
 //   Use IsAudioFrame() to determine whether audio has been received
 //   and GetAudioData to retrieve the sample buffer
-
+//
 
 // Receive ofTexture
 bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
@@ -156,7 +158,7 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 	}
 
 	// Receive a pixel image first
-	unsigned int width = (unsigned int)texture.getWidth();
+	unsigned int width  = (unsigned int)texture.getWidth();
 	unsigned int height = (unsigned int)texture.getHeight();
 
 	if (NDIreceiver.ReceiveImage(width, height)) {
@@ -555,7 +557,8 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 		// If set to prefer NDIlib_recv_color_format_fastest, YUV data is received.
 		// YCbCr - Load texture with YUV data by way of PBO
 		case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
-			printf("GetPixelData - UYVY format not supported\n"); break;
+			printf("GetPixelData - UYVY format not supported\n");
+			break;
 		case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
 			printf("GetPixelData - UYVA format not supported\n"); break;
 		case NDIlib_FourCC_type_P216: // YCbCr using 4:2:2 in 16bpp
@@ -566,7 +569,7 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 		case NDIlib_FourCC_type_RGBX: // RGBX
 		case NDIlib_FourCC_type_RGBA: // RGBA
 			if (m_bUpload)
-				LoadTexturePixels(texture.getTextureData().textureID, texture.getTextureData().textureTarget, (unsigned int)texture.getWidth(), (unsigned int)texture.getHeight(), (unsigned char*)videoData, GL_RGBA);
+				LoadTexturePixels(texture.getTextureData().textureID, texture.getTextureData().textureTarget, (unsigned int)texture.getWidth(), (unsigned int)texture.getHeight(), (const unsigned char*)videoData, GL_RGBA);
 			else
 				texture.loadData((const unsigned char*)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_RGBA);
 			break;
@@ -574,7 +577,7 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 		case NDIlib_FourCC_type_BGRA: // BGRA
 		default: // BGRA
 			if(m_bUpload)
-				LoadTexturePixels(texture.getTextureData().textureID, texture.getTextureData().textureTarget, (unsigned int)texture.getWidth(),	(unsigned int)texture.getHeight(),	(unsigned char*)videoData, GL_BGRA);
+				LoadTexturePixels(texture.getTextureData().textureID, texture.getTextureData().textureTarget, (unsigned int)texture.getWidth(),	(unsigned int)texture.getHeight(),	(const unsigned char*)videoData, GL_BGRA);
 			else
 				texture.loadData((const unsigned char*)videoData, (int)texture.getWidth(), (int)texture.getHeight(), GL_BGRA);
 			break;
@@ -592,7 +595,7 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 // Approximately 20% faster than using glTexSubImage2D alone
 // GLformat can be default GL_BGRA or GL_RGBA
 bool ofxNDIreceiver::LoadTexturePixels(GLuint TextureID, GLuint TextureTarget,
-	unsigned int width, unsigned int height, unsigned char* data, int GLformat)
+	unsigned int width, unsigned int height, const unsigned char* data, int GLformat)
 {
 	void* pboMemory = NULL;
 

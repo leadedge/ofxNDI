@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2024 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -230,7 +230,8 @@ private :
 
 	bool GetPixelData(ofTexture &texture);
 	bool LoadTexturePixels(GLuint TextureID, GLuint TextureTarget, 
-		unsigned int width, unsigned int height, unsigned char* data, int GLformat = GL_BGRA);
+		unsigned int width, unsigned int height, 
+		const unsigned char* data, int GLformat = GL_BGRA);
 	GLuint m_pbo[2]; // PBOs used for asynchronous pixel load
 	int PboIndex = 0; // Index used for asynchronous pixel load
 	int NextPboIndex = 0;

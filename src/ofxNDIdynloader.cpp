@@ -6,7 +6,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2019-2024
+	Copyright (C) 2019-2025
 
 	Luis Rodil-Fernandez
 	https://github.com/IDArnhem/ofxNDI
@@ -60,9 +60,11 @@
 				- Change addon library path from "libs/NDI/export/vs" to "libs/NDI/bin/vs"
 				- Change headers and dll files to NDI version 6.0.1.0
 	17.05.24	- Return to using GetModuleFileName to get a full path to the dll
+	30.09.24	- Modify OSX FindRuntime() to look for NDI libraries in executable path
+				  Create GetCurrentExePath() to support Linux and OSX
+				  Include <unistd.h> in ofxNDIloader.h for OSX access function
 
 */
-
 #include "ofxNDIdynloader.h"
 
 ofxNDIdynloader::ofxNDIdynloader()
@@ -195,6 +197,7 @@ bool ofxNDIdynloader::FindWinRuntime(std::string &runtime)
 		}
 	}
 
+
 	// Look for an NDI runtime installation with the
 	// environment variable NDILIB_REDIST_FOLDER
 	// "C:\Program Files\NDI\NDI 6 Runtime\v6"
@@ -202,7 +205,7 @@ bool ofxNDIdynloader::FindWinRuntime(std::string &runtime)
 #if defined(_MSC_VER)
 	_dupenv_s((char**)&p_NDI_runtime_folder, NULL, NDILIB_REDIST_FOLDER);
 #else
-	p_ndi_runtime = getenv("NDILIB_REDIST_FOLDER");
+	p_NDI_runtime_folder = getenv("NDILIB_REDIST_FOLDER");
 #endif
 	if (p_NDI_runtime_folder) {
 		// Full path to the dll
@@ -275,8 +278,7 @@ bool ofxNDIdynloader::ReadPathFromRegistry(HKEY hKey, const char* subkey, const 
 // OSX and LINUX
 const NDIlib_v5* ofxNDIdynloader::Load()
 {
- 
-	// Guard against reloading
+ 	// Guard against reloading
 	if (p_NDILib)
 		return p_NDILib;
 
@@ -315,6 +317,17 @@ const std::string ofxNDIdynloader::FindRuntime() {
 
 	std::string rt;
 
+	// First look in the executable folder for the dll
+	// in case it is distributed with the application.
+	rt = GetCurrentExePath();
+	if (!rt.empty()) {
+		rt += "/";
+		rt += NDILIB_LIBRARY_NAME;
+		if (access(rt.c_str) >= 0)) {
+			return rt;
+		}
+	}
+
 	// Use a fixed path instead of getenv(NDILIB_REDIST_FOLDER)
 	// due to missing environment variable after runtime installation.
 	// If the runtime folder is not found, return the library file name.
@@ -325,6 +338,29 @@ const std::string ofxNDIdynloader::FindRuntime() {
 		rt = NDILIB_LIBRARY_NAME;
 
 	return rt;
+}
+
+// From Openframeworks ofFileUtils::getCurrentExePathFS()
+const std::string ofxNDIdynloader::GetCurrentExePath()
+{
+
+#if defined(TARGET_LINUX))
+	char buff[FILENAME_MAX];
+	ssize_t size = readlink("/proc/self/exe", buff, sizeof(buff) - 1);
+	if (size == -1) {
+		return "";
+	}
+	if (size >= 0) {
+		buff[size] = '\0';
+		return buff;
+	}
+#elif defined(TARGET_OSX)
+	char path[FILENAME_MAX];
+	uint32_t size = sizeof(path);
+	_NSGetExecutablePath(path, &size);
+	return path;
+#endif
+
 }
 
 #else

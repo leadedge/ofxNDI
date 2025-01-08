@@ -1,6 +1,10 @@
 ﻿## Updates
 
 --------------------------
+08.01.25 - Backup Master to Backup branch.\
+Update Master with the Testing branch with current revisions.\
+Update to NDI version 6.0.1.1.\
+Details of changes are documented in each source file.\
 10.12.22 - Updated both Master and Testing branches.\
 ofxNDIsender update\
 rgbg2Yuv shaders located in a "bin\data\rgbg2Yuv" folder instead of\
