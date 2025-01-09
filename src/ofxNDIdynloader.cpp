@@ -67,6 +67,16 @@
 */
 #include "ofxNDIdynloader.h"
 
+#if defined(__APPLE__)
+#include <mach-o/dyld.h> // for _NSGetExecutablePath function
+#endif
+
+#if defined(TARGET_OSX) || defined(TARGET_LINUX)
+#include <unistd.h> // for access function (linux, osx)
+#elif defined(TARGET_WIN32)
+#include <io.h> // for _access (Windows only)
+#endif
+
 ofxNDIdynloader::ofxNDIdynloader()
 {
 	p_NDILib = nullptr;
@@ -323,7 +333,7 @@ const std::string ofxNDIdynloader::FindRuntime() {
 	if (!rt.empty()) {
 		rt += "/";
 		rt += NDILIB_LIBRARY_NAME;
-		if (access(rt.c_str) >= 0)) {
+		if (access(rt.c_str(), F_OK) == 0) {
 			return rt;
 		}
 	}
@@ -344,7 +354,7 @@ const std::string ofxNDIdynloader::FindRuntime() {
 const std::string ofxNDIdynloader::GetCurrentExePath()
 {
 
-#if defined(TARGET_LINUX))
+#if defined(TARGET_LINUX)
 	char buff[FILENAME_MAX];
 	ssize_t size = readlink("/proc/self/exe", buff, sizeof(buff) - 1);
 	if (size == -1) {
