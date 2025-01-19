@@ -1,6 +1,8 @@
 ﻿## Updates
 
 --------------------------
+19.01.25 - Updated for NDI SDK Vers 6.1.1.0\
+Dated changes in individual source files.
 08.01.25 - Backup Master to Backup branch.\
 Update Master with the Testing branch with current revisions.\
 Update to NDI version 6.0.1.1.\
