@@ -40,6 +40,7 @@
 			 - Add changes for OSX (https://github.com/ThomasLengeling/ofxNDI)
 			 - add "m_" prefix to all class variables
 	15.11.19 - Change to dynamic load of Newtek NDI dlls
+	19.01.25 - Update to NDI 6.1.1.0
 
 */
 #pragma once

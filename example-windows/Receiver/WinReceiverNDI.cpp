@@ -41,7 +41,7 @@
 
 =========================================================================
 
-                 Copyright(C) 2024 Lynn Jarvis.
+                 Copyright(C) 2024-2025 Lynn Jarvis.
 
    This program is free software : you can redistribute it and/or modify
    it under the terms of the GNU Lesser General Public License as published by
@@ -105,10 +105,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
- 	
-	// For debugging
-	// Console window so printf works
-	FILE* pCout; // should really be freed on exit
+	// Console window so printf works for debugging
+	FILE* pCout;
 	AllocConsole();
 	freopen_s(&pCout, "CONOUT$", "w", stdout);
 	// Disable console close button to prevent accidental shutdown
@@ -238,7 +236,7 @@ bool CheckSenders() {
 	// Check the sender count
 	if (nsenders > 0) {
 		// Has the user changed the sender index ?
-		if (receiver.SenderSelected()) {
+		if(receiver.GetSenderIndex() != g_senderIndex) {
 			// Retain the last sender in case of network delay
 			// Wait for the network to come back up or for the
 			// user to select another sender when it does
@@ -248,6 +246,7 @@ bool CheckSenders() {
 				receiver.ReleaseReceiver();
 			}
 		}
+
 		// Update global variables
 		g_senderName = receiver.GetSenderName();
 		g_senderIndex = receiver.GetSenderIndex();

@@ -157,6 +157,7 @@
 	29.05.24 - Return to rolling average for received fps calculation with 0.02 update
 			   Add ResetFps to reset starting received frame rate
 	01.06.24 - UpdateFps - rolling average damping based on received frame time
+	19.01.25 - Update to NDI 6.1.1.0
 
 */
 

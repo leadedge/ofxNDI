@@ -50,6 +50,7 @@
 	06.12.19 - Add dynamic load class (https://github.com/IDArnhem/ofxNDI)
 	27.02.20 - Add std::chrono functions for fps timing
 	14.12.23 - Add m_VideoTimecode, GetVideoTimecode()
+	19.01.25 - Update to NDI 6.1.1.0
 
 */
 #pragma once
