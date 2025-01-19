@@ -6,9 +6,9 @@
 
 	using the NDI SDK to send or receive frames via network
 
-	https://ndi.video/
+	https://ndi.video
 
-	Copyright (C) 2016-2024 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -55,7 +55,7 @@ class ofApp : public ofBaseApp{
 		unsigned char *ndiChars; // unsigned char image array to receive
 		unsigned int senderWidth = 0; // sender width and height needed to receive char pixels
 		unsigned int senderHeight = 0;
-		double frameTime = 16.666667; // 60 fps starting value for damping
+
 #else
 		ofxNDIsender ndiSender;        // NDI sender
 		std::string senderName;        // Sender name
