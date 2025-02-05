@@ -62,7 +62,7 @@ To move the project to another folder :
 
 ### ofxImGui
 
-[Daandelange](https://github.com/Daandelange/ofxNDI/tree/ofximgui-widgets) has created a helper class for ofxNDI "ofxNDIImGuiEx" that provides an easy way to use widgets for controlling ofxNDI components with [ofxImGui](https://github.com/jvcleave/ofxImGui/tree/develop). The [example-imgui](https://github.com/Daandelange/ofxNDI/tree/ofximgui-widgets/example-imgui) folder provides documentation and example code.
+[Daandelange](https://github.com/Daandelange/ofxNDI/tree/ofximgui-widgets) has created a project to use [ofxImGui](https://github.com/jvcleave/ofxImGui/tree/develop) widgets with ofxAddons [ofxImGuiAddonWidgets](https://github.com/Daandelange/ofxImGuiAddonWidgets) that provides an easy way to use widgets for controlling ofxNDI components. The [example-full](https://github.com/Daandelange/ofxImGuiAddonWidgets/tree/master/example-full) folder provides example code.
 
 ## Credits
 ofxNDI with help from [Harvey Buchan](https://github.com/Harvey3141).
