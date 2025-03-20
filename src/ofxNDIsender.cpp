@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2024 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -95,6 +95,11 @@
 			   Change to ofToDataPath
 			   Change all "\\" to "/" for OSX compatibility
 			   Tested successfully on Windows
+	17.03.25 - ReadPixels - remove glGetTeximage method for RGB.
+			   (RGB pixels are converted to RGBA in SendImage)
+	20.03.25 - ReadTexturePixels, CreateSender, UpdateSender, ReleaseSender
+			   change all gl functions to ARB for OpenGL 2.0 compatibility
+
 
 */
 #include "ofxNDIsender.h"
@@ -155,7 +160,7 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 
 	// Initialize OpenGL pbos for asynchronous readback of fbo data
 	if(!m_pbo[0])
-		glGenBuffers(3, m_pbo);
+		glGenBuffersARB(3, m_pbo);
 
 	PboIndex = NextPboIndex = 0; // index used for asynchronous fbo readback
 
@@ -188,8 +193,8 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 	AllocatePixelBuffers(width, height);
 
 	// Delete and re-initialize OpenGL pbos
-	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
-	glGenBuffers(3, m_pbo);
+	if (m_pbo[0]) glDeleteBuffersARB(3, m_pbo);
+	glGenBuffersARB(3, m_pbo);
 	PboIndex = NextPboIndex = 0; // reset index used for asynchronous fbo readback
 
 	// Re-allocate utility fbo
@@ -210,7 +215,7 @@ void ofxNDIsender::ReleaseSender()
 	if (ndiBuffer[1].isAllocated())	ndiBuffer[1].clear();
 
 	// Delete readback pbos
-	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
+	if (m_pbo[0]) glDeleteBuffersARB(3, m_pbo);
 	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
 
 	// Release utility fbo
@@ -270,7 +275,7 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 		|| tex.getTextureData().glInternalFormat == GL_RGBA8   // 0x8058
 		|| tex.getTextureData().glInternalFormat == GL_BGRA    // 0x80E1
 		|| tex.getTextureData().glInternalFormat == GL_RGB     // 0x1907
-		|| tex.getTextureData().glInternalFormat == GL_RGB8    // 0x8058
+		|| tex.getTextureData().glInternalFormat == GL_RGB8    // 0x8051
 		|| tex.getTextureData().glInternalFormat == GL_BGR)) { // 0x80E0
 		return false;
 	}
@@ -318,8 +323,9 @@ bool ofxNDIsender::SendImage(ofImage &img, bool bSwapRB, bool bInvert)
 	if (!NDIsender.SenderCreated() || !img.isAllocated())
 		return false;
 	
-	// RGBA for images
+	// RGBA for pixels
 	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA) {
+		// Conversion from RGB to RGBA adds alpha 255 for each pixel
 		img.setImageType(OF_IMAGE_COLOR_ALPHA);
 	}
 
@@ -591,7 +597,6 @@ bool ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height
 		fbo.bind();
 		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (void *)buffer.getData());
 		fbo.unbind();
-
 	}
 	return true;
 }
@@ -611,19 +616,8 @@ bool ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int he
 		bRet = ReadTexturePixels(tex, width, height, buffer.getData());
 	}
 	else {
-		//
-		// Read the texture to RGBA pixels using glGetTexImage
-		// with RGBA specified as the pixel format for the returned data.
-		// RGB/BGR textures are accepted
-		// https://learn.microsoft.com/en-us/windows/win32/opengl/glgetteximage
-		//    three-component textures are treated as RGBA buffers with red set to component zero,
-		//    green set to component one, blue set to component two, and alpha set to zero.
-		//
-		glPixelStorei(tex.texData.textureTarget, 1); // Alignment in case of RGB data
-		glBindTexture(tex.texData.textureTarget, tex.texData.textureID);
-		glGetTexImage(tex.texData.textureTarget, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.getData());
-		glBindTexture(tex.texData.textureTarget, 0);
-		glPixelStorei(tex.texData.textureTarget, 4); // Restore default alignment
+		// Read the RGBA texture directly to ofPixels
+		tex.readToPixels(buffer); // No return value
 	}
 
 	return bRet;
@@ -648,7 +642,7 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 	ndiFbo.attachTexture(tex, GL_RGBA, 0);
 
 	// Bind the current PBO
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[PboIndex]);
+	glBindBufferARB(GL_PIXEL_PACK_BUFFER, m_pbo[PboIndex]);
 
 	// Null existing PBO data to avoid a stall
 	// This allocates memory for the PBO
@@ -660,21 +654,21 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
 
 	// Map the previous PBO to process its data by CPU
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[NextPboIndex]);
+	glBindBufferARB(GL_PIXEL_PACK_BUFFER, m_pbo[NextPboIndex]);
 	pboMemory = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 	if (pboMemory) {
 		// Use SSE2 mempcy
 		ofxNDIutils::CopyImage((unsigned char *)pboMemory, data, width, height, width * 4);
-		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+		glUnmapBufferARB(GL_PIXEL_PACK_BUFFER);
 	}
 	else {
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		glBindBufferARB(GL_PIXEL_PACK_BUFFER, 0);
 		ndiFbo.unbind();
 		return false;
 	}
 
 	// Back to conventional pixel operation
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	glBindBufferARB(GL_PIXEL_PACK_BUFFER, 0);
 
 	ndiFbo.unbind();
 

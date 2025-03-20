@@ -6,9 +6,9 @@
 
 	using the NDI SDK to receive or send video frames via network
 
-	https://ndi.video/
+	https://ndi.video
 
-	Copyright (C) 2016-2024 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -69,8 +69,23 @@
 	14-12-24 - Add #define BUILDRECEIVER in header for conditional build
 	09.05.24 - Update to NDI 6.0.0
 	17.05.24 - Update to NDI 6.0.1.0
+	19.05.24 - ofxNDI async texture pixel load (LoadTexturePixels) for receiver
+	20.05 24 - Add SetUpload to activate async pixel load
+			   Extend comments for asynchronous sending
+	27.05.24 - ofxNDIsender - SendImage
+			     ofTexture - RGBA only
+			   ofxNDIreceive - FindSenders
+			     check for a name change at the same index and update m_senderName
+			   ofxNDIsend - ReleaseSender
+			     clear metadata, CreateSender - add sender name to metadata
 			   Rebuild example sender/receiver x64/MD
-
+	07.01.25 - Update to NDI 6.0.1.1
+	10.01.25 - Sender - try a different sender name if initialization fails.
+			   If it fails again, warn and quit.
+	16.03.25 - SetUpload option default false for a receiver
+			   SetReadback option default false for a sender
+	18.03.25 - #ifdef for MessageBox Windows only
+			   Console out OpenGL and Openframeworks versions
 
 */
 #include "ofApp.h"
@@ -80,6 +95,25 @@ void ofApp::setup(){
 
 	ofBackground(0);
 	ofSetColor(255);
+
+	// Query the OpenGL version string
+	const char * version = (const char *)glGetString(GL_VERSION);
+	std::cout << "OpenGL (" << version << ")" << std::endl;
+	// Get Openframemorks and renderer OpenGL version
+	int major = ofGetVersionMajor();
+	int minor = ofGetVersionMinor();
+	int glmajor = ofGetGLRenderer()->getGLVersionMajor();
+	int glminor = ofGetGLRenderer()->getGLVersionMinor();
+	std::cout << "Openframeworks " << major << "." << minor << " - OpenGL " << glmajor << "." << glminor << std::endl;
+	// Check for :
+	// glGenBuffersARB,	glDeleteBuffersARB, glBindBufferARB
+	// glBufferDataARB, glMapBufferARB, glUnmapBufferARB
+	if (GLEW_ARB_vertex_buffer_object) {
+		std::cout << "GL_ARB_vertex_buffer_object is supported\n" << std::endl;
+	}
+	else {
+		std::cout << "GL_ARB_vertex_buffer_object is not supported\n" << std::endl;
+	}
 
 #ifdef BUILDRECEIVER
 
@@ -92,7 +126,6 @@ void ofApp::setup(){
 	std::cout << "\nofxNDI example receiver - 32 bit" << std::endl;
 #endif // _WIN64
 
-	std::cout << ndiReceiver.GetNDIversion() << " (https://www.ndi.tv/)" << std::endl;
 	std::cout << "Press 'SPACE' to list NDI senders" << std::endl;
 
 	// ofFbo
@@ -112,12 +145,34 @@ void ofApp::setup(){
 	// ofPixels
 	ndiPixels.allocate(ofGetWidth(), ofGetHeight(), OF_IMAGE_COLOR_ALPHA);
 
-	// unsigned char pixels
+	unsigned char pixels
 	ndiChars = new unsigned char[senderWidth*senderHeight * 4];
 
 	// Sender dimensions and fps are not known yet
 	senderWidth = (unsigned char)ofGetWidth();
 	senderHeight = (unsigned char)ofGetHeight();
+
+	// Option : set streaming upload
+	// Pixel data upload to texture is optimised using two OpenGL 
+	// pixel buffers (pbo's) for approximately 20% speed increase.
+	// Improved "Smoothness" is noticeable at higher sender resolutions. 
+	// Best results are achieved when the the sender is set for synchronous
+	// sending and submits frames at the predetermined fps.
+	// Default is false
+	// ndiReceiver.SetUpload(true);
+
+	// Option : set low bandwidth mode
+	// Receives a medium quality stream that takes almost no bandwidth,
+	// about 640 pixels on the longest side.
+	// ndiReceiver.SetLowBandwidth(true);
+
+	// Option : set to receive audio (default false)
+	// If this is set true, follow up with IsAudioFrame() if ReceiveImage fails
+	// Query using GetAudioChannels, GetAudioSamples, GetAudioSampleRate
+	// and GetAudioData() to receive the audio data.
+	//
+	// ndiReceiver.SetAudio(true);
+
 
 #else
 
@@ -144,7 +199,8 @@ void ofApp::setup(){
 	// Pixel data extraction from fbo or texture
 	// is optimised using two OpenGL pixel buffers (pbo's)
 	// Note that the speed can vary with different CPUs
-	ndiSender.SetReadback();
+	// Default false
+	// ndiSender.SetReadback(true);
 
 	// Option : set the framerate
 	// NDI sending will clock at the set frame rate 
@@ -167,15 +223,38 @@ void ofApp::setup(){
 	// Note that the NDI sender frame rate should match the render rate
 	// so that it's displayed smoothly with NDI Studio Monitor.
 	//
-	ndiSender.SetFrameRate(30); // Disable this line for default 60 fps.
+	// ndiSender.SetFrameRate(30); // Enable this line for 30 fps instead of default 60.
 
 	// Option : set NDI asynchronous sending
 	// If disabled, the render rate is clocked to the sending framerate. 
-	ndiSender.SetAsync();
+	// Note that when sending is asynchronous, frames can be sent at a higher
+	// rate than the receiver can process them and hesitations may be evident.
+	// ndiSender.SetAsync(true);
 
 	// Create a sender with RGBA output format
 	bInitialized = ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight);
 
+	// A Sender with the same name cannot be created.
+	// In case the executable has been renamed, and there
+	// is already a sender of the same NDI name running,
+	// increment the NDI name and try again.
+	if (!bInitialized) {
+		printf("Could not create [%s]\n", senderName.c_str());
+		senderName += "_2";
+		bInitialized = ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight);
+		// If that still fails warn the user and quit
+		if (!bInitialized) {
+			printf("Could not create second sender [%s]\n", senderName.c_str());
+			#if defined(TARGET_WIN32)
+			// MessageBox is Windows only - ofxNDI Issue #60
+			MessageBoxA(NULL, "Could not create sender", "", MB_ICONWARNING | MB_OK);
+			#endif
+			exit();
+		}
+	}
+	printf("Created sender   [%s]\n", senderName.c_str());
+
+	// 
 	// 3D drawing setup for the demo graphics
 	glEnable(GL_DEPTH_TEST); // enable depth comparisons and update the depth buffer
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST); // Really Nice Perspective Calculations
@@ -214,6 +293,7 @@ void ofApp::setup(){
 	ofSetFrameRate(60);
 
 #endif
+
 	
 }
 
@@ -263,7 +343,7 @@ void ofApp::draw() {
 			senderHeight = height;
 			// Reallocate the receiving buffer
 			delete ndiChars;
-			ndiChars = new unsigned char[senderWidth*senderHeight * 4];
+			ndiChars = new unsigned char[senderWidth*senderHeight*4];
 			// Re-allocate display image
 			ndiImage.allocate(senderWidth, senderHeight, OF_IMAGE_COLOR_ALPHA);
 		}
@@ -273,9 +353,11 @@ void ofApp::draw() {
 			ndiImage.update();
 		}
 	}
+	*/
+
 	// Draw whether received or not
 	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
-	*/
+	
 
 	// Show what it's receiving
 	ShowInfo();
@@ -285,35 +367,40 @@ void ofApp::draw() {
 	if (!bInitialized)
 		return;
 
+	//
 	// Option 1 : Send ofFbo
-	DrawGraphics();
-	ndiSender.SendImage(m_fbo);
+	//
+	// DrawGraphics();
+	// ndiSender.SendImage(m_fbo);
 
+	//
 	// Option 2 : Send ofTexture
+	//
 	// DrawGraphics();
 	// ndiSender.SendImage(m_fbo.getTexture());
 
-	// Option 3 Send ofImage
+	//
+	// Option 3 : Send ofImage
+	//
 	// ofImage is converted to RGBA if not already
-	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
-	// ndiSender.SendImage(ndiImage);
+	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	ndiSender.SendImage(ndiImage);
 
 	//
-	// Send pixels
+	// Option 4 : Send ofPixels
 	//
 	// GPU download from a texture is not necessary
 	// because pixel data is already in CPU memory.
 	// GPU Readback and YUV Format options are not used.
 	// There is no change if these options are selected.
 	// Performance may be optimised by Async sending.
-	//
-
-	// Option 4 Send ofPixels
 	// ofPixels is converted to RGBA if not already
 	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 	// ndiSender.SendImage(ndiImage.getPixels());
 
-	// Option 5 Send char buffer
+	//
+	// Option 5 : Send char buffer
+	//
 	// Pixels must be rgba
 	// if (ndiImage.getImageType() != OF_IMAGE_COLOR_ALPHA)
 		// ndiImage.setImageType(OF_IMAGE_COLOR_ALPHA);
@@ -343,7 +430,7 @@ void ofApp::ShowInfo() {
 				str = "Receiving [";
 				str += ndiReceiver.GetSenderName();
 				str += "]";
-				ofDrawBitmapString(str, 20, 30);
+				ofDrawBitmapString(str, 20, 20);
 
 				str = "(";
 				str += std::to_string(ndiReceiver.GetSenderWidth()); str += "x";
@@ -355,24 +442,15 @@ void ofApp::ShowInfo() {
 				str += std::to_string((int)fps); str += ".";
 				str += std::to_string((int)(fps * 100) - (int)fps * 100);
 
-				// Frame time based on NDI frame timecode
-				// double ftime = ndiReceiver.GetVideoFrameTime();
-				// Damping to steady the display
-				// ftime *= 0.99;
-				// ftime += 0.01 * frameTime;
-				// ftime = roundf(ftime*100.0)/100.0; // 2 decimal place precision
-				// std::string fstr = std::to_string(ftime);
-				// fstr = fstr.substr(0, 5); // Display with 2 decimal places
-				// str += " ("; str +=fstr; str += " msec/frame)";
-
-				ofDrawBitmapString(str, 20, 50);
+				ofDrawBitmapString(str, 20, 40);
 
 				// More information
+				// 100ns intervals
 				// uint64_t timecode = ndiReceiver.GetVideoTimecode();
-				// uint64_t timestamp = ndiReceiver.GetVideoTimestamp();
 				// str = "Timecode "; str += std::to_string(timecode);
+				// uint64_t timestamp = ndiReceiver.GetVideoTimestamp();
 				// str += " Timestamp "; str += std::to_string(timestamp);
-				// ofDrawBitmapString(str, 20, 70);
+				// ofDrawBitmapString(str, 20, 60);
 
 			}
 		}
@@ -392,8 +470,7 @@ void ofApp::ShowInfo() {
 	}
 #else
 	if (ndiSender.SenderCreated()) {
-
-		std::string str;
+		
 		str = "Sending as : ["; str += senderName; str += "] (";
 		str += std::to_string(senderWidth); str += "x"; str += std::to_string(senderHeight); str += ")";
 		ofDrawBitmapString(str, 20, 25);
@@ -432,6 +509,11 @@ void ofApp::ShowInfo() {
 		str += "x";
 		str += std::to_string((int)senderHeight);
 		ofDrawBitmapString(str, 20, 130);
+
+		// NDI version
+		str = "NDI version - " + ndiSender.GetNDIversion();
+		ofDrawBitmapString(str, 20, ofGetHeight()-10);
+
 	}
 #endif
 
@@ -468,6 +550,7 @@ void ofApp::keyPressed(int key) {
 		else
 			std::cout << "Same sender" << std::endl;
 	}
+
 #else
 	std::string str;
 	framerate = ndiSender.GetFrameRate(); // update global fps value

@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2024 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -76,6 +76,9 @@
 			   GetPixelData - test RGBA for upload flag as well as BGRA
 	29.05.24 - SetUpload - reset starting received frame rate
 	29.06.24 - LoadTexturePixels const pixel data
+	20.03.25 - OpenReceiver, LoadTexturePixels -
+			   change all gl functions to ARB for OpenGL 2.0 compatibility
+
 
 */
 #include "ofxNDIreceiver.h"
@@ -96,7 +99,7 @@ bool ofxNDIreceiver::OpenReceiver()
 	if (NDIreceiver.OpenReceiver()) {
 		// Initialize pbos for asynchronous pixel load
 		if (!m_pbo[0]) {
-			glGenBuffers(2, m_pbo);
+			glGenBuffersARB(2, m_pbo);
 			PboIndex = NextPboIndex = 0;
 		}
 		return true;
@@ -604,7 +607,7 @@ bool ofxNDIreceiver::LoadTexturePixels(GLuint TextureID, GLuint TextureTarget,
 
 	// Bind the texture and PBO
 	glBindTexture(TextureTarget, TextureID);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pbo[PboIndex]);
+	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, m_pbo[PboIndex]);
 
 	// Copy pixels from PBO to the texture - use offset instead of pointer.
 	// glTexSubImage2D redefines a contiguous subregion of an existing
@@ -612,27 +615,27 @@ bool ofxNDIreceiver::LoadTexturePixels(GLuint TextureID, GLuint TextureTarget,
 	glTexSubImage2D(TextureTarget, 0, 0, 0, width, height, GLformat, GL_UNSIGNED_BYTE, 0);
 
 	// Bind PBO to update the texture
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pbo[NextPboIndex]);
+	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, m_pbo[NextPboIndex]);
 
 	// Call glBufferData() with a NULL pointer to clear the PBO data and avoid a stall.
-	glBufferData(GL_PIXEL_UNPACK_BUFFER, width*height*4, 0, GL_STREAM_DRAW);
+	glBufferDataARB(GL_PIXEL_UNPACK_BUFFER, width*height*4, 0, GL_STREAM_DRAW);
 
 	// Map the buffer object into client's memory
-	pboMemory = (void*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+	pboMemory = (void*)glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 	// Update the mapped buffer directly
 	if (pboMemory) {
 		// RGBA pixel data
 		// Use sse2 if the width is divisible by 16
 		ofxNDIutils::CopyImage(data, (unsigned char*)pboMemory, width, height);
-		glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER); // release the mapped buffer
+		glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER); // release the mapped buffer
 	}
 	else {
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+		glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, 0);
 		return false;
 	}
 
 	// Release PBOs
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, 0);
 
 	return true;
 

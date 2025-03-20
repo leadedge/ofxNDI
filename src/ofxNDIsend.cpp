@@ -6,7 +6,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2024 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -101,6 +101,7 @@
 	27/05/24	- ReleaseSender - clear metadata
 				- CreateSender - add sender name to metadata
 	16.09.24	- SetVideoStride - remove test for global format
+	19.01.25	- Update to NDI 6.1.1.0
 
 */
 #include "ofxNDIsend.h"

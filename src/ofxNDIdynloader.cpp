@@ -6,7 +6,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2019-2024
+	Copyright (C) 2019-2025
 
 	Luis Rodil-Fernandez
 	https://github.com/IDArnhem/ofxNDI
@@ -63,9 +63,20 @@
 	30.09.24	- Modify OSX FindRuntime() to look for NDI libraries in executable path
 				  Create GetCurrentExePath() to support Linux and OSX
 				  Include <unistd.h> in ofxNDIloader.h for OSX access function
+	18.03.25	- FindRuntime add #ifdef for Linux runtime - ofxNDI Issue #61
 
 */
 #include "ofxNDIdynloader.h"
+
+#if defined(__APPLE__)
+#include <mach-o/dyld.h> // for _NSGetExecutablePath function
+#endif
+
+#if defined(TARGET_OSX) || defined(TARGET_LINUX)
+#include <unistd.h> // for access function (linux, osx)
+#elif defined(TARGET_WIN32)
+#include <io.h> // for _access (Windows only)
+#endif
 
 ofxNDIdynloader::ofxNDIdynloader()
 {
@@ -323,7 +334,7 @@ const std::string ofxNDIdynloader::FindRuntime() {
 	if (!rt.empty()) {
 		rt += "/";
 		rt += NDILIB_LIBRARY_NAME;
-		if (access(rt.c_str) >= 0)) {
+		if (access(rt.c_str(), F_OK) == 0) {
 			return rt;
 		}
 	}
@@ -331,7 +342,13 @@ const std::string ofxNDIdynloader::FindRuntime() {
 	// Use a fixed path instead of getenv(NDILIB_REDIST_FOLDER)
 	// due to missing environment variable after runtime installation.
 	// If the runtime folder is not found, return the library file name.
-	const char* p_NDI_runtime_folder = "/usr/local/lib/libndi.dylib";
+#if defined(TARGET_LINUX)
+	const char * p_NDI_runtime_folder = "/usr/local/lib/libndi.so"; // Linux uses .so
+#elif defined(TARGET_OSX)
+	const char * p_NDI_runtime_folder = "/usr/local/lib/libndi.dylib"; // macOS uses .dylib
+#else
+	const char * p_NDI_runtime_folder = nullptr;
+#endif
 	if (p_NDI_runtime_folder)
 		rt = p_NDI_runtime_folder;
 	else
@@ -344,7 +361,7 @@ const std::string ofxNDIdynloader::FindRuntime() {
 const std::string ofxNDIdynloader::GetCurrentExePath()
 {
 
-#if defined(TARGET_LINUX))
+#if defined(TARGET_LINUX)
 	char buff[FILENAME_MAX];
 	ssize_t size = readlink("/proc/self/exe", buff, sizeof(buff) - 1);
 	if (size == -1) {
@@ -360,7 +377,8 @@ const std::string ofxNDIdynloader::GetCurrentExePath()
 	_NSGetExecutablePath(path, &size);
 	return path;
 #endif
-
+	// Return required for linux section fail (Issue #59)
+	return "";
 }
 
 #else
