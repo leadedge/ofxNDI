@@ -79,13 +79,14 @@
 			   ofxNDIsend - ReleaseSender
 			     clear metadata, CreateSender - add sender name to metadata
 			   Rebuild example sender/receiver x64/MD
-	07.01.25 - Update to NDI 6.0.1.1
+	07.01.25 - Update to NDI 6.1.1.0
 	10.01.25 - Sender - try a different sender name if initialization fails.
 			   If it fails again, warn and quit.
 	16.03.25 - SetUpload option default false for a receiver
 			   SetReadback option default false for a sender
 	18.03.25 - #ifdef for MessageBox Windows only
 			   Console out OpenGL and Openframeworks versions
+	11.04.25 - Use ofSystemAlertDialog in place of MessageBox (issue #60)
 
 */
 #include "ofApp.h"
@@ -239,20 +240,18 @@ void ofApp::setup(){
 	// is already a sender of the same NDI name running,
 	// increment the NDI name and try again.
 	if (!bInitialized) {
-		printf("Could not create [%s]\n", senderName.c_str());
+		std::string str = "Could not create sender [";
+		str += senderName;	str += "]";
+		printf("Could not create %s\n", str.c_str());
 		senderName += "_2";
 		bInitialized = ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight);
 		// If that still fails warn the user and quit
 		if (!bInitialized) {
-			printf("Could not create second sender [%s]\n", senderName.c_str());
-			#if defined(TARGET_WIN32)
-			// MessageBox is Windows only - ofxNDI Issue #60
-			MessageBoxA(NULL, "Could not create sender", "", MB_ICONWARNING | MB_OK);
-			#endif
+			ofSystemAlertDialog(str);
 			exit();
 		}
 	}
-	printf("Created sender   [%s]\n", senderName.c_str());
+	printf("Created sender [%s]\n", senderName.c_str());
 
 	// 
 	// 3D drawing setup for the demo graphics
@@ -293,7 +292,6 @@ void ofApp::setup(){
 	ofSetFrameRate(60);
 
 #endif
-
 	
 }
 
