@@ -368,8 +368,8 @@ void ofApp::draw() {
 	//
 	// Option 1 : Send ofFbo
 	//
-	// DrawGraphics();
-	// ndiSender.SendImage(m_fbo);
+	DrawGraphics();
+	ndiSender.SendImage(m_fbo);
 
 	//
 	// Option 2 : Send ofTexture
@@ -381,8 +381,8 @@ void ofApp::draw() {
 	// Option 3 : Send ofImage
 	//
 	// ofImage is converted to RGBA if not already
-	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
-	ndiSender.SendImage(ndiImage);
+	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
+	// ndiSender.SendImage(ndiImage);
 
 	//
 	// Option 4 : Send ofPixels
