@@ -2,9 +2,9 @@
 	OpenFrameworks NDI webcam sender example
 	using the NewTek NDI SDK to send the frames via network
 
-	http://NDI.NewTek.com
+	https://ndi.video
 
-	Copyright (C) 2016-2022 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -42,11 +42,19 @@
 	04.07.22 - Update with revised ofxNDI. Rebuild x64/MD.
 	05-08-22 - Update to NDI 5.5 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
 	20-11-22 - Update to NDI 5.5.2 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+	27-04-23 - Added select webcam details on main window
+			   Update to NDI 5.5.2 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
 			   Rebuild example executables x64/MD
+	12-05-24 - Update to NDI 6.0.0 (ofxNDI and bin\Processing.NDI.Lib.x64.dll)
+			   Rebuild example executable x64/MD to match Openframeworks videoInput.lib
+	19-05-24 - Update to NDI 6.0.1.0
+	19-01-25 - Update to NDI 6.1.1.0
+	11-04-25 - Remove unused include <conio.h> (not OSX compatible) issue #60.
+	12.04.25 - Add RGBA pixel buffer for use with RGB grabber source
 
 */
 #include "ofApp.h"
-#include <conio.h> // for getch
+
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -59,33 +67,39 @@ void ofApp::setup(){
 #else // _WIN64
 	cout << "\nofxNDI example webcam sender - 32 bit" << endl;
 #endif // _WIN64	
-	cout << camsender.GetNDIversion() << " (https://www.ndi.tv/)" << endl;
+	cout << camsender.GetNDIversion() << " (https://ndi.video)" << endl;
 
 	camsendername = "Openframeworks NDI webcam"; // Set the sender name
 	ofSetWindowTitle(camsendername); // show it on the title bar
 
 	// Get the webcam list so that we can identify by name
 	camdevices = vidGrabber.listDevices();
+
 	printf("Select a webcam by it's index (0-%d)\n\n", (int)camdevices.size() - 1);
 
 	// Use the default webcam (0) or change as required
 	camindex = 0;
 	vidGrabber.setDeviceID(camindex);
 	vidGrabber.setDesiredFrameRate(30); // Try to set desired frame rate
-	vidGrabber.setup(640, 480); // Try to grab at desired size
+	// Try to grab at desired size
+	// SpoutCam should be set to the same size using "SpoutSettings"
+	// See also keyPressed to select a webcam
+	vidGrabber.setup(640, 480);
 	cout << "Initialized webcam [" << camdevices[camindex].deviceName << "] " << vidGrabber.getWidth() << " x " << vidGrabber.getHeight() << ")" << endl;
 
-	// Try to set this frame rate
-	vidGrabber.setDesiredFrameRate(30);
-	// Set Openframeworks to send frames at this rate
+	// Create rgba sending buffer for rgb grabber
+	campixels = new unsigned char[(unsigned int)vidGrabber.getWidth()*(unsigned int)vidGrabber.getHeight()*4];
+
+	// Set Openframeworks to send frames at the desired frame grabber rate
 	ofSetFrameRate(30);
+
 	// Set the NDI sender to this rate
 	camsender.SetFrameRate(30.0);
 
 	// Set NDI asynchronous sending for best performance
 	camsender.SetAsync();
 
-	// Create a new sender - default RGBA for ofPixels
+	// Create a new NDI sender - default RGBA for ofPixels
 	camsender.CreateSender(camsendername.c_str(), (unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight());
 	cout << "Created NDI sender [" << camsendername << "]" << vidGrabber.getWidth() << "x" << vidGrabber.getHeight() << endl;
 
@@ -101,9 +115,42 @@ void ofApp::update() {
 //--------------------------------------------------------------
 void ofApp::draw() {
 
+	std::string str;
+	ofSetColor(255);
+
 	vidGrabber.draw(0, 0, ofGetWidth(), ofGetHeight());
-	if (vidGrabber.isFrameNew())
-		camsender.SendImage(vidGrabber.getPixels());
+	if (vidGrabber.isFrameNew()) {
+
+		// NDI accepts only RGBA pixels
+		// Copy to a sending buffer if the grabber is RGB
+		if ((vidGrabber.getPixelFormat() == OF_PIXELS_RGB || vidGrabber.getPixelFormat() == OF_PIXELS_BGR) && campixels) {
+
+			// RGB grabber -> RGBA pixel buffer (approx 0.6 msec at 640x480)
+			ofxNDIutils::rgb2rgba((void *)vidGrabber.getPixels().getData(),	(void *)campixels,
+			(unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight(), false);
+
+			camsender.SendImage(campixels, (unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight());
+		}
+		else if (vidGrabber.getPixelFormat() == OF_PIXELS_RGBA || vidGrabber.getPixelFormat() == OF_PIXELS_BGRA) {
+			camsender.SendImage(vidGrabber.getPixels(), (unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight());
+		}
+	}
+
+	str = "Select a webcam by it's index";
+	ofDrawBitmapString(str, 20, 30);
+
+	// Show the webcam list for selection
+	int ypos = 50;
+	for (int i=0; i<(int)camdevices.size(); i++) {
+		str = "("; str+= ofToString(i); str += ") ";
+		str += camdevices[i].deviceName;
+		ofDrawBitmapString(str, 40, ypos);
+		ypos += 15;
+	}
+	str = "Press 0 to ";
+	str += ofToString(camdevices.size()-1);
+	str += " to select a webcam";
+	ofDrawBitmapString(str, 40, ypos);
 
 }
 
@@ -129,15 +176,24 @@ void ofApp::keyPressed(int key) {
 		vidGrabber.setDesiredFrameRate(30); // Try to set desired frame rate
 		ofSetFrameRate(30); // Set Openframeworks to send frames at this rate
 		camsender.SetFrameRate(30.0); // Set the NDI sender to this rate
-		if (vidGrabber.setup(640, 480)) {  // Try to grab at desired size
+		// Try to grab at desired size
+		// SpoutCam should be set to the same size using "SpoutSettings"
+		if (vidGrabber.setup(640, 480)) {
 			ofSetWindowShape(vidGrabber.getWidth(), vidGrabber.getHeight());
+
+			// Update the rgba sending buffer for rgb grabber
+			if (campixels) delete[] campixels;
+			campixels = new unsigned char[(unsigned int)vidGrabber.getWidth()*(unsigned int)vidGrabber.getHeight()*4];
+			
 			// The webcam resolution might have changed. Update the sender.
 			camsender.UpdateSender((unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight());
 			cout << "Initialized webcam [" << camdevices[camindex].deviceName << "] (" << vidGrabber.getWidth() << " x " << vidGrabber.getHeight() << ")" << endl;
+
 		}
 		else {
 			printf("Webcam setup error. Try a different one.\n");
 		}
+		
 	}
 
 }
