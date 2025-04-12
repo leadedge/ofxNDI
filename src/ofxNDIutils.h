@@ -114,6 +114,7 @@ namespace ofxNDIutils {
 
 	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert = false);
 	void FlipBuffer(const unsigned char *src, unsigned char *dst, unsigned int width, unsigned int height);
+	void rgb2rgba(const void* rgb_source, void* rgba_dest, unsigned int width, unsigned int height, bool bInvert);
 	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride);
 
 #ifdef USE_CHRONO
