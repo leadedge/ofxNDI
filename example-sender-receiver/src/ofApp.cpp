@@ -87,6 +87,7 @@
 	18.03.25 - #ifdef for MessageBox Windows only
 			   Console out OpenGL and Openframeworks versions
 	11.04.25 - Use ofSystemAlertDialog in place of MessageBox (issue #60)
+	21.07.26 - Update to NDI 6.2.0.3
 
 */
 #include "ofApp.h"
@@ -146,7 +147,6 @@ void ofApp::setup(){
 	// ofPixels
 	ndiPixels.allocate(ofGetWidth(), ofGetHeight(), OF_IMAGE_COLOR_ALPHA);
 
-	unsigned char pixels
 	ndiChars = new unsigned char[senderWidth*senderHeight * 4];
 
 	// Sender dimensions and fps are not known yet
@@ -173,7 +173,6 @@ void ofApp::setup(){
 	// and GetAudioData() to receive the audio data.
 	//
 	// ndiReceiver.SetAudio(true);
-
 
 #else
 

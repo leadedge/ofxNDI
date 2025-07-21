@@ -51,6 +51,7 @@
 	19-01-25 - Update to NDI 6.1.1.0
 	11-04-25 - Remove unused include <conio.h> (not OSX compatible) issue #60.
 	12.04.25 - Add RGBA pixel buffer for use with RGB grabber source
+	19-01-25 - Update to NDI 6.2.0.3
 
 */
 #include "ofApp.h"
@@ -124,17 +125,16 @@ void ofApp::draw() {
 		// NDI accepts only RGBA pixels
 		// Copy to a sending buffer if the grabber is RGB
 		if ((vidGrabber.getPixelFormat() == OF_PIXELS_RGB || vidGrabber.getPixelFormat() == OF_PIXELS_BGR) && campixels) {
-
 			// RGB grabber -> RGBA pixel buffer (approx 0.6 msec at 640x480)
 			ofxNDIutils::rgb2rgba((void *)vidGrabber.getPixels().getData(),	(void *)campixels,
 			(unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight(), false);
-
 			camsender.SendImage(campixels, (unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight());
 		}
 		else if (vidGrabber.getPixelFormat() == OF_PIXELS_RGBA || vidGrabber.getPixelFormat() == OF_PIXELS_BGRA) {
 			camsender.SendImage(vidGrabber.getPixels(), (unsigned int)vidGrabber.getWidth(), (unsigned int)vidGrabber.getHeight());
 		}
 	}
+	
 
 	str = "Select a webcam by it's index";
 	ofDrawBitmapString(str, 20, 30);
