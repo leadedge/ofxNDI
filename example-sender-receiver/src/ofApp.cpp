@@ -79,10 +79,15 @@
 			   ofxNDIsend - ReleaseSender
 			     clear metadata, CreateSender - add sender name to metadata
 			   Rebuild example sender/receiver x64/MD
-	07.01.25 - Update to NDI 6.0.1.1
+	07.01.25 - Update to NDI 6.1.1.0
 	10.01.25 - Sender - try a different sender name if initialization fails.
 			   If it fails again, warn and quit.
-
+	16.03.25 - SetUpload option default false for a receiver
+			   SetReadback option default false for a sender
+	18.03.25 - #ifdef for MessageBox Windows only
+			   Console out OpenGL and Openframeworks versions
+	11.04.25 - Use ofSystemAlertDialog in place of MessageBox (issue #60)
+	21.07.26 - Update to NDI 6.2.0.3
 
 */
 #include "ofApp.h"
@@ -92,6 +97,25 @@ void ofApp::setup(){
 
 	ofBackground(0);
 	ofSetColor(255);
+
+	// Query the OpenGL version string
+	const char * version = (const char *)glGetString(GL_VERSION);
+	std::cout << "OpenGL (" << version << ")" << std::endl;
+	// Get Openframemorks and renderer OpenGL version
+	int major = ofGetVersionMajor();
+	int minor = ofGetVersionMinor();
+	int glmajor = ofGetGLRenderer()->getGLVersionMajor();
+	int glminor = ofGetGLRenderer()->getGLVersionMinor();
+	std::cout << "Openframeworks " << major << "." << minor << " - OpenGL " << glmajor << "." << glminor << std::endl;
+	// Check for :
+	// glGenBuffersARB,	glDeleteBuffersARB, glBindBufferARB
+	// glBufferDataARB, glMapBufferARB, glUnmapBufferARB
+	if (GLEW_ARB_vertex_buffer_object) {
+		std::cout << "GL_ARB_vertex_buffer_object is supported\n" << std::endl;
+	}
+	else {
+		std::cout << "GL_ARB_vertex_buffer_object is not supported\n" << std::endl;
+	}
 
 #ifdef BUILDRECEIVER
 
@@ -123,7 +147,6 @@ void ofApp::setup(){
 	// ofPixels
 	ndiPixels.allocate(ofGetWidth(), ofGetHeight(), OF_IMAGE_COLOR_ALPHA);
 
-	// unsigned char pixels
 	ndiChars = new unsigned char[senderWidth*senderHeight * 4];
 
 	// Sender dimensions and fps are not known yet
@@ -136,7 +159,8 @@ void ofApp::setup(){
 	// Improved "Smoothness" is noticeable at higher sender resolutions. 
 	// Best results are achieved when the the sender is set for synchronous
 	// sending and submits frames at the predetermined fps.
-	ndiReceiver.SetUpload(true);
+	// Default is false
+	// ndiReceiver.SetUpload(true);
 
 	// Option : set low bandwidth mode
 	// Receives a medium quality stream that takes almost no bandwidth,
@@ -149,7 +173,6 @@ void ofApp::setup(){
 	// and GetAudioData() to receive the audio data.
 	//
 	// ndiReceiver.SetAudio(true);
-
 
 #else
 
@@ -176,7 +199,8 @@ void ofApp::setup(){
 	// Pixel data extraction from fbo or texture
 	// is optimised using two OpenGL pixel buffers (pbo's)
 	// Note that the speed can vary with different CPUs
-	ndiSender.SetReadback(true);
+	// Default false
+	// ndiSender.SetReadback(true);
 
 	// Option : set the framerate
 	// NDI sending will clock at the set frame rate 
@@ -215,16 +239,18 @@ void ofApp::setup(){
 	// is already a sender of the same NDI name running,
 	// increment the NDI name and try again.
 	if (!bInitialized) {
-		printf("Could not create [%s]\n", senderName.c_str());
+		std::string str = "Could not create sender [";
+		str += senderName;	str += "]";
+		printf("Could not create %s\n", str.c_str());
 		senderName += "_2";
 		bInitialized = ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight);
 		// If that still fails warn the user and quit
 		if (!bInitialized) {
-			MessageBoxA(NULL, "Could not create sender", "", MB_ICONWARNING | MB_OK);
+			ofSystemAlertDialog(str);
 			exit();
 		}
 	}
-	printf("Created sender   [%s]\n", senderName.c_str());
+	printf("Created sender [%s]\n", senderName.c_str());
 
 	// 
 	// 3D drawing setup for the demo graphics
@@ -314,7 +340,7 @@ void ofApp::draw() {
 			senderHeight = height;
 			// Reallocate the receiving buffer
 			delete ndiChars;
-			ndiChars = new unsigned char[senderWidth*senderHeight * 4];
+			ndiChars = new unsigned char[senderWidth*senderHeight*4];
 			// Re-allocate display image
 			ndiImage.allocate(senderWidth, senderHeight, OF_IMAGE_COLOR_ALPHA);
 		}
@@ -324,9 +350,11 @@ void ofApp::draw() {
 			ndiImage.update();
 		}
 	}
+	*/
+
 	// Draw whether received or not
 	ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
-	*/
+	
 
 	// Show what it's receiving
 	ShowInfo();
@@ -399,7 +427,7 @@ void ofApp::ShowInfo() {
 				str = "Receiving [";
 				str += ndiReceiver.GetSenderName();
 				str += "]";
-				ofDrawBitmapString(str, 20, 30);
+				ofDrawBitmapString(str, 20, 20);
 
 				str = "(";
 				str += std::to_string(ndiReceiver.GetSenderWidth()); str += "x";
@@ -411,7 +439,7 @@ void ofApp::ShowInfo() {
 				str += std::to_string((int)fps); str += ".";
 				str += std::to_string((int)(fps * 100) - (int)fps * 100);
 
-				ofDrawBitmapString(str, 20, 50);
+				ofDrawBitmapString(str, 20, 40);
 
 				// More information
 				// 100ns intervals
@@ -419,7 +447,7 @@ void ofApp::ShowInfo() {
 				// str = "Timecode "; str += std::to_string(timecode);
 				// uint64_t timestamp = ndiReceiver.GetVideoTimestamp();
 				// str += " Timestamp "; str += std::to_string(timestamp);
-				// ofDrawBitmapString(str, 20, 70);
+				// ofDrawBitmapString(str, 20, 60);
 
 			}
 		}
@@ -478,6 +506,11 @@ void ofApp::ShowInfo() {
 		str += "x";
 		str += std::to_string((int)senderHeight);
 		ofDrawBitmapString(str, 20, 130);
+
+		// NDI version
+		str = "NDI version - " + ndiSender.GetNDIversion();
+		ofDrawBitmapString(str, 20, ofGetHeight()-10);
+
 	}
 #endif
 

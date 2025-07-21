@@ -1,11 +1,12 @@
+
 /*
 	OpenFrameworks NDI webcam sender example
 
 	using the NDI SDK to send the frames via network
 
-	http://NDI.NewTek.com
+	https://ndi.video/
 
-	Copyright (C) 2016-2022 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -38,12 +39,12 @@ class ofApp : public ofBaseApp {
 		void exit();
 		void keyPressed(int key);
 
-		// ofxNDIsender ndiSender;        // NDI sender object
 		ofVideoGrabber vidGrabber; // Webcam
 		std::vector <ofVideoDevice> camdevices; // Webcams available
 		ofxNDIsender camsender; // NDI sender object
 		std::string camsendername; // Sender name
 		int camindex = 0; // Selected webcam in the device list
 		bool bSendCam = true; // Clear to send the webcam texture
+		unsigned char* campixels = nullptr; // rgba pixel buffer
 
 };

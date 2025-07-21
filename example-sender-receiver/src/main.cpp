@@ -37,11 +37,11 @@ int main() {
 //========================================================================
 // int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
 
-	ofSetupOpenGL(640, 360, OF_WINDOW); // <-------- setup the GL context
-    // ofSetupOpenGL(640, 360, OF_FULLSCREEN);
-	// this kicks off the running of my app
+	// Set up the GL context
 	// can be OF_WINDOW or OF_FULLSCREEN
 	// pass in width and height too:
+	ofSetupOpenGL(640, 360, OF_WINDOW);
+	// this kicks off running of the app
 	ofRunApp( new ofApp());
 
 }
