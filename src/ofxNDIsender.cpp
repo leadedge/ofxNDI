@@ -95,6 +95,10 @@
 			   Change to ofToDataPath
 			   Change all "\\" to "/" for OSX compatibility
 			   Tested successfully on Windows
+	17.03.25 - ReadPixels - remove glGetTeximage method for RGB.
+			   (RGB pixels are converted to RGBA in SendImage)
+	20.03.25 - ReadTexturePixels, CreateSender, UpdateSender, ReleaseSender
+	21.07.25 - Update to NDI version 6.2.0.3
 
 */
 #include "ofxNDIsender.h"
@@ -270,7 +274,7 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 		|| tex.getTextureData().glInternalFormat == GL_RGBA8   // 0x8058
 		|| tex.getTextureData().glInternalFormat == GL_BGRA    // 0x80E1
 		|| tex.getTextureData().glInternalFormat == GL_RGB     // 0x1907
-		|| tex.getTextureData().glInternalFormat == GL_RGB8    // 0x8058
+		|| tex.getTextureData().glInternalFormat == GL_RGB8    // 0x8051
 		|| tex.getTextureData().glInternalFormat == GL_BGR)) { // 0x80E0
 		return false;
 	}
@@ -318,8 +322,9 @@ bool ofxNDIsender::SendImage(ofImage &img, bool bSwapRB, bool bInvert)
 	if (!NDIsender.SenderCreated() || !img.isAllocated())
 		return false;
 	
-	// RGBA for images
+	// RGBA for pixels
 	if (img.getImageType() != OF_IMAGE_COLOR_ALPHA) {
+		// Conversion from RGB to RGBA adds alpha 255 for each pixel
 		img.setImageType(OF_IMAGE_COLOR_ALPHA);
 	}
 
@@ -591,7 +596,6 @@ bool ofxNDIsender::ReadPixels(ofFbo fbo, unsigned int width, unsigned int height
 		fbo.bind();
 		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (void *)buffer.getData());
 		fbo.unbind();
-
 	}
 	return true;
 }
@@ -611,19 +615,8 @@ bool ofxNDIsender::ReadPixels(ofTexture tex, unsigned int width, unsigned int he
 		bRet = ReadTexturePixels(tex, width, height, buffer.getData());
 	}
 	else {
-		//
-		// Read the texture to RGBA pixels using glGetTexImage
-		// with RGBA specified as the pixel format for the returned data.
-		// RGB/BGR textures are accepted
-		// https://learn.microsoft.com/en-us/windows/win32/opengl/glgetteximage
-		//    three-component textures are treated as RGBA buffers with red set to component zero,
-		//    green set to component one, blue set to component two, and alpha set to zero.
-		//
-		glPixelStorei(tex.texData.textureTarget, 1); // Alignment in case of RGB data
-		glBindTexture(tex.texData.textureTarget, tex.texData.textureID);
-		glGetTexImage(tex.texData.textureTarget, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.getData());
-		glBindTexture(tex.texData.textureTarget, 0);
-		glPixelStorei(tex.texData.textureTarget, 4); // Restore default alignment
+		// Read the RGBA texture directly to ofPixels
+		tex.readToPixels(buffer); // No return value
 	}
 
 	return bRet;
@@ -652,7 +645,7 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 
 	// Null existing PBO data to avoid a stall
 	// This allocates memory for the PBO
-	glBufferDataARB(GL_PIXEL_PACK_BUFFER, (size_t)width * (size_t)height * 4, 0, GL_STREAM_READ);
+	glBufferData(GL_PIXEL_PACK_BUFFER, (size_t)width * (size_t)height * 4, 0, GL_STREAM_READ);
 
 	// Read pixels from framebuffer to the current PBO
 	// After a buffer is bound, glReadPixels() will pack(write) data into the Pixel Buffer Object.

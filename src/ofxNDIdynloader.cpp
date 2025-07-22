@@ -63,6 +63,8 @@
 	30.09.24	- Modify OSX FindRuntime() to look for NDI libraries in executable path
 				  Create GetCurrentExePath() to support Linux and OSX
 				  Include <unistd.h> in ofxNDIloader.h for OSX access function
+	18.03.25	- FindRuntime add #ifdef for Linux runtime - ofxNDI Issue #61
+	21.07.25	- Update headers to NDI version 6.2.0.3
 
 */
 #include "ofxNDIdynloader.h"
@@ -341,7 +343,13 @@ const std::string ofxNDIdynloader::FindRuntime() {
 	// Use a fixed path instead of getenv(NDILIB_REDIST_FOLDER)
 	// due to missing environment variable after runtime installation.
 	// If the runtime folder is not found, return the library file name.
-	const char* p_NDI_runtime_folder = "/usr/local/lib/libndi.dylib";
+#if defined(TARGET_LINUX)
+	const char * p_NDI_runtime_folder = "/usr/local/lib/libndi.so"; // Linux uses .so
+#elif defined(TARGET_OSX)
+	const char * p_NDI_runtime_folder = "/usr/local/lib/libndi.dylib"; // macOS uses .dylib
+#else
+	const char * p_NDI_runtime_folder = nullptr;
+#endif
 	if (p_NDI_runtime_folder)
 		rt = p_NDI_runtime_folder;
 	else
@@ -370,7 +378,8 @@ const std::string ofxNDIdynloader::GetCurrentExePath()
 	_NSGetExecutablePath(path, &size);
 	return path;
 #endif
-
+	// Return required for linux section fail (Issue #59)
+	return "";
 }
 
 #else

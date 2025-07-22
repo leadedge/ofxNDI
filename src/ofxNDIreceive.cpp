@@ -158,6 +158,9 @@
 			   Add ResetFps to reset starting received frame rate
 	01.06.24 - UpdateFps - rolling average damping based on received frame time
 	19.01.25 - Update to NDI 6.1.1.0
+	09.05.25 - FindSenders - Remove check for a name change at the same index
+			   due to problems with command line selecting the wrong sender
+	21.07.25 - Update to NDI version 6.2.0.3
 
 */
 
@@ -316,67 +319,61 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 
 	// If a finder was created, use it to find senders on the network
 	if (pNDI_find) {
-
 		//
 		// This may be called for every frame so has to be fast.
 		//
-
-		// Specify a delay so that p_sources is returned only for a network change.
+		// Specify a delay (1 msec) so that p_sources is returned only for a network change.
 		// If there was no network change, p_sources is NULL and no_sources = 0 
 		// and can't be used for other functions, so the sender names as well as 
 		// the sender count need to be saved locally.
+		// 
 		p_sources = FindGetSources(pNDI_find, &nsources, 1);
-		// Check for a name change at the same index and update m_senderName
-		if (p_sources && nsources > 0 && !m_senderName.empty() && p_sources[m_senderIndex].p_ndi_name) {
-			if (strcmp(m_senderName.c_str(), p_sources[m_senderIndex].p_ndi_name) != 0) {
-				m_senderName = p_sources[m_senderIndex].p_ndi_name;
-			}
-		}
+		if (p_sources) {
 
-		// If there are new sources and the number of sources has changed
-		if (p_sources && nsources > 0 && nsources != no_sources) {
-			// Rebuild the sender name list
-			no_sources = nsources;
-			NDIsenders.clear();
-			if (no_sources > 0) {
-				for (int i = 0; i<(int)no_sources; i++) {
-					if (p_sources[i].p_ndi_name && p_sources[i].p_ndi_name[0]) {
-						NDIsenders.push_back(p_sources[i].p_ndi_name);
-					}
-				}
-			}
+			// If there are new sources and the number of sources has changed
+			if (nsources > 0 && nsources != no_sources) {
 
-			// Update the current sender index
-			// because it's position may have changed
-			if (!m_senderName.empty()) {
-
-				// If there are no senders left, close the current receiver
-				if (NDIsenders.size() == 0) {
-					ReleaseReceiver();
-					m_senderName.clear();
-					m_senderIndex = 0;
-					m_nSenders = 0;
-					sendercount = 0;
-					return true; // return true because the last one just closed
-				}
-
-				// Reset the current sender index for a changed name
-				if (NDIsenders.size() > 0) {
-					m_senderIndex = 0;
-					for (unsigned int i = 0; i < (int)NDIsenders.size(); i++) {
-						if (m_senderName == NDIsenders.at(i)) {
-							m_senderIndex = i;
+				// Rebuild the sender name list
+				no_sources = nsources;
+				NDIsenders.clear();
+				if (no_sources > 0) {
+					for (int i = 0; i < (int)no_sources; i++) {
+						if (p_sources[i].p_ndi_name && p_sources[i].p_ndi_name[0]) {
+							NDIsenders.push_back(p_sources[i].p_ndi_name);
 						}
 					}
 				}
+
+				// Update the current sender index because it's position may have changed
+				if (!m_senderName.empty()) {
+
+					// If there are no senders left, close the current receiver
+					if (NDIsenders.size() == 0) {
+						ReleaseReceiver();
+						m_senderName.clear();
+						m_senderIndex = 0;
+						m_nSenders = 0;
+						sendercount = 0;
+						return true; // return true because the last one just closed
+					}
+
+					// Reset the current sender index for a changed name
+					if (NDIsenders.size() > 0) {
+						m_senderIndex = 0;
+						for (unsigned int i = 0; i < (int)NDIsenders.size(); i++) {
+							if (m_senderName == NDIsenders.at(i)) {
+								m_senderIndex = i;
+							}
+						}
+					}
+				}
+
+				// Network change - return new number of senders
+				sendercount = (int)NDIsenders.size();
+				m_nSenders = sendercount;
+
+				return true;
 			}
-
-			// Network change - return new number of senders
-			sendercount = (int)NDIsenders.size();
-			m_nSenders = sendercount;
-
-			return true;
-
 		}
 	}
 	else {
@@ -799,6 +796,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 		}
 
 		if (p_sources && no_sources > 0) {
+
 			// Quit if the user selected index is greater than the number of sources
 			// Unlikely but safety.
 			if (userindex > (int)no_sources - 1) {

@@ -2,6 +2,17 @@
 
 --------------------------
 21.07.25 - Updated for NDI SDK Vers 6.2.0.3\
+ofxNDdynloader\
+18.03.25 - FindRuntime add #ifdef for Linux runtime - ofxNDI Issue #61\
+ofxNDIreceive\
+09.05.25 - FindSenders - Remove check for a name change at the same index
+due to problems with command line selecting the wrong sender\
+ofxNDIsender\
+17.03.25 - ReadPixels - remove glGetTeximage method for RGB.
+ (RGB pixels are converted to RGBA in SendImage)\
+20.03.25 - ReadTexturePixels, CreateSender, UpdateSender, ReleaseSender\
+ofxNDIutils\
+12-04-25 - Add rgb2rgba\
 19.01.25 - Updated for NDI SDK Vers 6.1.1.0\
 Dated changes in individual source files.
 08.01.25 - Backup Master to Backup branch.\

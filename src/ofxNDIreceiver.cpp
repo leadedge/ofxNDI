@@ -76,6 +76,7 @@
 			   GetPixelData - test RGBA for upload flag as well as BGRA
 	29.05.24 - SetUpload - reset starting received frame rate
 	29.06.24 - LoadTexturePixels const pixel data
+	21.07.25 - Update to NDI version 6.2.0.3
 
 */
 #include "ofxNDIreceiver.h"

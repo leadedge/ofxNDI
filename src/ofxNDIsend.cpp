@@ -102,6 +102,7 @@
 				- CreateSender - add sender name to metadata
 	16.09.24	- SetVideoStride - remove test for global format
 	19.01.25	- Update to NDI 6.1.1.0
+	21.07.25	- Update to NDI version 6.2.0.3
 
 */
 #include "ofxNDIsend.h"
@@ -356,7 +357,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 			video_frame.yres = (int)height;
 			video_frame.FourCC = m_Format;
 			SetVideoStride(m_Format);
-			// Release pframe for invert because the size is different
+			// Release pframe because the size is different
 			// It will be re-created at the correct size
 			if (p_frame) free((void *)p_frame);
 			p_frame = nullptr;

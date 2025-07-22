@@ -59,6 +59,7 @@
 	19.05.24 - Add GetVersion() - return addon version number string
 	30.05.24 - Revise YUV422_to_RGBA conversion equations
 	16.09.24 - change UINT to uint32_t PeriodMin
+	12-04-25 - Add rgb2rgba
 
 */
 #include "ofxNDIutils.h"
@@ -376,7 +377,6 @@ namespace ofxNDIutils {
 		return ofxNDIversion;
 	}
 
-
 	// Copy rgba source image to dest.
 	// Images must be the same size with no line padding.
 	// Option flip image vertically (invert).
@@ -459,6 +459,38 @@ namespace ofxNDIutils {
 			memcpy((void *)dest, (const void *)source, (size_t)width * 4);
 		}
 	}
+
+	// Copy rgb source to rgba dest
+	void rgb2rgba(const void* rgb_source, void* rgba_dest, unsigned int width, unsigned int height, bool bInvert)
+	{
+		// Start of buffers
+		auto rgb = static_cast<const unsigned char*>(rgb_source); // rgb/bgr
+		auto rgba = static_cast<unsigned char*>(rgba_dest); // rgba/bgra
+		if (!rgb || !rgba)
+			return;
+
+		const uint64_t rgbsize = (uint64_t)width * (uint64_t)height * 3;
+		const uint64_t rgbpitch = (uint64_t)width * 3;
+		if (bInvert) {
+			rgb += rgbsize; // end of rgb buffer
+			rgb -= rgbpitch; // beginning of the last rgb line
+		}
+
+		for (unsigned int y = 0; y < height; y++) {
+			for (unsigned int x = 0; x < width; x++) {
+				// rgb source - rgba dest
+				*(rgba + 0) = *(rgb + 0); // red
+				*(rgba + 1) = *(rgb + 1); // grn
+				*(rgba + 2) = *(rgb + 2); // blu
+				*(rgba + 3) = (unsigned char)255; // alpha
+				rgb  += 3;
+				rgba += 4;
+			}
+			if (bInvert)
+				rgb -= rgbpitch * 2L; // move up a line for invert
+		}
+
+	} // end rgb2rgba
 
 	//
 	//        YUV422_to_RGBA
