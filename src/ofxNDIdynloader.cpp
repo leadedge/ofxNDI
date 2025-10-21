@@ -65,6 +65,7 @@
 				  Include <unistd.h> in ofxNDIloader.h for OSX access function
 	18.03.25	- FindRuntime add #ifdef for Linux runtime - ofxNDI Issue #61
 	21.07.25	- Update headers to NDI version 6.2.0.3
+	21.10.25	- Update headers to NDI version 6.2.1
 
 */
 #include "ofxNDIdynloader.h"
