@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -25,6 +25,10 @@
 	=========================================================================
 
 	08.07.16 - Use ofxNDIreceive class
+	20.12.25 - Compute shader for YUV > RGBA conversion
+			   Default format - NDIlib_recv_color_format_UYVY_BGRA
+			 - Update to NDI version 6.2.1
+	26.12.25 - Add variables for UYVY > RGBA conversion shaders
 
 */
 
@@ -68,8 +72,6 @@ public:
 	// - index | index in the sender list to connect to
 	//   -1 - connect to the selected sender
 	//        if none selected connect to the first sender
-	// Default NDI format is BGRA
-	// Default application format is RGBA
 	// Data is converted to RGBA during copy from the video frame buffer
 	bool CreateReceiver(int index = -1);
 
@@ -168,8 +170,11 @@ public:
 	// Return the list of senders
 	std::vector<std::string> GetSenderList();
 
-	// Received frame type
+	// Received frame type (video, audio, metadata)
 	NDIlib_frame_type_e GetFrameType();
+
+	// Received video format fourcc type
+	NDIlib_FourCC_video_type_e GetVideoType();
 
 	// Is the current frame MetaData ?
 	// Use when ReceiveImage fails
@@ -184,6 +189,10 @@ public:
 	// The current video frame timecode
 	int64_t GetVideoTimecode();
 
+	// Set preferred video format
+	// Default NDIlib_recv_color_format_UYVY_BGRA
+	void SetFormat(NDIlib_recv_color_format_e format);
+
 	// Set NDI low banwidth option
 	// Default false
 	void SetLowBandwidth(bool bLow = true);
@@ -193,6 +202,7 @@ public:
 	void SetUpload(bool bUpload = true);
 
 	// Get current upload mode
+	// True - asynchronouse
 	bool GetUpload();
 
 	// Set to receive Audio
@@ -232,10 +242,17 @@ private :
 	bool LoadTexturePixels(GLuint TextureID, GLuint TextureTarget, 
 		unsigned int width, unsigned int height, 
 		const unsigned char* data, int GLformat = GL_BGRA);
-	GLuint m_pbo[2]; // PBOs used for asynchronous pixel load
-	int PboIndex = 0; // Index used for asynchronous pixel load
+	GLuint m_pbo[3]{}; // PBOs used for asynchronous pixel load
+	int PboIndex = 0; // Index used for pbo
 	int NextPboIndex = 0;
-	bool m_bUpload = false; // Asynchronous upload of pixels to texture using two PBOs
+	bool m_bUpload = false; // Asynchronous upload flag
+
+	// Shaders for UYVY > RGBA conversion
+	ofShader yuv2rgba;      // Openframeworks UYVY to RGBA shader
+	ofFbo ndiFbo;           // Utility Fbo
+	ofTexture m_yuvtexture; // shader UYVY texture
+	int m_colormatrix = 1;  // 0 - BT.601, 1 - BT.709, 2 - BT.2020
+
 
 };
 

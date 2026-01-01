@@ -8,7 +8,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -88,6 +88,9 @@
 			   Console out OpenGL and Openframeworks versions
 	11.04.25 - Use ofSystemAlertDialog in place of MessageBox (issue #60)
 	21.07.26 - Update to NDI 6.2.0.3
+	26.12.26 - Update for receiver yuv2rgba shaders
+	31.12.26 - Correct UYVY > RGBA conversion for receive to pixel data
+			   Add option to set preferred receiving format
 
 */
 #include "ofApp.h"
@@ -161,6 +164,26 @@ void ofApp::setup(){
 	// sending and submits frames at the predetermined fps.
 	// Default is false
 	// ndiReceiver.SetUpload(true);
+
+	//
+	// Option : set preferred receiving data format
+	//
+	// Formats supported are :
+	//     NDIlib_recv_color_format_UYVY_RGBA / NDIlib_recv_color_format_UYVY_BGRA 
+	//     NDIlib_recv_color_format_RGBX_RGBA / NDIlib_recv_color_format_BGRX_BGRA
+	// Default :
+	//     NDIlib_recv_color_format_UYVY_BGRA
+	//
+	// UYVY is a compressed format but the data size is half that of BGRA/RGBA.
+	//
+	// Texture data (ofTexture, ofFbo and ofImage) is/ converted to RGBA by GPU
+	// using a shader so the default UYVY format is fastest.
+	//
+	// Pixel data (ofPixels and rgba pixel buffer) is copied to the RGBA receiving
+	// buffer by CPU. Although BGRA/RGBA copy has twice the data as UYVY, it is
+	// SSE optimized and is more than three times faster.
+	//
+	// ndiReceiver.SetFormat(NDIlib_recv_color_format_RGBX_RGBA);
 
 	// Option : set low bandwidth mode
 	// Receives a medium quality stream that takes almost no bandwidth,
@@ -317,10 +340,15 @@ void ofApp::draw() {
 	// ndiReceiver.ReceiveImage(ndiImage);
 	// ndiImage.draw(0, 0, ofGetWidth(), ofGetHeight());
 
+
+	// Note : if receiving to ofPixels or a pixel buffer,
+	// RGBA format is faster than UYVY. See in setup() above :
+	//   SetFormat(NDIlib_recv_color_format_RGBX_RGBA)
+
 	/*
 	// Receive ofPixels
 	ndiReceiver.ReceiveImage(ndiPixels);
-	// Use setFromExternalPixels to avoid an extra data copy
+	// setFromExternalPixels to an ofImage for draw()
 	ndiImage.getPixels().setFromExternalPixels(ndiPixels.getData(), ndiPixels.getWidth(), ndiPixels.getHeight(), 4);
 	// Update the image texture
 	ndiImage.update();
@@ -338,7 +366,7 @@ void ofApp::draw() {
 			// Update sender dimensions
 			senderWidth = width;
 			senderHeight = height;
-			// Reallocate the receiving buffer
+			// Reallocate the RGBA receiving buffer
 			delete ndiChars;
 			ndiChars = new unsigned char[senderWidth*senderHeight*4];
 			// Re-allocate display image
@@ -429,16 +457,24 @@ void ofApp::ShowInfo() {
 				str += "]";
 				ofDrawBitmapString(str, 20, 20);
 
-				str = "(";
+				// Sender video type UYVY or RGBA
+				NDIlib_FourCC_video_type_e type = ndiReceiver.GetVideoType();
+				if(type == NDIlib_FourCC_video_type_UYVY)
+					str = "YUV ";
+				else if(type == NDIlib_FourCC_video_type_BGRA)
+					str = "BGRA ";
+				else if(type == NDIlib_FourCC_video_type_RGBA)
+					str = "RGBA ";
+
 				str += std::to_string(ndiReceiver.GetSenderWidth()); str += "x";
-				str += std::to_string(ndiReceiver.GetSenderHeight()); str += "/";
+				str += std::to_string(ndiReceiver.GetSenderHeight()); str += " ";
 				float fps = ndiReceiver.GetSenderFps();
 				str += std::to_string((int)fps); str += ".";
-				str += std::to_string((int)(fps * 100) - (int)fps * 100); str += "fps) - at fps ";
+				str += std::to_string((int)(fps * 100) - (int)fps * 100); str += "fps - receiving at ";
 				fps = ndiReceiver.GetFps();
 				str += std::to_string((int)fps); str += ".";
 				str += std::to_string((int)(fps * 100) - (int)fps * 100);
-
+				str += " fps";
 				ofDrawBitmapString(str, 20, 40);
 
 				// More information

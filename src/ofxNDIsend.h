@@ -6,7 +6,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -41,6 +41,7 @@
 			 - add "m_" prefix to all class variables
 	15.11.19 - Change to dynamic load of Newtek NDI dlls
 	19.01.25 - Update to NDI 6.1.1.0
+	20.12.25 - Update to NDI version 6.2.1.0
 
 */
 #pragma once

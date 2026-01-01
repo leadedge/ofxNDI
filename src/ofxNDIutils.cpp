@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -60,6 +60,10 @@
 	30.05.24 - Revise YUV422_to_RGBA conversion equations
 	16.09.24 - change UINT to uint32_t PeriodMin
 	12-04-25 - Add rgb2rgba
+	20.12.25 - Update to NDI version 6.2.1.0
+	01.01.26 - Revise YUV422_to_RGBA with lookup tables
+			   Gain 7.9 > 5.5 msec at 1920x1080
+			   ofxNDI version 2.001.000
 
 */
 #include "ofxNDIutils.h"
@@ -76,7 +80,7 @@ namespace ofxNDIutils {
 
 	// ofxNDI version number string
 	// Major, minor, release
-	std::string ofxNDIversion = "2.000.002";
+	std::string ofxNDIversion = "2.001.000";
 
 #ifdef USE_CHRONO
 	// Timing counters
@@ -495,9 +499,20 @@ namespace ofxNDIutils {
 	//
 	//        YUV422_to_RGBA
 	//
-	// Y sampled at every pixel
-	// U and V sampled at every second pixel 
-	// 2 pixels in 1 DWORD
+
+	//
+	// Lookup tables to avoid repeat calculations
+	//
+	// Initialize once only for repeats
+	static bool tablesInitialized = false;
+	static int YTable[256];
+	static int UToB[256];
+	static int UToG[256];
+	static int VToR[256];
+	static int VToG[256];
+	
+	//
+	// Color space conversion
 	//
 	// https://github.com/rzwm/YUVRGBFormulaGenerator
 	//
@@ -517,63 +532,106 @@ namespace ofxNDIutils {
 	// G = (297(Y - 16) - 54(U - 128) - 136(V - 128) + 127) / 255
 	// B = (297(Y - 16) + 539(U - 128) + 127) / 255
 	//
-	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride)
+	static void InitYUVTables(bool bt709)
 	{
-		// Clamp out of range values 0-255
-		#define CLAMPRGB(t) (((t)>255)?255:(((t)<0)?0:(t)))
+		for (int i = 0; i < 256; i++) {
 
-		const unsigned char *yuv = source;
-		unsigned char *rgba = dest;
-		int r1 = 0 , g1 = 0 , b1 = 0; // , a1 = 0;
-		int r2 = 0 , g2 = 0 , b2 = 0; // a2 = 0;
-		int u0 = 0 , y0 = 0 , v0 = 0, y1 = 0;
-		unsigned int padding = stride - width*4;
-		bool b709 = true; // HD BT.709 default
-		if (width < 1920) b709 = false; // SD BT.601
+			int y = i - 16;
+			if (y < 0) y = 0;
+			YTable[i] = 297 * y;
 
-	    // Loop through 4 bytes at a time
-		// half width source data for yuv
-		for (unsigned int y = 0; y <height; y ++ ) {
-			for (unsigned int x = 0; x <width*2; x +=4 ) {
+			int u = i - 128;
+			int v = i - 128;
 
-				u0  = (int)*yuv++;
-				y0  = (int)*yuv++;
-				v0  = (int)*yuv++;
-				y1  = (int)*yuv++;
-				// u and v are +/- 128 
+			if (bt709) {
+				VToR[i] =  457 * v;
+				VToG[i] = -136 * v;
+				UToG[i] =  -54 * u;
+				UToB[i] =  539 * u;
+			}
+			else {
+				VToR[i] =  407 * v;
+				VToG[i] = -207 * v;
+				UToG[i] = -100 * u;
+				UToB[i] =  514 * u;
+			}
+		}
+	}
 
-				// Color space conversion for RGB
-				if (b709) {
-					// BT.709
-					r1 = CLAMPRGB((297*(y0 - 16) + 457*(v0 - 128) + 127)>>8);
-					g1 = CLAMPRGB((297*(y0 - 16) - 54*(u0 - 128) - 136*(v0 - 128) + 127)>>8);
-					b1 = CLAMPRGB((297*(y0 - 16) + 539*(u0 - 128) + 127)>>8);
-					r2 = CLAMPRGB((297*(y1 - 16) + 457*(v0 - 128) + 127)>>8);
-					g2 = CLAMPRGB((297*(y1 - 16) - 54*(u0 - 128) - 136*(v0 - 128) + 127)>>8);
-					b2 = CLAMPRGB((297*(y1 - 16) + 539*(u0 - 128) + 127)>>8);
-				}
-				else {
-					// BT.601
-					r1 = CLAMPRGB((297*(y0 - 16) + 407*(v0 - 128) + 127)>>8);
-					g1 = CLAMPRGB((297*(y0 - 16) - 100*(u0 - 128) - 207*(v0 - 128) + 127)>>8);
-					b1 = CLAMPRGB((297*(y0 - 16) + 514*(u0 - 128) + 127)>>8);
-					r2 = CLAMPRGB((297*(y1 - 16) + 407*(v0 - 128) + 127)>>8);
-					g2 = CLAMPRGB((297*(y1 - 16) - 100*(u0 - 128) - 207*(v0 - 128) + 127)>>8);
-					b2 = CLAMPRGB((297*(y1 - 16) + 514*(u0 - 128) + 127)>>8);
-				}
+	// Clamp out of range values 0-255
+	inline unsigned char clamp8(int v) {
+		return (unsigned char)((v & ~255) ? (v < 0 ? 0 : 255) : v);
+	}
 
-				*rgba++ = (unsigned char)r1;
-				*rgba++ = (unsigned char)g1;
-				*rgba++ = (unsigned char)b1;
+	//
+	//        YUV422_to_RGBA
+	//
+	// Y sampled at every pixel
+	// U and V sampled at every second pixel 
+	//
+	// 5.5 msec
+	void YUV422_to_RGBA(const unsigned char* yuvsource,	unsigned char* rgbadest,
+		unsigned int width, unsigned int height, unsigned int stride)
+	{
+		// SD BT.601 for widths <= 720
+		// HD BT.709 default
+		// UHD BT.2020 - use RGBA receiver preference
+		bool b709 = (width > 720);
+
+		if (!tablesInitialized) {
+			InitYUVTables(b709);
+			tablesInitialized = true;
+		}
+
+		// YUV data (NDIlib_FourCC_type_UYVA) is half width 
+		unsigned int w = width/2;
+		if (stride == 0) stride = w*4;
+
+		const unsigned char* yuv = yuvsource;
+		unsigned char* rgba = rgbadest;
+		unsigned int padding = stride-w*4;
+
+		for (unsigned int y = 0; y < height; y++) {
+			const unsigned char* rowEnd = yuv + w*4;
+			while (yuv < rowEnd) {
+
+				int u  = *yuv++;
+				int y0 = *yuv++;
+				int v  = *yuv++;
+				int y1 = *yuv++;
+
+				//
+				// uyvy to rgb with color space conversion
+				//
+
+				// Tables avoid repeat calculations
+				int y0v = YTable[y0];
+				int y1v = YTable[y1];
+
+				// rgba pixel 1
+				int r = (y0v + VToR[v] + 127) >> 8;
+				int g = (y0v + UToG[u] + VToG[v] + 127) >> 8;
+				int b = (y0v + UToB[u] + 127) >> 8;
+
+				*rgba++ = clamp8(r);
+				*rgba++ = clamp8(g);
+				*rgba++ = clamp8(b);
 				*rgba++ = 255;
-				*rgba++ = (unsigned char)r2;
-				*rgba++ = (unsigned char)g2;
-				*rgba++ = (unsigned char)b2;
+
+				// rgba pixel 2
+				r = (y1v + VToR[v] + 127) >> 8;
+				g = (y1v + UToG[u] + VToG[v] + 127) >> 8;
+				b = (y1v + UToB[u] + 127) >> 8;
+
+				*rgba++ = clamp8(r);
+				*rgba++ = clamp8(g);
+				*rgba++ = clamp8(b);
 				*rgba++ = 255;
 			}
 			yuv += padding; // if any
 		}
-	}  // end YUV422_to_RGBA
+	} // end YUV422_to_RGBA
+
 
 #ifdef USE_CHRONO
 	// Timing functions

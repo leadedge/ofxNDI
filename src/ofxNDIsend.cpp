@@ -6,7 +6,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -103,6 +103,7 @@
 	16.09.24	- SetVideoStride - remove test for global format
 	19.01.25	- Update to NDI 6.1.1.0
 	21.07.25	- Update to NDI version 6.2.0.3
+	20.12.25	- Update to NDI version 6.2.1.0
 
 */
 #include "ofxNDIsend.h"
@@ -229,6 +230,13 @@ bool ofxNDIsend::CreateSender(const char *sendername, unsigned int width, unsign
 		// Format
 		video_frame.FourCC = m_Format;
 
+		// For debugging
+		// FourCC = 1498831189 (YVYU)
+		// FourCC = 1094862674 (ABGR)
+		// int aCode = video_frame.FourCC;
+		// char fourChar[5] = { (aCode >> 24) & 0xFF, (aCode >> 16) & 0xFF, (aCode >> 8) & 0xFF, aCode & 0xFF, 0 };
+		// printf("ofxNDIsend::CreateSender - format FourCC = %d (%s)\n", video_frame.FourCC, fourChar); // 1094862674, 1094862674
+	
 		// Set line stride in bytes depending on format.
 		// xres and yres should be initialized first.
 		SetVideoStride(m_Format);
@@ -380,6 +388,8 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 			// No bgra conversion or invert, so use the pointer directly
 			video_frame.p_data = (uint8_t*)pixels;
 			// For debugging
+			// FourCC = 1498831189 (YVYU)
+			// FourCC = 1094862674 (ABGR)
 			// int aCode = video_frame.FourCC;
 			// char fourChar[5] = { (aCode >> 24) & 0xFF, (aCode >> 16) & 0xFF, (aCode >> 8) & 0xFF, aCode & 0xFF, 0 };
 			// printf("    SendImage format FourCC = %d (%s)\n", video_frame.FourCC, fourChar); // 1094862674, 1094862674

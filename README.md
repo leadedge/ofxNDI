@@ -1,11 +1,11 @@
 ﻿# ofxNDI
-An Openframeworks addon to allow sending and receiving images over a network using the NewTek Network Device Protocol.
+An Openframeworks addon to allow sending and receiving images over a network using the [NDI](https://ndi.video/) (Network Device Interface) protocol.
 
 ## Openframeworks
 
 ofxNDIsender and ofxNDIreceiver depend on Openframeworks.
 
-There are options to send and receive using ofFbo, ofTexture, ofPixels as well as an unsigned char pixel buffer. If receiving to ofFbo, ofTexture of ofPixels, it is not necessary to manage sender size change from the application. Nor is it necessary to handle receiver creation. Simply use the receive functions alone. For best efficiency, the sender class includes pbo pixel buffer readback, activated by SetReadback(). Refer to the header files for details. Examples have been updated to include all the options available. For a simple, practical example, refer to the webcam sender. The examples assume Openframeworks version > 10. Pre-built binaries are included with the latest release.
+There are options to send and receive using ofFbo, ofTexture, ofPixels as well as an unsigned char pixel buffer. If receiving to ofFbo, ofTexture of ofPixels, it is not necessary to manage sender size change from the application. Nor is it necessary to handle receiver creation. Simply use the receive functions alone. For best efficiency, as an alternative to the default RGBA data format, YUV (UYVY format) can be selected for the sender and as a preference for the receiver. The sender class also includes pbo pixel buffer readback, activated by SetReadback(). Refer to the header files for details. Examples have been updated to include all the options available. For a simple, practical example, refer to the webcam sender. The examples assume Openframeworks version > 10. Pre-built binaries are included with the latest release.
 
 ### Setup
 
@@ -13,15 +13,18 @@ There are options to send and receive using ofFbo, ofTexture, ofPixels as well a
 
 The OF Project Generator will create your project with correct paths. Make sure "ofxNDI" is selected in the addons section and all headers, and DLLs will be imported in the Visual Studio project.
 
-The Project Generator copies the "rgba2yuv" shaders folder into the application. However if the Project Generator is not used, this folder must be copied as below.
+The Project Generator copies the "rgba2yuv" and "yuv2rgba" shader folders as below.
 
 	bin
      data
         rgba2yuv
+        yuv2rgba
+		
+When the project generation is complete, copy main.cpp, ofApp.cpp and ofApp.h from the required example "src" folder to the project "src" folder. Also copy any files in the example "data" folder to the project.
 
-Note that for previous applications, the location of the "rgba2yuv" folder should be changed from within  "bin/data/shaders" to directly within "bin/data".
+If the project generator is not used or subsequent to it's use, the shader folders can be copied to either the "bin/data" folder or to a subfolder "bin/data/shaders/".
 
-When the project generation is complete, copy main.cpp, ofApp.cpp and ofApp.h from the required example "src" folder to the project "src" folder. Also copy any files in the example "data" folder to the project. Refer to the example code for options available.
+Refer to the example code for options available.
 
 ### Manual Setup
 
@@ -34,7 +37,7 @@ When the project generation is complete, copy main.cpp, ofApp.cpp and ofApp.h fr
 
 ### NDI library files
 
-For Windows, the NDI library files are distributed with this addon in "libs/NDI/bin/vs". They can be copied to the application "bin" folder as outlined above. The library file version matches that of the NDI header files in "libs/NDI/include" and they have been tested. However, you can use the most recent library files. To do so, remove the NDI dll files from the application executable folder. When you open the example application again, you will be prompted to download the runtime installer. You can also download the installer directly from "http://ndi.link/NDIRedistV6". After installation, the example programs will load the installed file version.
+For Windows, the NDI library files are distributed with this addon in "libs/NDI/bin/vs". They can be copied to the application "bin" folder as outlined above. The library file version matches that of the NDI header files in "libs/NDI/include" and they have been tested. However, you can use the most recent library files. To do so, remove the NDI dll files from the application executable folder. When you open the example application again, you will be prompted to download the runtime installer. You can also download the installer directly from [http://ndi.link/NDIRedistV6](http://ndi.link/NDIRedistV6). After installation, the example programs will load the installed file version.
 
 For Mac OSX, Linux and other platforms, the NDI library files are not distributed with this addon and the application will prompt for the NDI runtime to be be installed. After installation, the examples will find and use the installed library file. For the application to use the NDI library file directly, copy it to the executable folder. Thereafter the application will use this library version.
 
@@ -68,13 +71,13 @@ To move the project to another folder :
 ofxNDI with help from [Harvey Buchan](https://github.com/Harvey3141).
 
 ## Copyrights
-ofxNDI - Copyright (C) 2016-2025 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
+ofxNDI - Copyright (C) 2016-2026 Lynn Jarvis [http://spout.zeal.co/](http://spout.zeal.co/)
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser  General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details. You should have received a copy of the GNU Lesser General Public License along with this program.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses).
 
 ----------------------
-NDI SDK - Copyright NewTek Inc. [https://www.ndi.tv/](https://www.ndi.tv/).
+[NDI SDK](https://ndi.video/for-developers/ndi-sdk/).
 
-You can include the NDI dlls as part of your application as long as your EULA terms cover the specific requirements of the NDI SDK EULA, the terms of the LICENSE section of the SDK documentation and the terms outlined in “3rd party rights” towards the end of the manual. Go to the [NDI web page](https://www.ndi.tv/) and download the NDI SDK. After installation, a license document is available for review from the root of the SDK folder.
+You can include the NDI dlls as part of your application as long as your EULA terms cover the specific requirements of the NDI SDK EULA, the terms of the LICENSE section of the SDK documentation and the terms outlined in “3rd party rights” towards the end of the manual. Go to the [NDI web page](https://ndi.video/for-developers/ndi-sdk/) and download the NDI SDK. After installation, a license document is available for review from the root of the SDK folder.
 
 If the dlls are not included with the application, You will be prompted to download and install the NDI runtime when the application starts. For Windows download from [http://ndi.link/NDIRedistV6](http://ndi.link/NDIRedistV6). Re-start may be required after installation.

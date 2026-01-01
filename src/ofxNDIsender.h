@@ -5,7 +5,7 @@
 
 	https://ndi.video/
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -27,6 +27,7 @@
 	08.07.18 - Use ofxNDIsend class
 	07.12.19 - remove iostream
 	26.12.21 - Correct m_pbo dimension from 2 to 3. PR #27 by Dimitre
+	20.12.25 - Update to NDI version 6.2.1.0
 
 */
 #pragma once
@@ -240,7 +241,7 @@ private:
 	int m_idx; // Index used for async buffer swapping
 
 	bool m_bReadback; // Asynchronous readback of pixels from FBO using two PBOs
-	GLuint m_pbo[3]; // PBOs used for asynchronous read-back from fbo
+	GLuint m_pbo[3]{}; // PBOs used for asynchronous read-back from fbo
 	int PboIndex; // Index used for asynchronous read-back from fbo
 	int NextPboIndex;
 	ofFbo ndiFbo; // Utility Fbo
@@ -261,7 +262,9 @@ private:
 	// YUV format conversion functions
 	//
 
-	ofShader rgba2yuv;  // RGBA to YUV shader
+	ofShader rgba2yuv;      // Openframeworks RGBA to YUV shader
+	ofTexture m_yuvtexture; // for shader RGBA > YUV conversion
+	int m_colormatrix = 1;  // 0 - BT.601, 1 - BT.709, 2 - BT.2020
 
 	// Read YUV pixels from RGBA fbo to pixel buffer
 	bool ReadYUVpixels(ofFbo &fbo, unsigned int halfwidth, unsigned int height, ofPixels &buffer);

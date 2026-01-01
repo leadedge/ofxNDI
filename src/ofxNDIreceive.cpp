@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -161,6 +161,9 @@
 	09.05.25 - FindSenders - Remove check for a name change at the same index
 			   due to problems with command line selecting the wrong sender
 	21.07.25 - Update to NDI version 6.2.0.3
+	21.12.25 - Update to NDI version 6.2.1.0
+	26.12.25 - Default prefer UYVY or BGRA data - NDIlib_recv_color_format_UYVY_BGRA
+			   Receive pixel data - revised YUV422_to_RGBA function in ofxNDIutils
 
 */
 
@@ -219,7 +222,10 @@ ofxNDIreceive::ofxNDIreceive()
 	m_nSenders = 0;
 	m_Width = 0;
 	m_Height = 0;
-	m_Format = NDIlib_recv_color_format_BGRX_BGRA;
+
+	// Can receive UYVY or BGRA data by default
+	m_Format = NDIlib_recv_color_format_UYVY_BGRA;
+
 	m_senderIndex = 0;
 	m_senderName = "";
 	// Audio
@@ -616,10 +622,9 @@ float ofxNDIreceive::GetSenderFps()
 void ofxNDIreceive::SetLowBandwidth(bool bLow)
 {
 	if(bLow)
-		m_bandWidth = NDIlib_recv_bandwidth_lowest; // Low bandwidth receive option
+		m_bandWidth = NDIlib_recv_bandwidth_lowest;  // 0 - Low bandwidth receive option
 	else
-		m_bandWidth = NDIlib_recv_bandwidth_highest;
-
+		m_bandWidth = NDIlib_recv_bandwidth_highest; // 100 - High bandwidth
 }
 
 // Set preferred format
@@ -734,7 +739,10 @@ bool ofxNDIreceive::OpenReceiver()
 		// The current user selected index is saved in the NDIreceiver class
 		// and is used to create the receiver. The index is changed by 
 		// SetSenderIndex or SetSenderName.
-		// The receiver is created with default preferred format BGRA
+		//
+		// The receiver is created with default preferred format UYVY_BGRA
+		// The sender can produce UYVY or BGRA data
+		//
 		return CreateReceiver();
 	}
 
@@ -749,21 +757,9 @@ bool ofxNDIreceive::OpenReceiver()
 // data is converted from BGRA to RGBA during copy from the video frame buffer.
 bool ofxNDIreceive::CreateReceiver(int userindex)
 {
-	// NDI 4.0 > VERSION 4.1.3
-	// NDI bug to be resolved.
-	// 64 bit required for RGBA preferred
-	// 32 bit returns BGRA even if RGBA preferred.
-	// If you find the received result is BGRA, set the receiver to prefer BGRA
-	// TODO - Set format function
+	// Can receive UYVY or BGRA data
+	// Default m_Format - NDIlib_recv_color_format_UYVY_BGRA
 	return CreateReceiver(m_Format, userindex);
-
-/*
-#if defined(_WIN64)
-	return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
-#else
-	return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
-#endif
-*/
 
 }
 
@@ -973,6 +969,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 		// NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 		// Vers 4.5
+		// Return immediately  if no frame is available for lowest-latency.
 		NDI_frame_type = p_NDILib->recv_capture_v3(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
 		// Set frame type for external access
@@ -1062,21 +1059,18 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 					// Otherwise sizes are current - copy the received frame data to the local buffer
 					else if (video_frame.p_data && (uint8_t*)pixels) {
-
+						
 						// Video frame type
 						switch (video_frame.FourCC) {
-							// Note :
-							// If the receiver is set up to prefer BGRA or RGBA format,
-							// other formats are converted to by the API, and the
-							// slower YUV422_to_RGBA conversion function is not used.
+							// Note : If the receiver is set up to prefer BGRA or RGBA format,
+							// the slower YUV422_to_RGBA conversion function here is not used.
 							case NDIlib_FourCC_type_UYVY: // YCbCr color space
 							// Alpha component of NDIlib_FourCC_type_UYVA not supported
 							case NDIlib_FourCC_type_UYVA: // With alpha (not used)
 								// CPU conversion
+								// 5.5 msec at 1920x1080
 								ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
 								break;
-							case NDIlib_FourCC_video_type_P216:	break;
-							case NDIlib_FourCC_video_type_PA16:	break;
 							case NDIlib_FourCC_type_RGBA: // RGBA
 							case NDIlib_FourCC_type_RGBX: // RGBX
 								// Do not swap red/green
@@ -1089,6 +1083,8 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 								break;
 							
 							// Unsupported formats
+							case NDIlib_FourCC_video_type_P216:
+							case NDIlib_FourCC_video_type_PA16:
 							case NDIlib_FourCC_type_NV12:
 							case NDIlib_FourCC_type_I420:
 							case NDIlib_FourCC_type_YV12:
@@ -1246,7 +1242,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 					bReceiverConnected = true;
 
 					if (m_Width != (unsigned int)video_frame.xres || m_Height != (unsigned int)video_frame.yres) {
-						m_Width = (unsigned int)video_frame.xres;
+						m_Width  = (unsigned int)video_frame.xres;
 						m_Height = (unsigned int)video_frame.yres;
 					}
 

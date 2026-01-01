@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -99,6 +99,11 @@
 			   (RGB pixels are converted to RGBA in SendImage)
 	20.03.25 - ReadTexturePixels, CreateSender, UpdateSender, ReleaseSender
 	21.07.25 - Update to NDI version 6.2.0.3
+	21.10.25 - Update to NDI version 6.2.1.0
+	26.12.25 - ReadYUVpixels
+			   Use Openframeworks shader for RGBA to UYVY conversion
+			   BT601 if width is less than 720, otherwise BT709 for UYVY
+		       Restore additional test for "shaders" folder
 
 */
 #include "ofxNDIsender.h"
@@ -166,6 +171,9 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 	// Allocate utility fbo to the sender size
 	ndiFbo.allocate(width, height, GL_RGBA);
 
+	// Allocata yuv texture half width
+	m_yuvtexture.allocate(width/2, height, GL_RGBA);
+
 	if (NDIsender.CreateSender(sendername, width, height)) {
 		m_SenderName = sendername;
 		return true;
@@ -198,7 +206,9 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 
 	// Re-allocate utility fbo
 	ndiFbo.allocate(width, height, GL_RGBA);
-	
+	// Re-allocata yuv texture half width
+	m_yuvtexture.allocate(width/2, height, GL_RGBA);
+
 	// Update NDI video frame
 	return NDIsender.UpdateSender(width, height);
 }
@@ -219,6 +229,8 @@ void ofxNDIsender::ReleaseSender()
 
 	// Release utility fbo
 	if (ndiFbo.isAllocated()) ndiFbo.clear();
+	// Release yuv texture
+	if(m_yuvtexture.isAllocated()) m_yuvtexture.clear();
 
 	m_SenderName = "";
 }
@@ -294,11 +306,10 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 
 	// Read texture pixels into a pixel buffer
 	bool bResult = false;
-	// NDIlib_FourCC_video_type_UYVY can only be enabled by SetFormat
-	// Path to required shaders is tested
+	// NDIlib_FourCC_video_type_UYVY is enabled by SetFormat
 	if (NDIsender.GetFormat() == NDIlib_FourCC_video_type_UYVY) {
-		// Convert to the YUV format at the same time.
-		// YUV output width is half that of the RGBA input
+		// Both tex and ndiBuffer are allocated full width
+		// Sender YUV output width is half that of the RGBA input
 		bResult = ReadYUVpixels(tex, width/2, height, ndiBuffer[m_idx]);
 	}
 	else {
@@ -381,18 +392,39 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	if (format == NDIlib_FourCC_video_type_UYVY) {
-		// For YUV format, test existence of required rgba2yuv shader folder
-		std::string shaderpath = ofToDataPath("rgba2yuv/");
+		// For YUV format, test existence of required rgba2yuv shader file
+		// Shaders can be in bin\data or bin\data\shaders
+		// Look for the shaders folder first
+		std::string shaderpath = ofToDataPath("shaders");
 		if (ofDirectory::doesDirectoryExist(shaderpath, false)) {
+			// Look for the shader file
+			#ifdef TARGET_OPENGLES
+			shaderpath = ofToDataPath("shaders/rgba2yuv/ES2/rgba2yuv.frag");
+			#else
+			if (ofIsGLProgrammableRenderer())
+				shaderpath = ofToDataPath("shaders/rgba2yuv/GL3/rgba2yuv.frag");
+			else
+				shaderpath = ofToDataPath("shaders/rgba2yuv/GL2/rgba2yuv.frag");
+			#endif
+		}
+		else {
+			#ifdef TARGET_OPENGLES
+			shaderpath = ofToDataPath("rgba2yuv/ES2/rgba2yuv.frag");
+			#else
+			if (ofIsGLProgrammableRenderer())
+				shaderpath = ofToDataPath("rgba2yuv/GL3/rgba2yuv.frag");
+			else
+				shaderpath = ofToDataPath("rgba2yuv/GL2/rgba2yuv.frag");
+			#endif
+		}
+		bool bExists = ofFile::doesFileExist(shaderpath, false);
+		if (bExists) {
 			NDIsender.SetFormat(format);
 			// Buffer size will change between YUV and RGBA
 			// Retain sender dimensions, but update the sender
 			// to re-create pbos, buffers and NDI video frame
 			// Update sender if already created (UpdateSender checks)
 			UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
-		}
-		else {
-			printf("rgba2yuv shader not found in [%s]\n", shaderpath.c_str());
 		}
 	}
 	else if (format == NDIlib_FourCC_video_type_BGRA
@@ -702,7 +734,7 @@ bool ofxNDIsender::ReadYUVpixels(ofFbo &fbo, unsigned int halfwidth, unsigned in
 	return ReadYUVpixels(fbo.getTexture(), halfwidth, height, buffer);
 }
 
-// Read yuv pixels from an rgba texture to buffer
+// Read yuv pixels from an rgba texture (tex) to a yuv buffer
 // The halfwidth argument is half the sender width
 bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigned int height, ofPixels &buffer)
 {
@@ -711,32 +743,60 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 
 	// Load the shader
 	if (!rgba2yuv.isLoaded()) {
-		// Get the rgba2yuv shader folder full path
-		std::string shaderpath;
-#ifdef TARGET_OPENGLES
-		shaderpath = ofToDataPath("rgba2yuv/ES2/rgba2yuv");
-#else
-		if (ofIsGLProgrammableRenderer())
-			shaderpath = ofToDataPath("rgba2yuv/GL3/rgba2yuv");
-		else
-			shaderpath = ofToDataPath("rgba2yuv/GL2/rgba2yuv");
-#endif
-		if (!rgba2yuv.load(shaderpath))
+		// Get the rgba2yuv shader name full path
+		// .frag and .vert are added by shader load
+		// Shaders can be in bin\data or bin\data\shaders
+		// Look for the shaders folder first
+		std::string shaderpath = ofToDataPath("shaders");
+		if (ofDirectory::doesDirectoryExist(shaderpath, false)) {
+			#ifdef TARGET_OPENGLES
+			shaderpath = ofToDataPath("shaders/rgba2yuv/ES2/rgba2yuv");
+			#else
+			if (ofIsGLProgrammableRenderer())
+				shaderpath = ofToDataPath("shaders/rgba2yuv/GL3/rgba2yuv");
+			else
+				shaderpath = ofToDataPath("shaders/rgba2yuv/GL2/rgba2yuv");
+			#endif
+		}
+		else {
+			#ifdef TARGET_OPENGLES
+			shaderpath = ofToDataPath("rgba2yuv/ES2/rgba2yuv");
+			#else
+			if (ofIsGLProgrammableRenderer())
+				shaderpath = ofToDataPath("rgba2yuv/GL3/rgba2yuv");
+			else
+				shaderpath = ofToDataPath("rgba2yuv/GL2/rgba2yuv");
+			#endif
+		}
+		if (!rgba2yuv.load(shaderpath)) {
+			printf("rgba2yuv shader not loaded\n");
 			return false;
+		}
 	}
 
-	// Convert the rgba texture to YUV via fbo
+	// YUV is half width
+	int width = halfwidth*2;
+	// BT601 SD, BT709 HD or BT2020 UHD
+	if(width < 720)
+		m_colormatrix = 0;
+	else if(width < 3840)
+		m_colormatrix = 1;
+	else
+		m_colormatrix = 2;
+
+	// Convert the RGBA texture to UYVY via fbo
 	ndiFbo.begin();
 	ofDisableAlphaBlending();
 	ofDisableDepthTest();
 	rgba2yuv.begin();
 	rgba2yuv.setUniformTexture("rgbatex", tex, 1);
+	rgba2yuv.setUniform1i("colormatrix", m_colormatrix);
 	tex.draw(0, 0);
 	rgba2yuv.end();
 	ndiFbo.end();
 
-	// The YUV result is in the ndiFbo texture
-	// The data is half the width of the rgba texture.
+	// The UYVY result is in the ndiFbo texture
+	// The data is half the width of the RGBA texture
 	return ReadPixels(ndiFbo, halfwidth, height, buffer);
 
 }

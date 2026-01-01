@@ -57,15 +57,14 @@ common:
 	# some addons need resources to be copied to the bin/data folder of the project
 	# specify here any files that need to be copied, you can use wildcards like * and ?
 	ADDON_DATA += data/rgba2yuv
+	ADDON_DATA += data/yuv2rgba
 	
 	# when parsing the file system looking for libraries exclude this for all or
 	# a specific platform
 	# ADDON_LIBS_EXCLUDE =
 	
 	ADDON_DLLS_TO_COPY =
-	# ADDON_DLLS_TO_COPY += libs/NDI/bin/vs/Processing.NDI.Lib.x64.dll
-	# ADDON_DLLS_TO_COPY += libs/NDI/bin/vs/Processing.NDI.Lib.x86.dll
-
+	
 	# binary libraries, these will be usually parsed from the file system but some 
 	# libraries need to passed to the linker in a specific order/
 	# 

@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -29,6 +29,7 @@
 	06.12.19 - Remove SSE functions for Linux
 	07.12.19 - remove includes emmintrin.h, xmmintrin.h, iostream, cstdint
 	16.09.24 - #define USE_CHRONO for OSX
+	20.12.25 - Update to NDI version 6.2.1
 
 
 */
@@ -115,7 +116,7 @@ namespace ofxNDIutils {
 	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert = false);
 	void FlipBuffer(const unsigned char *src, unsigned char *dst, unsigned int width, unsigned int height);
 	void rgb2rgba(const void* rgb_source, void* rgba_dest, unsigned int width, unsigned int height, bool bInvert);
-	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride);
+	void YUV422_to_RGBA(const unsigned char* source, unsigned char* dest, unsigned int width, unsigned int height, unsigned int stride = 0);
 
 #ifdef USE_CHRONO
 

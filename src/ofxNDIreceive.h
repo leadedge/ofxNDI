@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -51,6 +51,7 @@
 	27.02.20 - Add std::chrono functions for fps timing
 	14.12.23 - Add m_VideoTimecode, GetVideoTimecode()
 	19.01.25 - Update to NDI 6.1.1.0
+	21.12.25 - Update to NDI version 6.2.1.0
 
 */
 #pragma once

@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -77,13 +77,22 @@
 	29.05.24 - SetUpload - reset starting received frame rate
 	29.06.24 - LoadTexturePixels const pixel data
 	21.07.25 - Update to NDI version 6.2.0.3
+	21.10.25 - Update to NDI version 6.2.1.0
+	26.12.25 - Openframeworks shader for UYVY > RGBA conversion
+			   GetPixelData - BT601 if width is less than 720, otherwise BT709 for UYVY
+			   GetPixelData - test for "shaders" folder
+			   Default format - NDIlib_recv_color_format_UYVY_BGRA
+			   Add GetVideoType()
+	31.12.26   Increase pbo number from 2 to 3
+			   Receive to ofPixels - use revised YUV422_to_RGBA for UYVY data
 
 */
 #include "ofxNDIreceiver.h"
 
 ofxNDIreceiver::ofxNDIreceiver()
 {
-
+	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
+	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
 }
 
 ofxNDIreceiver::~ofxNDIreceiver()
@@ -97,7 +106,7 @@ bool ofxNDIreceiver::OpenReceiver()
 	if (NDIreceiver.OpenReceiver()) {
 		// Initialize pbos for asynchronous pixel load
 		if (!m_pbo[0]) {
-			glGenBuffers(2, m_pbo);
+			glGenBuffers(3, m_pbo);
 			PboIndex = NextPboIndex = 0;
 		}
 		return true;
@@ -133,6 +142,10 @@ bool ofxNDIreceiver::ReceiverConnected()
 void ofxNDIreceiver::ReleaseReceiver()
 {
 	NDIreceiver.ReleaseReceiver();
+	// Delete readback pbos
+	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
+	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
+
 }
 
 //
@@ -150,8 +163,9 @@ void ofxNDIreceiver::ReleaseReceiver()
 // Receive ofTexture
 bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 {
-	if (!texture.isAllocated())
+	if (!texture.isAllocated()) {
 		return false;
+	}
 
 	// Check for receiver creation
 	if (!OpenReceiver()) {
@@ -163,9 +177,14 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 	unsigned int height = (unsigned int)texture.getHeight();
 
 	if (NDIreceiver.ReceiveImage(width, height)) {
+
 		// Check for changed sender dimensions
 		if (width != (unsigned int)texture.getWidth() || height != (unsigned int)texture.getHeight()) {
 			texture.allocate(width, height, GL_RGBA);
+			// Allocate utility fbo to the sender size
+			ndiFbo.allocate(width, height, GL_RGBA);
+			// Allocate receiving UYVY texture
+			m_yuvtexture.allocate(width/2, height, GL_RGBA);
 		}
 		// Get NDI pixel data from the video frame
 		return GetPixelData(texture);
@@ -193,8 +212,14 @@ bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
 		// Check for changed sender dimensions
-		if (width != (unsigned int)fbo.getWidth() || height != (unsigned int)fbo.getHeight())
+		if (width != (unsigned int)fbo.getWidth() || height != (unsigned int)fbo.getHeight()) {
 			fbo.allocate(width, height, GL_RGBA);
+			// Allocate utility fbo to the sender size
+			ndiFbo.allocate(width, height, GL_RGBA);
+			// Allocate receiving UYVY texture
+			m_yuvtexture.allocate(width/2, height, GL_RGBA);
+		}
+
 
 		// Get NDI pixel data from the video frame
 		return GetPixelData(fbo.getTexture());
@@ -220,9 +245,14 @@ bool ofxNDIreceiver::ReceiveImage(ofImage &image)
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
 		// Check for changed sender dimensions
-		if (width != (unsigned int)image.getWidth() || height != (unsigned int)image.getHeight())
+		if (width != (unsigned int)image.getWidth() || height != (unsigned int)image.getHeight()) {
 			image.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
-
+			// Allocate utility fbo to the sender size
+			ndiFbo.allocate(width, height, GL_RGBA);
+			// Allocate receiving UYVY texture
+			m_yuvtexture.allocate(width/2, height, GL_RGBA);
+		}
+		
 		// Get NDI pixel data from the video frame
 		return GetPixelData(image.getTexture());
 	}
@@ -261,9 +291,7 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 
 		// Get the NDI frame pixel data into the pixel buffer
 		switch (NDIreceiver.GetVideoType()) {
-			// Note : the receiver is set up to prefer BGRA format by default
-			case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
-				printf("ReceiveImage pixels - UYVY format not supported\n"); break;
+
 			case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
 				printf("ReceiveImage pixels - UYVA format not supported\n"); break;
 			case NDIlib_FourCC_type_P216: // YCbCr using 4:2:2 in 16bpp
@@ -271,6 +299,16 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 			case NDIlib_FourCC_type_PA16: // YCbCr using 4:2:2:4 in 16bpp
 				printf("ReceiveImage pixels - PA16 format not supported\n");
 				break;
+
+			// Note : the receiver prefers UYVY/BGRA format by default
+			// and can receive UYVY data. If it is set up to prefer
+			// BGRA or RGBA format, the slower YUV422_to_RGBA conversion
+			// function here is not used.
+			case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
+				ofxNDIutils::YUV422_to_RGBA((const unsigned char *)videoData,
+					buffer.getData(), width, height);
+				break;
+
 			case NDIlib_FourCC_type_RGBA: // RGBA
 			case NDIlib_FourCC_type_RGBX: // RGBX
 				// setFromPixels copies between buffers so that the videoData pointer can be freed
@@ -428,6 +466,13 @@ NDIlib_frame_type_e ofxNDIreceiver::GetFrameType()
 	return NDIreceiver.GetFrameType();
 }
 
+// Received video format
+NDIlib_FourCC_video_type_e ofxNDIreceiver::GetVideoType()
+{
+	return NDIreceiver.GetVideoType();
+}
+
+
 // Is the current frame MetaData ?
 bool ofxNDIreceiver::IsMetadata()
 {
@@ -452,6 +497,14 @@ int64_t ofxNDIreceiver::GetVideoTimecode()
 {
 	return NDIreceiver.GetVideoTimecode();
 }
+
+// Set preferred video format
+// Default NDIlib_recv_color_format_UYVY_BGRA
+void ofxNDIreceiver::SetFormat(NDIlib_recv_color_format_e format)
+{
+	return NDIreceiver.SetFormat(format);
+}
+
 
 //
 // Bandwidth
@@ -544,22 +597,128 @@ int ofxNDIreceiver::GetFps()
 // Get NDI pixel data from the video frame to ofTexture 
 bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 {
+
+	if(!NDIreceiver.ReceiverCreated())
+		return false;
+
+	if(!NDIreceiver.ReceiverConnected())
+		return false;
+
 	// Get the video frame buffer pointer
 	unsigned char *videoData = NDIreceiver.GetVideoData();
+
 	if (!videoData) {
 		// Ensure the video buffer is freed
 		NDIreceiver.FreeVideoData();
 		return false;
 	}
 
+	unsigned int width = 0;
+	unsigned int height = 0;
+	bool BT601 = false; // BT709 color space default
+
+
+	// For debugging
+	// FourCC = 1498831189 (YVYU)
+	// FourCC = 1094862674 (ABGR)
+	// int aCode = NDIreceiver.GetVideoType();
+	// char fourChar[5] = { (aCode >> 24) & 0xFF, (aCode >> 16) & 0xFF, (aCode >> 8) & 0xFF, aCode & 0xFF, 0 };
+	// printf("GetPixelData format FourCC = %d (%s)\n", NDIreceiver.GetVideoType(), fourChar); // 1094862674, 1094862674
+
 	// Get the NDI video frame pixel data into the texture
 	switch (NDIreceiver.GetVideoType()) {
-		// Note : the receiver is set up to prefer BGRA format by default
-		// If set to prefer NDIlib_recv_color_format_fastest, YUV data is received.
-		// YCbCr - Load texture with YUV data by way of PBO
+
+		// Note : the receiver is set up to prefer UYVY/BGRA format by default
+		// and can receive UYVY or RGBA data
 		case NDIlib_FourCC_type_UYVY: // YCbCr using 4:2:2
-			printf("GetPixelData - UYVY format not supported\n");
+
+			// Load the Openframeworks shader
+			if (!yuv2rgba.isLoaded()) {
+				// Get the yuv2rgba shader name full path
+				// .frag and .vert are added by shader load
+				// Shaders can be in bin\data or bin\data\shaders
+				// Look for the shaders folder first
+				std::string shaderpath = ofToDataPath("shaders");
+				if (ofDirectory::doesDirectoryExist(shaderpath, false)) {
+					#ifdef TARGET_OPENGLES
+					shaderpath = ofToDataPath("shaders/yuv2rgba/ES2/yuv2rgba");
+					#else
+					if (ofIsGLProgrammableRenderer())
+						shaderpath = ofToDataPath("shaders/yuv2rgba/GL3/yuv2rgba");
+					else
+						shaderpath = ofToDataPath("shaders/yuv2rgba/GL2/yuv2rgba");
+					#endif
+				}
+				else {
+					#ifdef TARGET_OPENGLES
+					shaderpath = ofToDataPath("yuv2rgba/ES2/yuv2rgba");
+					#else
+					if (ofIsGLProgrammableRenderer())
+						shaderpath = ofToDataPath("yuv2rgba/GL3/yuv2rgba");
+					else
+						shaderpath = ofToDataPath("yuv2rgba/GL2/yuv2rgba");
+					#endif
+				}
+				if (!yuv2rgba.load(shaderpath)) {
+					printf("yuv2rgba shader not loaded\n");
+					return false;
+				}
+			}
+
+			// Video frame data is UYVY pixel format
+			width  = (unsigned int)texture.getWidth();
+			height = (unsigned int)texture.getHeight();
+			if(width == 0 || height == 0)
+				return false;
+
+			// Allocate or re-allocate yuv texture
+			if (!m_yuvtexture.isAllocated()
+			  || (unsigned int)m_yuvtexture.getWidth()  != width/2
+			  || (unsigned int)m_yuvtexture.getHeight() != height) {
+				m_yuvtexture.allocate(width/2, height, GL_RGBA);
+				return false;
+			}
+
+			// is videoData empty
+			// videoData
+
+			// Load video frame pixels to the UYVY texture
+			// UYVY texture width is half the RGBA width
+			if (m_bUpload) {
+				if(!LoadTexturePixels(m_yuvtexture.getTextureData().textureID,
+					m_yuvtexture.getTextureData().textureTarget,
+					width/2, height, (const unsigned char *)videoData, GL_RGBA))
+						return false;
+			}
+			else {
+				m_yuvtexture.loadData((const unsigned char*)videoData, width/2, height, GL_RGBA);
+			}
+
+			// BT601 SD, BT709 HD or BT2020 UHD
+			if(width < 720)
+				m_colormatrix = 0;
+			else if(width < 3840)
+				m_colormatrix = 1;
+			else
+				m_colormatrix = 2;
+
+			// Convert the UYVY texture to RGBA via fbo
+			ndiFbo.begin();
+			ofDisableAlphaBlending();
+			ofDisableDepthTest();
+			yuv2rgba.begin();
+			yuv2rgba.setUniformTexture("uyvyTex", m_yuvtexture, 1);
+			yuv2rgba.setUniform1i("colormatrix", m_colormatrix);
+			m_yuvtexture.draw(0, 0, ndiFbo.getWidth(), ndiFbo.getHeight());
+			yuv2rgba.end();
+			ndiFbo.end();
+
+			// The RGBA result is in the ndiFbo texture
+			// Copy to the receiving rgba texture
+			texture = ndiFbo.getTexture();
+
 			break;
+
 		case NDIlib_FourCC_type_UYVA: // YCbCr using 4:2:2:4
 			printf("GetPixelData - UYVA format not supported\n"); break;
 		case NDIlib_FourCC_type_P216: // YCbCr using 4:2:2 in 16bpp
@@ -569,6 +728,7 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 			break;
 		case NDIlib_FourCC_type_RGBX: // RGBX
 		case NDIlib_FourCC_type_RGBA: // RGBA
+			// RGBA data - load pixels directly to the RGBA receiving texture
 			if (m_bUpload)
 				LoadTexturePixels(texture.getTextureData().textureID, texture.getTextureData().textureTarget, (unsigned int)texture.getWidth(), (unsigned int)texture.getHeight(), (const unsigned char*)videoData, GL_RGBA);
 			else
@@ -600,8 +760,8 @@ bool ofxNDIreceiver::LoadTexturePixels(GLuint TextureID, GLuint TextureTarget,
 {
 	void* pboMemory = NULL;
 
-	PboIndex = (PboIndex + 1) % 2;
-	NextPboIndex = (PboIndex + 1) % 2;
+	PboIndex = (PboIndex + 1) % 3;
+	NextPboIndex = (PboIndex + 1) % 3;
 
 	// Bind the texture and PBO
 	glBindTexture(TextureTarget, TextureID);
