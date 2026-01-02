@@ -1,24 +1,25 @@
 ﻿## Updates
 --------------------------
-01.01.26 - Updated for YUV to RGBA shader (NDI to Spout)\
-ofxNDI version 2.001.000\
-NDI SDK Vers 6.2.1.0\
+01.01.26 - Updated for YUV to RGBA shader (NDI to Spout)
+
+ofxNDI version 2.001.000. NDI SDK Vers 6.2.1.0\
 ofxNDIreceive.cpp - default prefer UYVY or BGRA data - NDIlib_recv_color_format_UYVY_BGRA\
 ofxNDIreceiver.h - Add variables for UYVY > RGBA conversion shaders
-ofxNDIreceiver.cpp - Openframeworks shader for UYVY > RGBA conversion\
-  GetPixelData - BT601 if width is less than 720, otherwise BT709 for UYVY\
-  GetPixelData - test for "shaders" folder\
-  Default format - NDIlib_recv_color_format_UYVY_BGRA\
-  Add GetVideoType()\
-  Increase pbo number from 2 to 3
-  Receive to ofPixels - use revised YUV422_to_RGBA for UYVY data  
+ofxNDIreceiver.cpp - Openframeworks shader for UYVY > RGBA conversion
+GetPixelData - BT601 if width is less than 720, otherwise BT709 for UYVY\
+GetPixelData - test for "shaders" folder\
+Default format - NDIlib_recv_color_format_UYVY_BGRA\
+Add GetVideoType()\
+Increase pbo number from 2 to 3
+Receive to ofPixels - use revised YUV422_to_RGBA for UYVY data  
 ofxNDIsender.h - Add variables for RGBA > UYVY RGBA conversion shaders \
 ofxNDIsender.cpp - ReadYUVpixels\
-  Use Openframeworks shader for RGBA to UYVY conversion\
-  BT601 if width is less than 720, otherwise BT709 for UYVY\
-  Restore additional test for "shaders" folder\
+Use Openframeworks shader for RGBA to UYVY conversion\
+BT601 if width is less than 720, otherwise BT709 for UYVY\
+Restore additional test for "shaders" folder\
 ofxNDIutils.cpp - Revise YUV422_to_RGBA with lookup tables\
-  Gain 7.9 > 5.5 msec at 1920x1080
+Gain 7.9 > 5.5 msec at 1920x1080
+	
 --------------------------
 21.07.25 - Updated for NDI SDK Vers 6.2.0.3\
 ofxNDdynloader\
