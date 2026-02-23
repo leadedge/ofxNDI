@@ -108,6 +108,9 @@
 	23.02.26	- Add SendAudio for use independently of SendImage
 				- CreateSender - error if pNDI_send create failed
 				- Revise out of memory error in SendImage
+	24.02.26	- ReleaseSender - set pointers to null after destroy sender :
+				- pNDI_send, m_AudioData, m_audio_frame.p_data, video_frame.p_data
+				- Set m_bMetadata = false
 
 */
 #include "ofxNDIsend.h"
@@ -538,15 +541,17 @@ void ofxNDIsend::ReleaseSender()
 		p_NDILib->send_clear_connection_metadata(pNDI_send);
 		m_metadataString.clear();
 	}
-
-	// Free the audio buffer if allocated
-	if(m_AudioData) free((void *)m_AudioData);
-	m_AudioData = nullptr;
+	m_bMetadata = false;
 
 	// Destroy the NDI sender
-	if (pNDI_send)
+	if (pNDI_send) {
 		p_NDILib->send_destroy(pNDI_send);
-	pNDI_send = nullptr;
+		pNDI_send = nullptr;
+		m_AudioData = nullptr;
+		m_audio_frame.p_data = nullptr;
+		video_frame.p_data = nullptr;
+		m_Width = m_Height = 0;
+	}
 
 	// Release the invert buffer
 	if (p_frame)
