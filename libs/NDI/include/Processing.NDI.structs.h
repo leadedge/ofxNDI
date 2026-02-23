@@ -131,6 +131,7 @@ typedef NDIlib_FourCC_video_type_e NDIlib_FourCC_type_e;
 
 // FourCC values for audio frames.
 typedef enum NDIlib_FourCC_audio_type_e {
+
 	// Planar 32-bit floating point. Be sure to specify the channel stride.
 	NDIlib_FourCC_audio_type_FLTP = NDI_LIB_FOURCC('F', 'L', 'T', 'p'),
 	NDIlib_FourCC_type_FLTP = NDIlib_FourCC_audio_type_FLTP,
@@ -308,6 +309,7 @@ typedef struct NDIlib_audio_frame_v2_t {
 
 // This describes an audio frame.
 typedef struct NDIlib_audio_frame_v3_t {
+
 	// The sample-rate of this buffer.
 	int sample_rate;
 
@@ -327,11 +329,14 @@ typedef struct NDIlib_audio_frame_v3_t {
 	uint8_t* p_data;
 
 	union {
-		// If the FourCC is not a compressed type and the audio format is planar, then this will be the
-		// stride in bytes for a single channel.
+
+		// If the FourCC is not a compressed type and the audio format is planar,
+		// then this will be the stride in bytes for a single channel.
 		int channel_stride_in_bytes;
 
-		// If the FourCC is a compressed type, then this will be the size of the p_data buffer in bytes.
+		// If the FourCC is a compressed type, then this will be
+		// the size of the p_data buffer in bytes.
+
 		int data_size_in_bytes;
 	};
 

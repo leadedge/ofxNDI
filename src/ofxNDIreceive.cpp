@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -158,6 +158,17 @@
 			   Add ResetFps to reset starting received frame rate
 	01.06.24 - UpdateFps - rolling average damping based on received frame time
 	19.01.25 - Update to NDI 6.1.1.0
+	09.05.25 - FindSenders - Remove check for a name change at the same index
+			   due to problems with command line selecting the wrong sender
+	21.07.25 - Update to NDI version 6.2.0.3
+	21.12.25 - Update to NDI version 6.2.1.0
+	26.12.25 - Default prefer UYVY or BGRA data - NDIlib_recv_color_format_UYVY_BGRA
+			   Receive pixel data - revised YUV422_to_RGBA function in ofxNDIutils
+	23-02-26 - FindSenders - create finder and check for it on first call
+			   OpenReceiver - use FindSenders instead of FindGetSources
+			   Check existing sources in CreateReceiver instead of OpenReceiver
+
+
 
 */
 
@@ -216,7 +227,10 @@ ofxNDIreceive::ofxNDIreceive()
 	m_nSenders = 0;
 	m_Width = 0;
 	m_Height = 0;
-	m_Format = NDIlib_recv_color_format_BGRX_BGRA;
+
+	// Can receive UYVY or BGRA data by default
+	m_Format = NDIlib_recv_color_format_UYVY_BGRA;
+
 	m_senderIndex = 0;
 	m_senderName = "";
 	// Audio
@@ -226,7 +240,7 @@ ofxNDIreceive::ofxNDIreceive()
 	m_nAudioSampleRate = 0;
 	m_nAudioSamples = 0;
 	m_nAudioChannels = 0;
-
+	m_AudioDataStride = 0;
 	// Intialize global video frame data pointer
 	video_frame.p_data = nullptr;
 
@@ -309,45 +323,48 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 	uint32_t nsources = 0; // New number of sources
 
 	if (!bNDIinitialized) {
+		printf("ofxNDIreceive::FindSenders - not intialized\n");
 		sendercount = 0;
 		m_nSenders = 0;
 		return false;
 	}
 
-	// If a finder was created, use it to find senders on the network
-	if (pNDI_find) {
+	// Create a finder
+	if (!pNDI_find) {
+		printf("ofxNDIreceive::FindSenders - creating finder\n");
+		CreateFinder(); // Creates pNDI_find
+	}
 
-		//
-		// This may be called for every frame so has to be fast.
-		//
+	if (!pNDI_find) {
+		printf("ofxNDIreceive::FindSenders - could not create finder\n");
+		return false;
+	}
 
-		// Specify a delay so that p_sources is returned only for a network change.
-		// If there was no network change, p_sources is NULL and no_sources = 0 
-		// and can't be used for other functions, so the sender names as well as 
-		// the sender count need to be saved locally.
-		p_sources = FindGetSources(pNDI_find, &nsources, 1);
-		// Check for a name change at the same index and update m_senderName
-		if (p_sources && nsources > 0 && !m_senderName.empty() && p_sources[m_senderIndex].p_ndi_name) {
-			if (strcmp(m_senderName.c_str(), p_sources[m_senderIndex].p_ndi_name) != 0) {
-				m_senderName = p_sources[m_senderIndex].p_ndi_name;
-			}
-		}
+	//
+	// This may be called for every frame so has to be fast.
+	//
+	// Specify a delay (1 msec) so that p_sources is returned only for a network change.
+	// If there was no network change, p_sources is NULL and no_sources = 0 
+	// and can't be used for other functions, so the sender names as well as 
+	// the sender count need to be saved locally.
+	//
+	p_sources = FindGetSources(pNDI_find, &nsources, 1);
+	if (p_sources && nsources > 0) {
 
 		// If there are new sources and the number of sources has changed
-		if (p_sources && nsources > 0 && nsources != no_sources) {
+		if ((nsources != no_sources) || NDIsenders.size() == 0 ) {
 			// Rebuild the sender name list
 			no_sources = nsources;
 			NDIsenders.clear();
 			if (no_sources > 0) {
-				for (int i = 0; i<(int)no_sources; i++) {
+				for (int i = 0; i < (int)no_sources; i++) {
 					if (p_sources[i].p_ndi_name && p_sources[i].p_ndi_name[0]) {
 						NDIsenders.push_back(p_sources[i].p_ndi_name);
 					}
 				}
 			}
 
-			// Update the current sender index
-			// because it's position may have changed
+			// Update the current sender index because it's position may have changed
 			if (!m_senderName.empty()) {
 
 				// If there are no senders left, close the current receiver
@@ -376,11 +393,7 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 			m_nSenders = sendercount;
 
 			return true;
-
 		}
-	}
-	else {
-		CreateFinder();
 	}
 
 	// Always update the number of senders even for no network change
@@ -537,7 +550,7 @@ bool ofxNDIreceive::GetSenderIndex(std::string sendername, int &index)
 
 	if (NDIsenders.size() > 0) {
 		for (int i = 0; i<(int)NDIsenders.size(); i++) {
-			if (sendername == NDIsenders.at(i)) {
+			if (sendername == NDIsenders[i]) {
 				index = i;
 				return true;
 			}
@@ -619,10 +632,9 @@ float ofxNDIreceive::GetSenderFps()
 void ofxNDIreceive::SetLowBandwidth(bool bLow)
 {
 	if(bLow)
-		m_bandWidth = NDIlib_recv_bandwidth_lowest; // Low bandwidth receive option
+		m_bandWidth = NDIlib_recv_bandwidth_lowest;  // 0 - Low bandwidth receive option
 	else
-		m_bandWidth = NDIlib_recv_bandwidth_highest;
-
+		m_bandWidth = NDIlib_recv_bandwidth_highest; // 100 - High bandwidth
 }
 
 // Set preferred format
@@ -704,6 +716,13 @@ float * ofxNDIreceive::GetAudioData()
 	return m_AudioData;
 }
 
+// Get audio frame data size
+int ofxNDIreceive::GetAudioDataStride()
+{
+	return m_AudioDataStride;
+}
+
+
 // Return audio frame data
 // output - the audio data pointer and parameters
 void ofxNDIreceive::GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels)
@@ -720,24 +739,31 @@ void ofxNDIreceive::GetAudioData(float*& output, int& samplerate, int& samples, 
 // Create receiver if not initialized or a new sender has been selected
 bool ofxNDIreceive::OpenReceiver()
 {
+	// Return now if a receiver is already created
+	if (ReceiverCreated()) {
+		return true;
+	}
+
 	// Update the NDI sender list to find new senders
-	// There is no delay if no new senders are found
+	// This creates a finder (pNDI_find) on the first call
+	// and returns immediately if no new senders are found.
 	int sendercount = FindSenders();
+	if(sendercount == 0)
+		return false;
 
 	// Check the sender count
+	// Create a receiver if any senders are found
 	if(sendercount > 0) {
-
-		// Return now if receiver already created
-		if (ReceiverCreated()) {
-			return true;
-		}
-
+		//
 		// Create a new receiver if not already
 		// A receiver is created from an index into a list of sender names.
 		// The current user selected index is saved in the NDIreceiver class
 		// and is used to create the receiver. The index is changed by 
 		// SetSenderIndex or SetSenderName.
-		// The receiver is created with default preferred format BGRA
+		//
+		// The receiver is created with default preferred format UYVY_BGRA
+		// The sender can produce UYVY or BGRA data
+		//
 		return CreateReceiver();
 	}
 
@@ -752,21 +778,9 @@ bool ofxNDIreceive::OpenReceiver()
 // data is converted from BGRA to RGBA during copy from the video frame buffer.
 bool ofxNDIreceive::CreateReceiver(int userindex)
 {
-	// NDI 4.0 > VERSION 4.1.3
-	// NDI bug to be resolved.
-	// 64 bit required for RGBA preferred
-	// 32 bit returns BGRA even if RGBA preferred.
-	// If you find the received result is BGRA, set the receiver to prefer BGRA
-	// TODO - Set format function
+	// Can receive UYVY or BGRA data
+	// Default m_Format - NDIlib_recv_color_format_UYVY_BGRA
 	return CreateReceiver(m_Format, userindex);
-
-/*
-#if defined(_WIN64)
-	return CreateReceiver(NDIlib_recv_color_format_RGBX_RGBA, userindex);
-#else
-	return CreateReceiver(NDIlib_recv_color_format_BGRX_BGRA, userindex);
-#endif
-*/
 
 }
 
@@ -776,6 +790,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 	std::string name;
 
 	if (!bNDIinitialized) {
+		printf("ofxNDIreceive::CreateReceiver - NDI not initialized\n");
 		return false;
 	}
 
@@ -786,10 +801,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 
 	if (!pNDI_recv) {
 
-		// The continued check in FindSenders is for a network change and
-		// p_sources is returned NULL if no change. So we need to find all
-		// the sources again to get a pointer to the selected sender.
-		// Give it a timeout in case of connection trouble.
+		// Check existing sources in case of connection trouble.
 		if (pNDI_find) {
 			dwStartTime = (unsigned int)timeGetTime();
 			do {
@@ -799,9 +811,11 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 		}
 
 		if (p_sources && no_sources > 0) {
+
 			// Quit if the user selected index is greater than the number of sources
 			// Unlikely but safety.
-			if (userindex > (int)no_sources - 1) {
+			if (userindex > (int)no_sources-1) {
+				printf("ofxNDIreceive::CreateReceiver - user selected index is greater than the number of sources\n");
 				return false;
 			}
 
@@ -848,6 +862,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			// If the user picks a sender from the list, the name is derived from the selected index.
 			//
 			if (!m_senderName.empty()) {
+
 				// Check the name against the current index
 				if (m_senderName != NDIsenders.at(index)) {
 					// If the name is different, does the sender exist ?
@@ -881,7 +896,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 			// Vers 4.0
 			pNDI_recv = p_NDILib->recv_create_v3(&NDI_recv_create_desc);
 			if (!pNDI_recv) {
-				printf("CreateReceiver !pNDI_recv\n");
+				printf("ofxNDIreceive::CreateReceiver - could not create pNDI_recv\n");
 				return false;
 			}
 
@@ -904,6 +919,9 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 
 			// Set class flag that a receiver has been created
 			bReceiverCreated = true;
+
+			// LJ DEBUG
+			printf("ofxNDIreceive::CreateReceiver [%s]\n", m_senderName.c_str());
 
 			return true;
 
@@ -975,6 +993,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 		// NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 		// Vers 4.5
+		// Return immediately  if no frame is available for lowest-latency.
 		NDI_frame_type = p_NDILib->recv_capture_v3(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
 		// Set frame type for external access
@@ -1019,23 +1038,40 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 			case NDIlib_frame_type_audio:
 				if (audio_frame.p_data) {
 					if (m_bAudio) {
-						// printf("Audio data received (%d samples).\n", audio_frame.no_samples);
+
 						// Copy the audio data to a local audio buffer
 						// Allocate only for sample size change
 						if (m_nAudioSamples != audio_frame.no_samples
 							|| m_nAudioSampleRate != audio_frame.sample_rate
 							|| m_nAudioChannels != audio_frame.no_channels) {
-							// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
-							if (m_AudioData) free((void *)m_AudioData);
+							if (m_AudioData) {
+								free((void*)m_AudioData);
+								m_AudioDataStride = 0;
+							}
 							m_AudioData = (float *)malloc((size_t)audio_frame.no_samples * (size_t)audio_frame.no_channels * sizeof(float));
+							m_AudioDataStride = audio_frame.channel_stride_in_bytes;
 						}
-						// printf("Audio data received data = %x, samples = %d\n", (unsigned int)audio_frame.p_data, audio_frame.no_samples);
-						m_nAudioChannels = audio_frame.no_channels;
-						m_nAudioSamples = audio_frame.no_samples;
+						
+						/*
+						printf("Audio frame\n");
+						printf("Number of channels      = %d\n", audio_frame.no_channels);
+						printf("Number of samples       = %d\n", audio_frame.no_samples);
+						printf("Sample rate             = %d\n", audio_frame.sample_rate);
+						printf("FourCC                  = %d\n", audio_frame.FourCC);
+						printf("Data size in bytes      = %d\n", audio_frame.data_size_in_bytes);
+						printf("Channel stride in bytes = %d\n", audio_frame.channel_stride_in_bytes);
+						*/
+
+						// Number of channels
+						m_nAudioChannels   = audio_frame.no_channels;
+						// Number of samples per channel
+						m_nAudioSamples    = audio_frame.no_samples/audio_frame.no_channels;
+						// Sample rate in hz
 						m_nAudioSampleRate = audio_frame.sample_rate;
 						if (m_AudioData)
 							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, ((size_t)m_nAudioSamples * (size_t)audio_frame.no_channels * sizeof(float)));
 						m_bAudioFrame = true;
+
 						// ReceiveImage will return false
 						// Use IsAudioFrame() to determine whether audio has been received
 						// and GetAudioData to retrieve the sample buffer
@@ -1064,21 +1100,18 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 
 					// Otherwise sizes are current - copy the received frame data to the local buffer
 					else if (video_frame.p_data && (uint8_t*)pixels) {
-
+						
 						// Video frame type
 						switch (video_frame.FourCC) {
-							// Note :
-							// If the receiver is set up to prefer BGRA or RGBA format,
-							// other formats are converted to by the API, and the
-							// slower YUV422_to_RGBA conversion function is not used.
+							// Note : If the receiver is set up to prefer BGRA or RGBA format,
+							// the slower YUV422_to_RGBA conversion function here is not used.
 							case NDIlib_FourCC_type_UYVY: // YCbCr color space
 							// Alpha component of NDIlib_FourCC_type_UYVA not supported
 							case NDIlib_FourCC_type_UYVA: // With alpha (not used)
 								// CPU conversion
+								// 5.5 msec at 1920x1080
 								ofxNDIutils::YUV422_to_RGBA((const unsigned char *)video_frame.p_data, pixels, m_Width, m_Height, (unsigned int)video_frame.line_stride_in_bytes);
 								break;
-							case NDIlib_FourCC_video_type_P216:	break;
-							case NDIlib_FourCC_video_type_PA16:	break;
 							case NDIlib_FourCC_type_RGBA: // RGBA
 							case NDIlib_FourCC_type_RGBX: // RGBX
 								// Do not swap red/green
@@ -1091,6 +1124,8 @@ bool ofxNDIreceive::ReceiveImage(unsigned char *pixels,
 								break;
 							
 							// Unsupported formats
+							case NDIlib_FourCC_video_type_P216:
+							case NDIlib_FourCC_video_type_PA16:
 							case NDIlib_FourCC_type_NV12:
 							case NDIlib_FourCC_type_I420:
 							case NDIlib_FourCC_type_YV12:
@@ -1151,8 +1186,10 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 	NDIlib_metadata_frame_t metadata_frame;
 	// NDIlib_audio_frame_v2_t audio_frame;
 	// Vers 4.5
-	NDIlib_audio_frame_v3_t audio_frame;
+	NDIlib_audio_frame_v3_t audio_frame{};
 	m_FrameType = NDIlib_frame_type_none;
+
+	// Default receive failed or audio frame
 	bool bRet = false;
 
 	if (!bNDIinitialized) {
@@ -1168,7 +1205,6 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 	if (pNDI_recv) {
 
-		// NDI_frame_type = p_NDILib->recv_capture_v2(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 		// Vers 4.5
 		NDI_frame_type = p_NDILib->recv_capture_v3(pNDI_recv, &video_frame, &audio_frame, &metadata_frame, 0);
 
@@ -1214,26 +1250,38 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 
 				if (audio_frame.p_data) {
 					if (m_bAudio) {
+
 						// Copy the audio data to a local audio buffer
-						// Allocate only for sample size change
-						if (m_nAudioSamples != audio_frame.no_samples
+						// Re-allocate only for sample size change
+						if (m_nAudioSamples       != audio_frame.no_samples
 							|| m_nAudioSampleRate != audio_frame.sample_rate
-							|| m_nAudioChannels != audio_frame.no_channels) {
-							// printf("Creating audio buffer - %d samples, %d channels\n", audio_frame.no_samples, audio_frame.no_channels);
-							if (m_AudioData) free((void *)m_AudioData);
+							|| m_nAudioChannels   != audio_frame.no_channels) {
+							if (m_AudioData)
+								free((void *)m_AudioData);
+							m_AudioData = nullptr;
+						}
+
+						if (!m_AudioData) {
 							m_AudioData = (float *)malloc((size_t)audio_frame.no_samples * (size_t)audio_frame.no_channels * sizeof(float));
 						}
-						m_nAudioChannels = audio_frame.no_channels;
-						m_nAudioSamples = audio_frame.no_samples;
+
+						m_nAudioChannels   = audio_frame.no_channels;
+						m_nAudioSamples    = audio_frame.no_samples;
 						m_nAudioSampleRate = audio_frame.sample_rate;
-						if (m_AudioData)
-							memcpy((void *)m_AudioData, (void *)audio_frame.p_data, ((size_t)m_nAudioSamples * (size_t)audio_frame.no_channels * sizeof(float)));
+						if (m_AudioData) {
+							memcpy((void*)m_AudioData, (void*)audio_frame.p_data, ((size_t)m_nAudioSamples * (size_t)audio_frame.no_channels * sizeof(float)));
+							m_AudioDataStride = audio_frame.channel_stride_in_bytes;
+						}
+						else {
+							m_AudioDataStride = 0;
+						}
+						
 						m_bAudioFrame = true;
-						//
+						
 						// ReceiveImage will return false (no image received)
-						//
 						// Use IsAudioFrame() to determine whether audio has been received
 						// and GetAudioData to retrieve the sample buffer
+
 					}
 					// Vers 4.5
 					p_NDILib->recv_free_audio_v3(pNDI_recv, &audio_frame);
@@ -1241,14 +1289,13 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 				break;
 
 			case NDIlib_frame_type_video :
-
 				if (video_frame.p_data) {
 
 					// The caller can check whether a frame has been received
 					bReceiverConnected = true;
 
 					if (m_Width != (unsigned int)video_frame.xres || m_Height != (unsigned int)video_frame.yres) {
-						m_Width = (unsigned int)video_frame.xres;
+						m_Width  = (unsigned int)video_frame.xres;
 						m_Height = (unsigned int)video_frame.yres;
 					}
 
@@ -1292,7 +1339,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		// No video data - no sender
 		bReceiverConnected = false;
 	}
-	
+		
 	return bRet;
 }
 

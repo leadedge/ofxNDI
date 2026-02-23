@@ -6,7 +6,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2019-2025
+	Copyright (C) 2019-2026
 
 	Luis Rodil-Fernandez
 	https://github.com/IDArnhem/ofxNDI
@@ -64,6 +64,8 @@
 				  Create GetCurrentExePath() to support Linux and OSX
 				  Include <unistd.h> in ofxNDIloader.h for OSX access function
 	18.03.25	- FindRuntime add #ifdef for Linux runtime - ofxNDI Issue #61
+	21.07.25	- Update headers to NDI version 6.2.0.3
+	21.10.25	- Update headers to NDI version 6.2.1.0
 
 */
 #include "ofxNDIdynloader.h"

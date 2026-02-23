@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -82,7 +82,7 @@
 			 - Revise SetFormat to find the shader folder and test existence
 	23.05.24 - SendImage ofTexture - RGBA only
 	16.09.24 - SendImage ofTexture and pixel data,
-			   Update class resources as well as NDI sender for changed size.
+			   Update class resources as well as NDI sendesender for changed size.
 	19.09.24 - Correct SendImage(ofTexture) for incorrect data format
 			   SendImage texture, image or pixels - test for sender created
 	20.09.24 - SendImage ofImage and ofPixels - pass by reference to avoid
@@ -98,8 +98,15 @@
 	17.03.25 - ReadPixels - remove glGetTeximage method for RGB.
 			   (RGB pixels are converted to RGBA in SendImage)
 	20.03.25 - ReadTexturePixels, CreateSender, UpdateSender, ReleaseSender
-			   change all gl functions to ARB for OpenGL 2.0 compatibility
-
+	21.07.25 - Update to NDI version 6.2.0.3
+	21.10.25 - Update to NDI version 6.2.1.0
+	26.12.25 - ReadYUVpixels
+			   Use Openframeworks shader for RGBA to UYVY conversion
+			   BT601 if width is less than 720, otherwise BT709 for UYVY
+		       Restore additional test for "shaders" folder
+	23.02.26 - Add SendAudio for use independently of SendImage
+			   CreateSender - error if pNDI_send create failed
+			   Revise error messages in SetFormat and ReadYUVpixels
 
 */
 #include "ofxNDIsender.h"
@@ -160,12 +167,15 @@ bool ofxNDIsender::CreateSender(const char *sendername, unsigned int width, unsi
 
 	// Initialize OpenGL pbos for asynchronous readback of fbo data
 	if(!m_pbo[0])
-		glGenBuffersARB(3, m_pbo);
+		glGenBuffers(3, m_pbo);
 
 	PboIndex = NextPboIndex = 0; // index used for asynchronous fbo readback
 
 	// Allocate utility fbo to the sender size
 	ndiFbo.allocate(width, height, GL_RGBA);
+
+	// Allocata yuv texture half width
+	m_yuvtexture.allocate(width/2, height, GL_RGBA);
 
 	if (NDIsender.CreateSender(sendername, width, height)) {
 		m_SenderName = sendername;
@@ -193,13 +203,15 @@ bool ofxNDIsender::UpdateSender(unsigned int width, unsigned int height)
 	AllocatePixelBuffers(width, height);
 
 	// Delete and re-initialize OpenGL pbos
-	if (m_pbo[0]) glDeleteBuffersARB(3, m_pbo);
-	glGenBuffersARB(3, m_pbo);
+	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
+	glGenBuffers(3, m_pbo);
 	PboIndex = NextPboIndex = 0; // reset index used for asynchronous fbo readback
 
 	// Re-allocate utility fbo
 	ndiFbo.allocate(width, height, GL_RGBA);
-	
+	// Re-allocata yuv texture half width
+	m_yuvtexture.allocate(width/2, height, GL_RGBA);
+
 	// Update NDI video frame
 	return NDIsender.UpdateSender(width, height);
 }
@@ -215,11 +227,13 @@ void ofxNDIsender::ReleaseSender()
 	if (ndiBuffer[1].isAllocated())	ndiBuffer[1].clear();
 
 	// Delete readback pbos
-	if (m_pbo[0]) glDeleteBuffersARB(3, m_pbo);
+	if (m_pbo[0]) glDeleteBuffers(3, m_pbo);
 	m_pbo[0] = m_pbo[1] = m_pbo[2] = 0;
 
 	// Release utility fbo
 	if (ndiFbo.isAllocated()) ndiFbo.clear();
+	// Release yuv texture
+	if(m_yuvtexture.isAllocated()) m_yuvtexture.clear();
 
 	m_SenderName = "";
 }
@@ -261,13 +275,12 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 }
 
 // Send ofTexture
-bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
-{
+bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert) {
 	// Quit is not initialized, texture not allocated
 	// or sending pixel buffers not allocated
 	if (!NDIsender.SenderCreated() || !tex.isAllocated()
 		|| !ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated()) {
-			return false;
+		return false;
 	}
 
 	// Quit if the texture is not RGBA, RGBA8, BGRA, RGB or BGR
@@ -279,6 +292,7 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 		|| tex.getTextureData().glInternalFormat == GL_BGR)) { // 0x80E0
 		return false;
 	}
+
 
 	ofDisableDepthTest(); // In case this was enabled, or textures do not show
 
@@ -295,11 +309,10 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 
 	// Read texture pixels into a pixel buffer
 	bool bResult = false;
-	// NDIlib_FourCC_video_type_UYVY can only be enabled by SetFormat
-	// Path to required shaders is tested
+	// NDIlib_FourCC_video_type_UYVY is enabled by SetFormat
 	if (NDIsender.GetFormat() == NDIlib_FourCC_video_type_UYVY) {
-		// Convert to the YUV format at the same time.
-		// YUV output width is half that of the RGBA input
+		// Both tex and ndiBuffer are allocated full width
+		// Sender YUV output width is half that of the RGBA input
 		bResult = ReadYUVpixels(tex, width/2, height, ndiBuffer[m_idx]);
 	}
 	else {
@@ -382,18 +395,39 @@ bool ofxNDIsender::SendImage(const unsigned char * pixels,
 void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 {
 	if (format == NDIlib_FourCC_video_type_UYVY) {
-		// For YUV format, test existence of required rgba2yuv shader folder
-		std::string shaderpath = ofToDataPath("rgba2yuv/");
+		// For YUV format, test existence of required rgba2yuv shader file
+		// Shaders can be in bin\data or bin\data\shaders
+		// Look for the shaders folder first
+		std::string shaderpath = ofToDataPath("shaders");
 		if (ofDirectory::doesDirectoryExist(shaderpath, false)) {
+			// Look for the shader file
+			#ifdef TARGET_OPENGLES
+			shaderpath = ofToDataPath("shaders/rgba2yuv/ES2/rgba2yuv.frag");
+			#else
+			if (ofIsGLProgrammableRenderer())
+				shaderpath = ofToDataPath("shaders/rgba2yuv/GL3/rgba2yuv.frag");
+			else
+				shaderpath = ofToDataPath("shaders/rgba2yuv/GL2/rgba2yuv.frag");
+			#endif
+		}
+		else {
+			#ifdef TARGET_OPENGLES
+			shaderpath = ofToDataPath("rgba2yuv/ES2/rgba2yuv.frag");
+			#else
+			if (ofIsGLProgrammableRenderer())
+				shaderpath = ofToDataPath("rgba2yuv/GL3/rgba2yuv.frag");
+			else
+				shaderpath = ofToDataPath("rgba2yuv/GL2/rgba2yuv.frag");
+			#endif
+		}
+		bool bExists = ofFile::doesFileExist(shaderpath, false);
+		if (bExists) {
 			NDIsender.SetFormat(format);
 			// Buffer size will change between YUV and RGBA
 			// Retain sender dimensions, but update the sender
 			// to re-create pbos, buffers and NDI video frame
 			// Update sender if already created (UpdateSender checks)
 			UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
-		}
-		else {
-			printf("rgba2yuv shader not found in [%s]\n", shaderpath.c_str());
 		}
 	}
 	else if (format == NDIlib_FourCC_video_type_BGRA
@@ -405,7 +439,7 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 			  UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
 	}
 	else {
-		printf("Incompatible format\n");
+		printf("ofxNDIsender::SetFormat - Incompatible format\n");
 	}
 
 }
@@ -490,17 +524,36 @@ bool ofxNDIsender::GetProgressive()
 	return NDIsender.GetProgressive();
 }
 
-// Set clocked 
+// Set clocked video
 void ofxNDIsender::SetClockVideo(bool bClocked)
 {
 	NDIsender.SetClockVideo(bClocked);
 }
 
-// Get whether clocked
+// Get whether video is clocked
 bool ofxNDIsender::GetClockVideo()
 {
 	return NDIsender.GetClockVideo();
 }
+
+//
+// Set audio frame type
+//
+//   audio_frame_v2_t               0
+//   audio_frame_interleaved_16s_t  1
+//   audio_frame_interleaved_32s    2
+//   audio_frame_interleaved_32f_t  3
+//
+void ofxNDIsender::SetAudioType(int type)
+{
+	NDIsender.SetAudioType(type);
+}
+
+int ofxNDIsender::GetAudioType()
+{
+	return NDIsender.GetAudioType();
+}
+
 
 // Set asynchronous sending mode
 void ofxNDIsender::SetAsync(bool bActive)
@@ -508,7 +561,7 @@ void ofxNDIsender::SetAsync(bool bActive)
 	NDIsender.SetAsync(bActive);
 }
 
-// Get whether async sending mode
+// Get async sending mode
 bool ofxNDIsender::GetAsync()
 {
 	return NDIsender.GetAsync();
@@ -530,6 +583,18 @@ bool ofxNDIsender::GetReadback()
 void ofxNDIsender::SetAudio(bool bAudio)
 {
 	NDIsender.SetAudio(bAudio);
+}
+
+// Get whether audio sending is set
+bool ofxNDIsender::GetAudio()
+{
+	return NDIsender.GetAudio();
+}
+
+// Set clocked video
+void ofxNDIsender::SetClockAudio(bool bClocked)
+{
+	NDIsender.SetClockAudio(bClocked);
 }
 
 // Set audio sample rate
@@ -557,9 +622,30 @@ void ofxNDIsender::SetAudioTimecode(int64_t timecode)
 }
 
 // Set audio data
-void ofxNDIsender::SetAudioData(float *data)
+void ofxNDIsender::SetAudioData(const float *data)
 {
 	NDIsender.SetAudioData(data);
+}
+
+// Get audio data pointer
+float* ofxNDIsender::GetAudioData()
+{
+	return NDIsender.GetAudioData();
+}
+
+// Get the sender audio frame
+NDIlib_audio_frame_v2_t ofxNDIsender::GetAudioFrame() {
+	return NDIsender.GetAudioFrame();
+}
+
+//
+// Send an audio frame
+//
+// The audio frame is set up before the sender is created
+// The audio frame members can be modified before sending
+// 
+bool ofxNDIsender::SendAudio() {
+	return NDIsender.SendAudio();
 }
 
 // Set to send metadata
@@ -579,6 +665,7 @@ std::string ofxNDIsender::GetNDIversion()
 {
 	return NDIsender.GetNDIversion();
 }
+
 
 //
 // =========== Private functions ===========
@@ -642,11 +729,11 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 	ndiFbo.attachTexture(tex, GL_RGBA, 0);
 
 	// Bind the current PBO
-	glBindBufferARB(GL_PIXEL_PACK_BUFFER, m_pbo[PboIndex]);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[PboIndex]);
 
 	// Null existing PBO data to avoid a stall
 	// This allocates memory for the PBO
-	glBufferDataARB(GL_PIXEL_PACK_BUFFER, (size_t)width * (size_t)height * 4, 0, GL_STREAM_READ);
+	glBufferData(GL_PIXEL_PACK_BUFFER, (size_t)width * (size_t)height * 4, 0, GL_STREAM_READ);
 
 	// Read pixels from framebuffer to the current PBO
 	// After a buffer is bound, glReadPixels() will pack(write) data into the Pixel Buffer Object.
@@ -654,21 +741,21 @@ bool ofxNDIsender::ReadTexturePixels(ofTexture tex, unsigned int width, unsigned
 	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *)0);
 
 	// Map the previous PBO to process its data by CPU
-	glBindBufferARB(GL_PIXEL_PACK_BUFFER, m_pbo[NextPboIndex]);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo[NextPboIndex]);
 	pboMemory = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 	if (pboMemory) {
 		// Use SSE2 mempcy
 		ofxNDIutils::CopyImage((unsigned char *)pboMemory, data, width, height, width * 4);
-		glUnmapBufferARB(GL_PIXEL_PACK_BUFFER);
+		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
 	}
 	else {
-		glBindBufferARB(GL_PIXEL_PACK_BUFFER, 0);
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 		ndiFbo.unbind();
 		return false;
 	}
 
 	// Back to conventional pixel operation
-	glBindBufferARB(GL_PIXEL_PACK_BUFFER, 0);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
 	ndiFbo.unbind();
 
@@ -703,7 +790,7 @@ bool ofxNDIsender::ReadYUVpixels(ofFbo &fbo, unsigned int halfwidth, unsigned in
 	return ReadYUVpixels(fbo.getTexture(), halfwidth, height, buffer);
 }
 
-// Read yuv pixels from an rgba texture to buffer
+// Read yuv pixels from an rgba texture (tex) to a yuv buffer
 // The halfwidth argument is half the sender width
 bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigned int height, ofPixels &buffer)
 {
@@ -712,32 +799,62 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 
 	// Load the shader
 	if (!rgba2yuv.isLoaded()) {
-		// Get the rgba2yuv shader folder full path
-		std::string shaderpath;
-#ifdef TARGET_OPENGLES
-		shaderpath = ofToDataPath("rgba2yuv/ES2/rgba2yuv");
-#else
-		if (ofIsGLProgrammableRenderer())
-			shaderpath = ofToDataPath("rgba2yuv/GL3/rgba2yuv");
-		else
-			shaderpath = ofToDataPath("rgba2yuv/GL2/rgba2yuv");
-#endif
-		if (!rgba2yuv.load(shaderpath))
-			return false;
-	}
+		// Get the rgba2yuv shader name full path
+		// .frag and .vert are added by shader load
+		// Shaders can be in bin\data or bin\data\shaders
+		// Look for the shaders folder first
+		std::string shaderpath = ofToDataPath("shaders");
+		if (ofDirectory::doesDirectoryExist(shaderpath, false)) {
+			#ifdef TARGET_OPENGLES
+			shaderpath = ofToDataPath("shaders/rgba2yuv/ES2/rgba2yuv");
+			#else
+			if (ofIsGLProgrammableRenderer())
+				shaderpath = ofToDataPath("shaders/rgba2yuv/GL3/rgba2yuv");
+			else
+				shaderpath = ofToDataPath("shaders/rgba2yuv/GL2/rgba2yuv");
+			#endif
+		}
+		else {
+			#ifdef TARGET_OPENGLES
+			shaderpath = ofToDataPath("rgba2yuv/ES2/rgba2yuv");
+			#else
+			if (ofIsGLProgrammableRenderer())
+				shaderpath = ofToDataPath("rgba2yuv/GL3/rgba2yuv");
+			else
+				shaderpath = ofToDataPath("rgba2yuv/GL2/rgba2yuv");
+			#endif
+		}
 
-	// Convert the rgba texture to YUV via fbo
+
+		if (!rgba2yuv.load(shaderpath)) {
+			printf("ofxNDIsender::ReadYUVpixels - rgba2yuv shader not loaded\n%s\n", shaderpath.c_str());
+			return false;
+		}
+	}
+	
+	// YUV is half width
+	int width = halfwidth*2;
+	// BT601 SD, BT709 HD or BT2020 UHD
+	if(width < 720)
+		m_colormatrix = 0;
+	else if(width < 3840)
+		m_colormatrix = 1;
+	else
+		m_colormatrix = 2;
+
+	// Convert the RGBA texture to UYVY via fbo
 	ndiFbo.begin();
 	ofDisableAlphaBlending();
 	ofDisableDepthTest();
 	rgba2yuv.begin();
 	rgba2yuv.setUniformTexture("rgbatex", tex, 1);
+	rgba2yuv.setUniform1i("colormatrix", m_colormatrix);
 	tex.draw(0, 0);
 	rgba2yuv.end();
 	ndiFbo.end();
 
-	// The YUV result is in the ndiFbo texture
-	// The data is half the width of the rgba texture.
+	// The UYVY result is in the ndiFbo texture
+	// The data is half the width of the RGBA texture
 	return ReadPixels(ndiFbo, halfwidth, height, buffer);
 
 }

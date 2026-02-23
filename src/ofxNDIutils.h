@@ -5,7 +5,7 @@
 
 	https://ndi.video
 
-	Copyright (C) 2016-2025 Lynn Jarvis.
+	Copyright (C) 2016-2026 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -29,18 +29,29 @@
 	06.12.19 - Remove SSE functions for Linux
 	07.12.19 - remove includes emmintrin.h, xmmintrin.h, iostream, cstdint
 	16.09.24 - #define USE_CHRONO for OSX
-
+	20.12.25 - Update to NDI version 6.2.1
+	09-02-26 - Add Audio functions
+			 - Add NOMINMAX define to avoid conflict for
+			   std::min/std::max and Windows min/max
+	23.02.26 - Add audio functions AudioFrameSequence and InterleavedToPlanar
 
 */
 #pragma once
 #ifndef __ofxNDI_
 #define __ofxNDI_
 
+// For std::min
+#define NOMINMAX
+
 #include "ofxNDIplatforms.h" // Openframeworks platform definitions
 #include <stdint.h> // ints of known sizes, standard library
 #include <stdlib.h>
 #include <string.h>
 #include <iostream> // for cout
+#include <vector>
+#include <cmath>     // for std::floor, std::ceil
+#include <algorithm> // for std::min
+#include <numeric>   // for std::accumulate
 
 // TODO : test includes for OSX
 #if defined(TARGET_OSX)
@@ -77,10 +88,23 @@
 #include <thread>
 #endif
 
+
+// For SetAudioType
+enum ofxNDIaudiotype {
+	audio_frame_v2_t = 0,
+	audio_frame_interleaved_16s_t = 1,
+	audio_frame_interleaved_32s = 2,
+	audio_frame_interleaved_32f_t = 3
+};
+
 namespace ofxNDIutils {
 
 	// ofxNDI version number
 	std::string GetVersion();
+
+	//
+	// Image pixel copy
+	//
 
 	// Copy rgba source image to dest.
 	// Images must be the same size with no line padding.
@@ -115,10 +139,14 @@ namespace ofxNDIutils {
 	void rgba_bgra(const void *rgba_source, void *bgra_dest, unsigned int width, unsigned int height, bool bInvert = false);
 	void FlipBuffer(const unsigned char *src, unsigned char *dst, unsigned int width, unsigned int height);
 	void rgb2rgba(const void* rgb_source, void* rgba_dest, unsigned int width, unsigned int height, bool bInvert);
-	void YUV422_to_RGBA(const unsigned char * source, unsigned char * dest, unsigned int width, unsigned int height, unsigned int stride);
+	void YUV422_to_RGBA(const unsigned char* source, unsigned char* dest, unsigned int width, unsigned int height, unsigned int stride = 0);
+
+
+	//
+	// Timing
+	//
 
 #ifdef USE_CHRONO
-
 	// Start timing period
 	void StartTiming();
 	// Stop timing and return microseconds elapsed.
@@ -130,6 +158,18 @@ namespace ofxNDIutils {
 	void StartTimePeriod();
 	void EndTimePeriod();
 #endif
+
+	//
+	// Audio
+	//
+
+	// Create an audio frame number sequence for a given video fps
+	std::vector<int> AudioFrameSequence(int audioSampleRate, double videoFps, int &maxSample, int length = 100);
+
+	// Convert interleaved audio to a single planar buffer for NDI v2
+	std::vector<float> InterleavedToPlanar(const float* interleaved, int channels, int nsamples);
+	static std::vector<float> planar;
+
 
 #endif
 
