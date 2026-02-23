@@ -1,6 +1,10 @@
 //
 // MiniAudio functions for NDI
 //
+// 24.02.26 - Changes by Daandelange
+//			  FFmpeg path for OSX
+//			  Shellexecute alternatives for OSX and Linux
+//
 
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
@@ -73,7 +77,13 @@ std::string AudioFile::CreateAudioFile(std::string videofile)
 	std::string audiofile = videofile.substr(0, videofile.rfind('.')) + ".wav";
 	if (!ofFile::doesFileExist(audiofile)) {
 		// Create the audio file for miniaudio using FFmpeg
+#if defined(TARGET_WIN32)
 		std::string ffmpegPath = ofToDataPath("ffmpeg/ffmpeg.exe", true);
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
+		std::string ffmpegPath = ofToDataPath("ffmpeg/ffmpeg", true);
+#else
+		std::string ffmpegPath = ofToDataPath("", true); // todo !
+#endif
 		if (!ofFile::doesFileExist(ffmpegPath)) {
 			// Warning
 			printf("\nffmpeg is required.\n");
@@ -91,6 +101,7 @@ std::string AudioFile::CreateAudioFile(std::string videofile)
 			args += "\"" + videofile + "\" ";
 			args += "-vn -acodec pcm_f32le -ar 48000 -ac 2 ";
 			args += "\"" + audiofile + "\"";
+#if defined(TARGET_WIN32)
 			HINSTANCE result = ShellExecuteA(
 				NULL, "open", ffmpegPath.c_str(),
 				args.c_str(), NULL, SW_HIDE); // hide ffmpeg console window
@@ -98,6 +109,17 @@ std::string AudioFile::CreateAudioFile(std::string videofile)
 				audiofile.clear();
 				printf("ShellExecute error\n");
 			}
+#elif defined(TARGET_OSX) || defined(TARGET_LINUX)
+			std::string result = ofSystem(ffmpegPath+" "+args);
+			std::cout << "Result=" << result << std::endl;
+			if (!result.length()) {
+				audiofile.clear();
+				printf("ShellExecute error\n");
+			}
+#else
+			ofLogError("AudioFile::CreateAudioFile") << "FFMPEG support is not implemented on your platform !";
+			audiofile.clear();
+#endif
 		}
 	}
 	return audiofile;
