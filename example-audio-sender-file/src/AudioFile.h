@@ -22,7 +22,7 @@ class AudioFile {
 
 	// FFmpeg
 	std::string CreateAudioFile(std::string videofile);
-	double GetVideoFps(std::string videofile);
+	bool GetVideoFps(std::string videofile, double &videofps);
 
 };
 

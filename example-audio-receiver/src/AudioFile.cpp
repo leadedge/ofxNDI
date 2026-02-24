@@ -2,8 +2,11 @@
 // MiniAudio functions for NDI
 //
 // 24.02.26 - Changes by Daandelange
-//			  FFmpeg path for OSX
-//			  Shellexecute alternatives for OSX and Linux
+//			    FFmpeg path for OSX
+//			    Shellexecute alternatives for OSX and Linux
+//			- Change GetVideoFps to bool with fps argument
+//			- Use CreateProcess instead of ShellExecute to
+//			  wait for FFmpeg to finish creating the audio file
 //
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -102,19 +105,42 @@ std::string AudioFile::CreateAudioFile(std::string videofile)
 			args += "-vn -acodec pcm_f32le -ar 48000 -ac 2 ";
 			args += "\"" + audiofile + "\"";
 #if defined(TARGET_WIN32)
-			HINSTANCE result = ShellExecuteA(
-				NULL, "open", ffmpegPath.c_str(),
-				args.c_str(), NULL, SW_HIDE); // hide ffmpeg console window
-			if ((LONG_PTR)result <= 32) {
+
+			std::string cmd = "\"" + ffmpegPath + "\" ";
+			cmd += args;
+
+			STARTUPINFOA si{};
+			PROCESS_INFORMATION pi{};
+			si.cb = sizeof(si);
+			si.dwFlags = STARTF_USESHOWWINDOW;
+			si.wShowWindow = SW_HIDE;
+			BOOL success = CreateProcessA(
+				NULL, cmd.data(), NULL, NULL, FALSE,
+				CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+			if (!success) {
+				printf("AudioFile::CreateAudioFile - CreateProcess failed\n");
 				audiofile.clear();
-				printf("ShellExecute error\n");
 			}
+			else {
+				// Wait for ffmpeg to finish
+				WaitForSingleObject(pi.hProcess, INFINITE);
+			    // Check FFmpeg exit code
+				DWORD exitCode;
+				GetExitCodeProcess(pi.hProcess, &exitCode);
+				if (exitCode != 0) {
+					printf("AudioFile::CreateAudioFile - FFmpeg failed with code %lu\n", exitCode);
+					audiofile.clear();
+				}
+				CloseHandle(pi.hProcess);
+				CloseHandle(pi.hThread);
+			}
+
 #elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 			std::string result = ofSystem(ffmpegPath+" "+args);
 			std::cout << "Result=" << result << std::endl;
 			if (!result.length()) {
 				audiofile.clear();
-				printf("ShellExecute error\n");
+				printf("AudioFile::CreateAudioFile - ofSystem error\n");
 			}
 #else
 			ofLogError("AudioFile::CreateAudioFile") << "FFMPEG support is not implemented on your platform !";
@@ -125,10 +151,10 @@ std::string AudioFile::CreateAudioFile(std::string videofile)
 	return audiofile;
 }
 
-double AudioFile::GetVideoFps(std::string videofile)
+bool AudioFile::GetVideoFps(std::string videofile, double &videofps)
 {
 	if(videofile.empty())
-		return 0.0;
+		return false;
 
 	// FFprobe path
 	std::string ffprobePath = ofToDataPath("ffmpeg/ffprobe.exe", true);
@@ -141,7 +167,7 @@ double AudioFile::GetVideoFps(std::string videofile)
 		printf("* e.g. \"ffmpeg-2026-02-04-git-627da1111c-essentials_build.zip\"\n");
 		printf("* Download the archive, unzip it and and copy \"bin/ffprobe.exe\"\n");
 		printf("* to the folder : \"data/ffmpeg/\".\n\n");
-		return 0.0;
+		return false;
 	}
 
 	std::string cmd = ffprobePath;
@@ -157,6 +183,8 @@ double AudioFile::GetVideoFps(std::string videofile)
 		fps = num/den;
 	}
 
-	return fps;
+	videofps = fps;
+	return true;
+
 }
 
