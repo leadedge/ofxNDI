@@ -77,7 +77,8 @@ int AudioFile::GetChannels()
 // Create an audio file from the video file
 std::string AudioFile::CreateAudioFile(std::string videofile)
 {
-	std::string audiofile = videofile.substr(0, videofile.rfind('.')) + ".wav";
+	// std::string audiofile = videofile.substr(0, videofile.rfind('.')) + ".wav";
+	std::string audiofile = videofile.substr(0, videofile.rfind('.')) + ".mp3";
 	if (!ofFile::doesFileExist(audiofile)) {
 		// Create the audio file for miniaudio using FFmpeg
 #if defined(TARGET_WIN32)
@@ -99,11 +100,18 @@ std::string AudioFile::CreateAudioFile(std::string videofile)
 			audiofile.clear();
 		}
 		else {
+			/*
 			// FFmpeg command arguments
 			std::string args = "-y -i ";
 			args += "\"" + videofile + "\" ";
 			args += "-vn -acodec pcm_f32le -ar 48000 -ac 2 ";
 			args += "\"" + audiofile + "\"";
+			*/
+			std::string args = "-y -i ";
+			args += "\"" + videofile + "\" ";
+			args += "-vn -acodec libmp3lame -ab 192k "; // bitrate controls quality and size
+			args += "\"" + audiofile + "\"";
+
 #if defined(TARGET_WIN32)
 
 			std::string cmd = "\"" + ffmpegPath + "\" ";
@@ -122,6 +130,7 @@ std::string AudioFile::CreateAudioFile(std::string videofile)
 				audiofile.clear();
 			}
 			else {
+				printf("AudioFile::CreateAudioFile - waiting for FFmpeg to finish\n");
 				// Wait for ffmpeg to finish
 				WaitForSingleObject(pi.hProcess, INFINITE);
 			    // Check FFmpeg exit code

@@ -6,14 +6,18 @@ void ofApp::setup(){
 	ofBackground(0);
 
 	//
-	// Input video file
-	//
-	std::string inputVideo = ofToDataPath("Audio Video Sync Test.mp4", true);
-	// Created by DJO (https://www.youtube.com/watch?v=ucZl6vQ_8Uo)
+	// Input video files
 	// 30 FPS video, 44.1 Khz Audio
+	//
+	// std::string inputVideo = ofToDataPath("Audio-Video-Sync-Test.mp4", true);
+	// https://www.youtube.com/watch?v=ucZl6vQ_8Uo (Created by DJO)
+	//
+	std::string inputVideo = ofToDataPath("Audio-Video-Sync-Test-Card.mp4", true);
+	// https://www.youtube.com/watch?v=QzomK1fdSUg
+	//
 	printf("Video file\n%s\n", inputVideo.c_str());
-
-	// Create an audio file from the video file on the first pass.
+	
+	// Create an mp3 audio file from the video file on the first pass.
 	// Requires FFmpeg to extract an audio file from the video.
 	// Returns the existing path if the file exists.
 	std::string inputAudio = audiofile.CreateAudioFile(inputVideo);
