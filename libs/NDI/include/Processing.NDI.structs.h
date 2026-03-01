@@ -8,7 +8,7 @@
 //
 //***********************************************************************************************************
 //
-// Copyright (C) 2023-2025 Vizrt NDI AB. All rights reserved.
+// Copyright (C) 2023-2026 Vizrt NDI AB. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 // associated documentation files(the "Software"), to deal in the Software without restriction, including
@@ -131,7 +131,6 @@ typedef NDIlib_FourCC_video_type_e NDIlib_FourCC_type_e;
 
 // FourCC values for audio frames.
 typedef enum NDIlib_FourCC_audio_type_e {
-
 	// Planar 32-bit floating point. Be sure to specify the channel stride.
 	NDIlib_FourCC_audio_type_FLTP = NDI_LIB_FOURCC('F', 'L', 'T', 'p'),
 	NDIlib_FourCC_type_FLTP = NDIlib_FourCC_audio_type_FLTP,
@@ -309,7 +308,6 @@ typedef struct NDIlib_audio_frame_v2_t {
 
 // This describes an audio frame.
 typedef struct NDIlib_audio_frame_v3_t {
-
 	// The sample-rate of this buffer.
 	int sample_rate;
 
@@ -329,14 +327,11 @@ typedef struct NDIlib_audio_frame_v3_t {
 	uint8_t* p_data;
 
 	union {
-
-		// If the FourCC is not a compressed type and the audio format is planar,
-		// then this will be the stride in bytes for a single channel.
+		// If the FourCC is not a compressed type and the audio format is planar, then this will be the
+		// stride in bytes for a single channel.
 		int channel_stride_in_bytes;
 
-		// If the FourCC is a compressed type, then this will be
-		// the size of the p_data buffer in bytes.
-
+		// If the FourCC is a compressed type, then this will be the size of the p_data buffer in bytes.
 		int data_size_in_bytes;
 	};
 
@@ -390,3 +385,19 @@ typedef struct NDIlib_tally_t {
 	NDIlib_tally_t(bool on_program_ = false, bool on_preview_ = false);
 #endif // NDILIB_CPP_DEFAULT_CONSTRUCTORS
 } NDIlib_tally_t;
+
+// This represents the base type of an event received from a sender or receiver listener.
+typedef struct NDIlib_listener_event {
+	// The unique identifier for the receiver/sender that triggered the event.
+	const char* p_uuid;
+
+	// The name of the event that was triggered.
+	const char* p_name;
+
+	// The value of the event that was triggered.
+	const char* p_value;
+
+#if NDILIB_CPP_DEFAULT_CONSTRUCTORS
+	NDIlib_listener_event(void);
+#endif // NDILIB_CPP_DEFAULT_CONSTRUCTORS
+} NDIlib_listener_event;
