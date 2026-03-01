@@ -288,7 +288,7 @@ private:
 	int m_AudioChannels;
 	int m_AudioSamples;
 	int64_t m_AudioTimecode;
-	float *m_AudioData;
+	float *m_AudioData = nullptr;
 
 	// Metadata
 	bool m_bMetadata;
