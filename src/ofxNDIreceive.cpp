@@ -167,7 +167,8 @@
 	23-02-26 - FindSenders - create finder and check for it on first call
 			   OpenReceiver - use FindSenders instead of FindGetSources
 			   Check existing sources in CreateReceiver instead of OpenReceiver
-
+	28-02-26 - FindGetSources - recover new or current sources
+			   FindSenders - allow for no senders left
 
 
 */
@@ -331,7 +332,6 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 
 	// Create a finder
 	if (!pNDI_find) {
-		printf("ofxNDIreceive::FindSenders - creating finder\n");
 		CreateFinder(); // Creates pNDI_find
 	}
 
@@ -344,15 +344,16 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 	// This may be called for every frame so has to be fast.
 	//
 	// Specify a delay (1 msec) so that p_sources is returned only for a network change.
-	// If there was no network change, p_sources is NULL and no_sources = 0 
+	// If there was no change, p_sources is NULL and no_sources = 0 
 	// and can't be used for other functions, so the sender names as well as 
 	// the sender count need to be saved locally.
 	//
 	p_sources = FindGetSources(pNDI_find, &nsources, 1);
-	if (p_sources && nsources > 0) {
+	if (p_sources) {
 
 		// If there are new sources and the number of sources has changed
 		if ((nsources != no_sources) || NDIsenders.size() == 0 ) {
+
 			// Rebuild the sender name list
 			no_sources = nsources;
 			NDIsenders.clear();
@@ -366,7 +367,6 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 
 			// Update the current sender index because it's position may have changed
 			if (!m_senderName.empty()) {
-
 				// If there are no senders left, close the current receiver
 				if (NDIsenders.size() == 0) {
 					ReleaseReceiver();
@@ -394,13 +394,21 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 
 			return true;
 		}
+
+		// Always update the number of senders even for no network change
+		sendercount = (int)NDIsenders.size();
+		m_nSenders = sendercount;
+		return false; // no network change
+
+	} // endif p_sources
+	else {
+		// Network change - no senders left
+		NDIsenders.clear();
+		ReleaseReceiver();
+		m_senderName.clear();
+		m_senderIndex = m_nSenders = sendercount = 0;
+		return true;
 	}
-
-	// Always update the number of senders even for no network change
-	sendercount = (int)NDIsenders.size();
-	m_nSenders = sendercount;
-
-	return false; // no network change
 
 }
 
@@ -420,7 +428,6 @@ int ofxNDIreceive::RefreshSenders(uint32_t timeout)
 	// If a finder was created, use it to find senders on the network
 	// Give it a timeout in case of connection trouble.
 	if(pNDI_find) {
-
 		dwStartTime = timeGetTime();
 		dwElapsedTime = 0;
 		do {
@@ -428,7 +435,6 @@ int ofxNDIreceive::RefreshSenders(uint32_t timeout)
 			dwElapsedTime = timeGetTime() - dwStartTime;
 		} while(nsources == 0 && (uint32_t)dwElapsedTime < timeout);
 		return nsources;
-
 	}
 
 	return 0;
@@ -801,7 +807,7 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 
 	if (!pNDI_recv) {
 
-		// Check existing sources in case of connection trouble.
+		// Check existing sources in case of connection trouble
 		if (pNDI_find) {
 			dwStartTime = (unsigned int)timeGetTime();
 			do {
@@ -919,9 +925,6 @@ bool ofxNDIreceive::CreateReceiver(NDIlib_recv_color_format_e colorFormat , int 
 
 			// Set class flag that a receiver has been created
 			bReceiverCreated = true;
-
-			// LJ DEBUG
-			printf("ofxNDIreceive::CreateReceiver [%s]\n", m_senderName.c_str());
 
 			return true;
 
@@ -1233,6 +1236,9 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 			case NDIlib_frame_type_status_change:
 				break;
 
+			case NDIlib_frame_type_source_change:
+				break;
+
 			// Metadata
 			case NDIlib_frame_type_metadata :
 				if (metadata_frame.p_data) {
@@ -1336,7 +1342,7 @@ bool ofxNDIreceive::ReceiveImage(unsigned int &width, unsigned int &height)
 		} // end switch frame type
 	} // endif pNDI_recv
 	else {
-		// No video data - no sender
+		// No pNDI_recv - no sender connected
 		bReceiverConnected = false;
 	}
 		
@@ -1419,23 +1425,26 @@ void ofxNDIreceive::ResetFps(double fps)
 // Replacement for deprecated NDIlib_find_get_sources.
 // If no timeout specified, return the sources that exist right now.
 // For a timeout, wait for that timeout and return the sources that exist then.
-// If that fails, return nullptr.
 const NDIlib_source_t* ofxNDIreceive::FindGetSources(NDIlib_find_instance_t p_instance,
 	uint32_t* p_no_sources,
 	uint32_t timeout_in_ms)
 {
-	if (!bNDIinitialized) 
+	if (!bNDIinitialized) {
+		printf("ofxNDIreceive::FindGetSources - NDI notinitialized\n");
 		return nullptr;
-
-	if (!p_instance)
-		return nullptr;
-
-	if ((!timeout_in_ms) || (p_NDILib->find_wait_for_sources(p_instance, timeout_in_ms))) {
-		// Recover the current set of sources (i.e. the ones that exist right this second)
-		return p_NDILib->find_get_current_sources(p_instance, p_no_sources);
 	}
 
-	return nullptr;
+	if (!p_instance) {
+		printf("ofxNDIreceive::FindGetSources - no instance\n");
+		return nullptr;
+	}
+
+	// Get any new sources
+	if (timeout_in_ms > 0)
+		p_NDILib->find_wait_for_sources(p_instance, timeout_in_ms);
+
+	// Recover the current set of sources
+	return p_NDILib->find_get_current_sources(p_instance, p_no_sources);
 
 }
 
