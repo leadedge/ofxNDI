@@ -1,12 +1,18 @@
 /*
 
-	OpenFrameworks ofxNDI video/audio receiver example
+	Openframeworks ofxNDI audio example
 
-	Using the NDI SDK
-	https://ndi.video
+	Demonstrates receiving NDI audio and graphics
+
+	Uses Openframeworks ofSoundStream
+	https://openframeworks.cc/documentation/sound/ofSoundStream/
+
+	NDI SDK https://ndi.video
 
 	Copyright (C) 2026 Lynn Jarvis.
+	https://github.com/leadedge/ofxNDI
 	http://www.spout.zeal.co
+
 
 	=========================================================================
 	This program is free software: you can redistribute it and/or modify
@@ -22,17 +28,11 @@
 	You should have received a copy of the GNU Lesser General Public License
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	=========================================================================
-
-	09.02.26 - Start based on video/audio sender example
-	23.02.26 - Working version
 	
 
 */
 #include "ofApp.h"
 
-//
-// This example demonstrates receiving audio along with video.
-//
 //
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -41,14 +41,17 @@ void ofApp::setup(){
 	ofSetColor(255);
 
 	// Set the window title to show that it is a receiver
-	ofSetWindowTitle("ofxNDI video/audio receiver");
+	ofSetWindowTitle("ofxNDI audio graphics receiver");
 
 	// Received sender dimensions
 	senderWidth  = (unsigned char)ofGetWidth();
 	senderHeight = (unsigned char)ofGetHeight();
 
-	// Pre-allocate texture
+	// Pre-allocate a receiving RGBA texture
 	ndiTexture.allocate(ofGetWidth(), ofGetHeight(), GL_RGBA);
+
+	// Asynchronous upload of pixels to texture
+	ndiReceiver.SetUpload(true);
 
 	//
 	// Set to receive audio
@@ -81,56 +84,28 @@ void ofApp::draw()
 		// If ReceiveImage fails, query for an audio frame
 		//
 		ndiAudioData = ndiReceiver.GetAudioData();
-		if (ndiAudioData) {
+		if (ndiAudioData && ndiReceiver.GetFrameType() == NDIlib_frame_type_audio) {
 
+			// Audio sample rate
+			sampleRate = ndiReceiver.GetAudioSampleRate();
 			// Number of audio channels
 			nChannels = ndiReceiver.GetAudioChannels();
 			// Number of audio samples per channel
 			nSamples = ndiReceiver.GetAudioSamples();
-			// Audio sample rate
-			sampleRate = ndiReceiver.GetAudioSampleRate();
-			// stride in bytes
+			// Audio data stride in bytes
 			nStride = ndiReceiver.GetAudioDataStride();
 
-			// Set up soundstream to maych with the sender audio
+			// Set up soundstream to match with the sender audio
 			if (!bSoundStream) {
-
-				std::string sname = ndiReceiver.GetSenderName();
-
-				if (sname.find("Test Pattern") != std::string::npos) {
-					// TODO - test
-					nSamples = 512;
-					// Reduce channel number from 4 to 2 for stereo 
-					nChannels = 2;
-				}
-
-				// Next power of 2 for soundstream
-				bufferSize = std::pow(2.0, std::ceil(std::log2(nSamples)));
-
-				ofSoundStreamSettings settings;
-				settings.numOutputChannels = nChannels;
-				settings.sampleRate = sampleRate;
-				settings.bufferSize = bufferSize;
-				settings.setOutListener(this);
-				soundStream.setup(settings);
-
-				// For receiving audio
-				bufferCapacity = sampleRate*nChannels*2; // 2 second stereo
-				audioBuffer.resize(bufferCapacity);
-				writeIndex = 0;
-				readIndex  = 0;
-
-				bSoundStream = true;
+				SetupSoundStream();
+				// Return for the next frame
+				return;
 			}
 
-			std::unique_lock<std::mutex> lock(audioMutex);
 
 			//
-			// Testing indicates that NDI senders
-			// always produce planar audio data
-			//
-
 			// Get the left and right channels
+			//
 			float* left  = ndiAudioData;
 			float* right = ndiAudioData + nStride / sizeof(float);
 			for (int i = 0; i < nSamples; i++) {
@@ -145,16 +120,62 @@ void ofApp::draw()
 
 			// For DrawAudio
 			latestAudio.resize(nSamples*2);
-			for (int i = 0; i < nSamples; i++) {
-				latestAudio[i * 2]     = left[i];
-				latestAudio[i * 2 + 1] = right[i];
+
+			// Half width for more than 2 channels
+			if (nChannels > 2) {
+				// Every second pair of samples
+				for (int i = 0; i < nSamples; i++) {
+					latestAudio[i*2]     = left[i];
+					latestAudio[i*2 + 1] = right[i];
+				}
+			}
+			else {
+				// Full width
+				for (int i = 0; i < nSamples*2-2; i++) {
+					latestAudio[i]     = left[i];
+					latestAudio[i + 1] = right[i];
+				}
 			}
 
-		} // endif audio data
+		} // endif received audio data
+		else {
+
+			// Mutex lock for shared variable - availableSamples
+			std::lock_guard<std::mutex> lock(audioMutex);
+			if (bAudioReceived && availableSamples == 0) {
+
+				//
+				// No audio data - sender closed
+				//
+
+				// Release the current NDI receiver
+				// another one is created from the selected index
+				ndiReceiver.ReleaseReceiver();
+
+				// Stop and close soundstream
+				if (bSoundStream) {
+					soundStream.stop();
+					soundStream.close();
+					// Re-set soundstream
+					bSoundStream = false;
+					bSoundStreamPlaying = false;
+				}
+
+				// Clear audio data
+				audioBuffer.clear();
+				latestAudio.clear();
+				writeIndex = 0;
+				readIndex = 0;
+				availableSamples = 0;
+				bAudioReceived = false;
+
+			} // endif NDI sender closed
+
+		} // endif no audio data received
 
 	} // endif receiveimage failed
 
-	// Draw the received texture
+	// Draw the received texture whether received or not
 	ndiTexture.draw(0, 0, ofGetWidth(), ofGetHeight());
 
 	// Draw the audio waveform
@@ -167,8 +188,62 @@ void ofApp::draw()
 
 }
 
-void ofApp::DrawAudio()
+//--------------------------------------------------------------
+bool ofApp::SetupSoundStream()
 {
+	// Stop and close if already playing
+	if (bSoundStream) {
+		soundStream.stop();
+		soundStream.close();
+		bSoundStream = false;
+		bSoundStreamPlaying = false;
+	}
+
+	// Clear audio data
+	audioBuffer.clear();
+	latestAudio.clear();
+	writeIndex = 0;
+	readIndex  = 0;
+	bAudioReceived = false;
+
+	// Reduce the sample number for stereo speakers
+	// if more than 2 channels
+	if (nChannels > 2) {
+		// Channel number could be 4, 5, 6, 7 etc
+		float reduce = ceil((float)nChannels/2.0f);
+		nSamples /= (int)reduce;
+	}
+
+	// Buffer size is the next power of 2 for soundstream
+	bufferSize = std::pow(2.0, std::ceil(std::log2(nSamples)));
+
+	// m_Channels etc is established from the connected sender
+	ofSoundStreamSettings settings;
+	settings.numOutputChannels = 2; // Stereo
+	settings.sampleRate = sampleRate;
+	settings.bufferSize = bufferSize;
+	settings.setOutListener(this);
+	if (soundStream.setup(settings)) {
+		// For receiving audio
+		bufferCapacity =sampleRate*4; // 2 second stereo for 2 channels
+		audioBuffer.resize(bufferCapacity);
+		latestAudio.clear();
+		writeIndex = 0;
+		readIndex  = 0;
+		bSoundStream = true;
+		bSoundStreamPlaying = true;
+		return true;
+	}
+
+	printf("Soundstream setup failed\n");
+
+	return false;
+
+}
+
+//--------------------------------------------------------------
+void ofApp::DrawAudio() {
+
 	// Copy so that the mutex is locked only briefly
 	std::vector<float> copyBuffer;
     {
@@ -179,57 +254,54 @@ void ofApp::DrawAudio()
     }
 
 	ofSetColor(255);
-
-    int yLeft  = ofGetHeight()/4; // Centre top half
-    int yRight = ofGetHeight()*3/4; // Centre bottom half
-
-	// Audio data is -1.0 - +1.0
-	// increase to +- quarter height
-	float h = (float)(ofGetHeight()/4);
-
-	// Samples spaced over the window width
-    float xStep = (float)ofGetWidth()/nSamples*2;
-
-	float sample = 0.0f;
-	float x = 0;
-    float y = 0;
-	float lastx = 0;
-	float lasty = 0;
 	ofSetLineWidth(2);
 
-    // Left channel
-	for (int i = 0; i < nSamples; i+=2)
-    {
-        sample = copyBuffer[i];
-		x = i * xStep;
-        y = yLeft + sample * h;
-		if (x > lastx) ofDrawLine(lastx, lasty, x, y);
-		lastx = x;
-		lasty = y;
-    }
+	//
+	// Draw the waveform
+	//
 
-    // Right channel
-	x = y = lastx = lasty = 0;
-	for (int i = 0; i < nSamples; i+=2)
+	int yPos = ofGetHeight()/2; // Centre of the window
+
+	// Audio data is -1.0 - +1.0
+	// increase to +- third window height
+	float h = (float)(ofGetHeight()/3);
+
+	// Copybuffer has left and right channel data interleaved
+	// Samples spaced over the window width
+	float xStep = (float)ofGetWidth()/(copyBuffer.size()/2);
+
+	float sample = 0.0f;
+	float x = 0.0f;
+	float y = 0.0f;
+	float lastx = 0.0f;
+	float lasty = 0.0f;
+
+	// Interleaved audio
+	// L R L R L R L R L R ----
+	// L   L   L   L   L
+	//   R   R   R   R   R
+	for (int i = 0; i < copyBuffer.size()/2-2; i+=2)
 	{
-        sample = copyBuffer[i];
+		// Average of left and right channels
+		sample = (copyBuffer[i]+copyBuffer[i+1])/2.0f;
 		x = i*xStep;
-        y = yRight + sample * h;
+		y = yPos + sample*h;
 		if (x > lastx) ofDrawLine(lastx, lasty, x, y);
 		lastx = x;
 		lasty = y;
-    }
+	}
 
 }
 
 //--------------------------------------------------------------
 void ofApp::audioOut(ofSoundBuffer& outBuffer)
 {
-	// Test for soundstream setup
-	if(!bSoundStream)
+	std::lock_guard<std::mutex> lock(audioMutex);
+
+	// Test for soundstream setup and playing
+	if(!bSoundStream || !bSoundStreamPlaying)
 		return;
 
-	std::lock_guard<std::mutex> lock(audioMutex);
 	for (size_t i = 0; i < outBuffer.size(); i++) {
 		if (availableSamples > 0) {
 			outBuffer[i] = audioBuffer[readIndex];
@@ -287,7 +359,7 @@ void ofApp::ShowInfo() {
 		}
 
 		if (nsenders == 1) {
-			ofDrawBitmapString("1 network source", 20, ofGetHeight() - 20);
+			ofDrawBitmapString("1 network source - 'SPACE' to list senders", 20, ofGetHeight() - 20);
 		}
 		else {
 			str = std::to_string(nsenders);
@@ -317,15 +389,53 @@ void ofApp::keyPressed(int key) {
 				ndiReceiver.GetSenderName(name, 256, i);
 				std::cout << "    Sender " << i << " [" << name << "]" << std::endl;
 			}
+			if (nsenders > 1)
+				std::cout << "Press key [0] to [" << nsenders - 1 << "] to select a sender" << std::endl;
 		}
 		else
 			std::cout << "No NDI senders found" << std::endl;
 	}
+	else if (nsenders > 0 && index >= 0 && index < nsenders) {
+		// Update the receiver with the returned index
+		// Returns false if the current sender is selected
+		if (ndiReceiver.SetSenderIndex(index)) {
+			std::cout << "Selected [" << ndiReceiver.GetSenderName(index) << "]" << std::endl;
+			// Release the current NDI receiver
+			// another one is created from the selected index by ReceiveImage
+			ndiReceiver.ReleaseReceiver();
+			// Stop and close soundstream
+			if (bSoundStream) {
+				soundStream.stop();
+				soundStream.close();
+				// Re-set soundstream to match the sender audio data
+				bSoundStream = false;
+				bSoundStreamPlaying = false;
+			}
+			// Clear audio data
+			audioBuffer.clear();
+			latestAudio.clear();
+			writeIndex = 0;
+			readIndex = 0;
+			availableSamples = 0;
+			bAudioReceived = false;
+
+		}
+		else {
+			std::cout << "Same sender" << std::endl;
+		}
+	}
 
 }
 
+
 //--------------------------------------------------------------
 void ofApp::exit() {
+	// Stop and close soundstream
+	soundStream.stop();
+	soundStream.close();
+	bSoundStream = false;
+	bSoundStreamPlaying = false;
+	// Release the receiver
 	ndiReceiver.ReleaseReceiver();
 }
 

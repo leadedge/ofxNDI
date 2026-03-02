@@ -1,11 +1,11 @@
 /*
 
-	OpenFrameworks ofxNDI audio graphics receiver example
+	Openframeworks ofxNDI receiver example
 
-	Using the NDI SDK
-	https://ndi.video
+	NDI SDK https://ndi.video
 
 	Copyright (C) 2026 Lynn Jarvis.
+	https://github.com/leadedge/ofxNDI
 	http://www.spout.zeal.co
 
 	=========================================================================
@@ -25,9 +25,11 @@
 */
 #pragma once
 
+// Enable this define to buid a receiver rather that a sender
+#define BUILDRECEIVER
+
 #include "ofMain.h"
 #include "ofxNDI.h" // NDI classes
-#include <cmath> // for std::pow
 
 class ofApp : public ofBaseApp{
 
@@ -38,43 +40,15 @@ class ofApp : public ofBaseApp{
 		void draw();
 		void exit();
 		void keyPressed(int key);
-		void audioOut(ofSoundBuffer &output);
-
 		void ShowInfo();
 
-		// NDI receiver
-		ofxNDIreceiver ndiReceiver;   // NDI receiver
-		std::string m_SenderName;
-		ofTexture ndiTexture;         // Texture to receive
+		ofxNDIreceiver ndiReceiver; // NDI receiver
+		ofFbo ndiFbo; // Fbo to receive
+		ofTexture ndiTexture; // Texture to receive
+		ofImage ndiImage; // Image to receive
+		ofPixels ndiPixels; // Pixels to receive
+		unsigned char *ndiChars; // unsigned char image array to receive
 		unsigned int senderWidth = 0; // sender width and height needed to receive char pixels
 		unsigned int senderHeight = 0;
-
-		// Audio
-		float* ndiAudioData = nullptr; // NDI audio pointer
-		int nChannels = 0;
-		int nSamples = 0;
-		int nStride = 0;
-		int sampleRate = 0;
-		size_t writeIndex = 0;
-		size_t readIndex = 0;
-		size_t bufferCapacity = 0;
-		size_t availableSamples = 0;
-		float lastAudio[4]{};
-
-		ofSoundStream soundStream;  // Audio stream to send sound to speakers
-		bool SetupSoundStream();
-		vector<float> audioBuffer;  // Buffer for the audio data
-		std::mutex audioMutex;
-		int bufferSize = 0;         // Buffer size (change with sample number)
-		bool bSoundStream = false;
-		bool bSoundStreamPlaying = false;
-		bool bAudioReceived = false;
-
-		// For drawing the audio
-		std::vector<float> latestAudio;
-		vector<float> lAudio;
-		vector<float> rAudio;
-		void DrawAudio();
-
 
 };
