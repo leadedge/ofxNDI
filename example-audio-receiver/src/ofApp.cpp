@@ -102,12 +102,12 @@ void ofApp::draw()
 				return;
 			}
 
-
 			//
+			// NDI senders produce planar audio data
 			// Get the left and right channels
 			//
 			float* left  = ndiAudioData;
-			float* right = ndiAudioData + nStride / sizeof(float);
+			float* right = ndiAudioData + nStride/sizeof(float);
 			for (int i = 0; i < nSamples; i++) {
 				// left channel
 				audioBuffer[writeIndex] = left[i];
@@ -125,15 +125,15 @@ void ofApp::draw()
 			if (nChannels > 2) {
 				// Every second pair of samples
 				for (int i = 0; i < nSamples; i++) {
-					latestAudio[i*2]     = left[i];
-					latestAudio[i*2 + 1] = right[i];
+					latestAudio[i*2]   = left[i];
+					latestAudio[i*2+1] = right[i];
 				}
 			}
 			else {
 				// Full width
 				for (int i = 0; i < nSamples*2-2; i++) {
-					latestAudio[i]     = left[i];
-					latestAudio[i + 1] = right[i];
+					latestAudio[i]   = left[i];
+					latestAudio[i+1] = right[i];
 				}
 			}
 
@@ -217,7 +217,7 @@ bool ofApp::SetupSoundStream()
 	// Buffer size is the next power of 2 for soundstream
 	bufferSize = std::pow(2.0, std::ceil(std::log2(nSamples)));
 
-	// m_Channels etc is established from the connected sender
+	// nChannels etc is established from the connected sender
 	ofSoundStreamSettings settings;
 	settings.numOutputChannels = 2; // Stereo
 	settings.sampleRate = sampleRate;
@@ -263,12 +263,12 @@ void ofApp::DrawAudio() {
 	int yPos = ofGetHeight()/2; // Centre of the window
 
 	// Audio data is -1.0 - +1.0
-	// increase to +- third window height
-	float h = (float)(ofGetHeight()/3);
+	// increase to +- quarter window height
+	float h = (float)(ofGetHeight()/4);
 
-	// Copybuffer has left and right channel data interleaved
+	// Copybuffer has left and right channel data planar
 	// Samples spaced over the window width
-	float xStep = (float)ofGetWidth()/(copyBuffer.size()/2);
+	float xStep = (float)ofGetWidth()/nSamples*2; 
 
 	float sample = 0.0f;
 	float x = 0.0f;
@@ -276,16 +276,13 @@ void ofApp::DrawAudio() {
 	float lastx = 0.0f;
 	float lasty = 0.0f;
 
-	// Interleaved audio
-	// L R L R L R L R L R ----
-	// L   L   L   L   L
-	//   R   R   R   R   R
-	for (int i = 0; i < copyBuffer.size()/2-2; i+=2)
+	// Planar audio data
+	// Average of left and right channels
+	for (int i = 0; i < nSamples; i+=2)
 	{
-		// Average of left and right channels
 		sample = (copyBuffer[i]+copyBuffer[i+1])/2.0f;
 		x = i*xStep;
-		y = yPos + sample*h;
+		y = yPos+sample*h;
 		if (x > lastx) ofDrawLine(lastx, lasty, x, y);
 		lastx = x;
 		lasty = y;
@@ -379,6 +376,8 @@ void ofApp::keyPressed(int key) {
 	char name[256];
 	int index = key - 48;
 
+	// Refresh the senders
+	ndiReceiver.FindSenders();
 	int nsenders = ndiReceiver.GetSenderCount();
 
 	if (key == ' ') {
