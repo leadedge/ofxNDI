@@ -81,7 +81,7 @@ namespace ofxNDIutils {
 
 	// ofxNDI version number string
 	// Major, minor, release
-	std::string ofxNDIversion = "2.001.000";
+	std::string ofxNDIversion = "2.002.000";
 
 #ifdef USE_CHRONO
 	// Timing counters
@@ -821,6 +821,7 @@ namespace ofxNDIutils {
 		}
 		return planar;
 	}
+	
 
 #endif
 
