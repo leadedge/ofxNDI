@@ -42,7 +42,9 @@ class ofApp : public ofBaseApp{
 		int bufferCounter = 0;
 		int drawCounter = 0;
 
-		void DrawAudio();              // Audio waveform
+		// Audio db bar graph and waveform
+		void DrawAudio();
+		void drawGradientBar(float x, float y, float width, float height);
 		vector<float> lAudio;
 		vector<float> rAudio;
 		// Copies for mutex use

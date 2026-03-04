@@ -95,6 +95,19 @@ void ofApp::draw()
 			// Audio data stride in bytes
 			nStride = ndiReceiver.GetAudioDataStride();
 
+			// nSamples and nStride may change every frame if
+			// the sender has an alternating sequence per frame
+			// For example : 48000hz audio at 29.97 video fps
+			//   1602, 1601, 1602, 1601, 1602
+			// 48000hz audio at 30 fps requires only one value
+			//   48000/30 = 1600
+
+			// printf("sampleRate = %d\n", sampleRate);
+			// printf("nChannels  = %d\n", nChannels);
+			// printf("nSamples   = %d\n", nSamples);
+			// printf("nStride    = %d\n", nStride);
+			
+	
 			// Set up soundstream to match with the sender audio
 			if (!bSoundStream) {
 				SetupSoundStream();
@@ -104,6 +117,23 @@ void ofApp::draw()
 
 			//
 			// NDI senders produce planar audio data
+			//
+			// NDIlib_audio_frame_v3_t audio frame has a 
+			// member "NDIlib_FourCC_audio_type_e FourCC"
+			// which allows the type of audio data to be described.
+			// The default is NDIlib_FourCC_audio_type_FLTP
+			// (planar 32-bit float)
+			//
+			// The NDIlib_audio_frame_v2_t currently used in
+			// the addon does not have a FourCC member and
+			// the default planar type is used.
+			//
+			// < --       nSamples * 2         -->
+			// < -- nSamples --> < -- nSamples -->
+			// L L L L L L L L L R R R R R R R R R
+			//
+
+			//
 			// Get the left and right channels
 			//
 			float* left  = ndiAudioData;
@@ -215,7 +245,17 @@ bool ofApp::SetupSoundStream()
 	}
 
 	// Buffer size is the next power of 2 for soundstream
-	bufferSize = std::pow(2.0, std::ceil(std::log2(nSamples)));
+	// Increase nSamples by 1 in case of an alternating sequence
+	bufferSize = std::pow(2.0, std::ceil(std::log2(nSamples+1)));
+
+	/*
+	// LJ DEBUG
+	printf("sampleRate = %d\n", sampleRate);
+	printf("nChannels  = %d\n", nChannels);
+	printf("nSamples   = %d\n", nSamples);
+	printf("nStride    = %d\n", nStride);
+	printf("bufferSize = %d\n", bufferSize);
+	*/
 
 	// nChannels etc is established from the connected sender
 	ofSoundStreamSettings settings;
@@ -224,8 +264,8 @@ bool ofApp::SetupSoundStream()
 	settings.bufferSize = bufferSize;
 	settings.setOutListener(this);
 	if (soundStream.setup(settings)) {
-		// For receiving audio
-		bufferCapacity =sampleRate*4; // 2 second stereo for 2 channels
+		// Buffer for receiving audio
+		bufferCapacity = sampleRate*bufferSize*2; // 2 second stereo for 2 channels
 		audioBuffer.resize(bufferCapacity);
 		latestAudio.clear();
 		writeIndex = 0;
@@ -253,8 +293,41 @@ void ofApp::DrawAudio() {
         copyBuffer = latestAudio; // local copy for draw
     }
 
-	ofSetColor(255);
-	ofSetLineWidth(2);
+	// Copybuffer has left and right channels (planar audio data)
+
+	//
+	// Calculate volume
+	//
+
+	float leftVol = 0.0f;
+	float rightVol = 0.0f;
+	float count = 0;
+	for (int i = 0; i<(int)copyBuffer.size()/2; i++) {
+		leftVol += copyBuffer[i]*copyBuffer[i];
+		count++;
+	}
+	leftVol = sqrt(leftVol/count); // left rms
+	
+	count = 0;
+	for (int i=0; i <(int)copyBuffer.size()/2; i++) {
+		rightVol += copyBuffer[i+nSamples]*copyBuffer[i+nSamples];
+		count++;
+	}
+	rightVol = sqrt(rightVol/count); // right rms
+
+	//
+	// DB bar graph
+	//
+
+	// Clamp to avoid log 0 and convert rms to db
+	float dB = 20.0f*log10(ofClamp(leftVol, 0.000001f, 1.0f));
+	// map to 2/3 height
+	float mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
+	drawGradientBar(10, ofGetHeight()-mapDB, 7, mapDB);
+
+	dB = 20.0f*log10(ofClamp(rightVol, 0.000001f, 1.0f));
+	mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
+	drawGradientBar(20, ofGetHeight()-mapDB, 7, mapDB);
 
 	//
 	// Draw the waveform
@@ -263,12 +336,11 @@ void ofApp::DrawAudio() {
 	int yPos = ofGetHeight()/2; // Centre of the window
 
 	// Audio data is -1.0 - +1.0
-	// increase to +- quarter window height
-	float h = (float)(ofGetHeight()/4);
+	// increase to +- 1/3 window height
+	float h = (float)(ofGetHeight()/3);
 
-	// Copybuffer has left and right channel data planar
 	// Samples spaced over the window width
-	float xStep = (float)ofGetWidth()/nSamples*2; 
+	float xStep = (float)ofGetWidth()/nSamples; 
 
 	float sample = 0.0f;
 	float x = 0.0f;
@@ -276,11 +348,10 @@ void ofApp::DrawAudio() {
 	float lastx = 0.0f;
 	float lasty = 0.0f;
 
-	// Planar audio data
-	// Average of left and right channels
-	for (int i = 0; i < nSamples; i+=2)
+	// Average of left and right channels (planar audio data)
+	for (int i = 0; i <(int)copyBuffer.size()/2; i++)
 	{
-		sample = (copyBuffer[i]+copyBuffer[i+1])/2.0f;
+		sample = (copyBuffer[i]+copyBuffer[i+nSamples])/2.0f;
 		x = i*xStep;
 		y = yPos+sample*h;
 		if (x > lastx) ofDrawLine(lastx, lasty, x, y);
@@ -288,6 +359,31 @@ void ofApp::DrawAudio() {
 		lasty = y;
 	}
 
+}
+
+// Similar to Studio Monitor
+void ofApp::drawGradientBar(float x, float y, float width, float height)
+{
+    ofMesh mesh;
+    mesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
+
+    // Bottom color (Blue)
+    mesh.addVertex(glm::vec3(x, y+height, 0));
+	mesh.addColor(ofColor(0, 64, 255));
+
+    mesh.addVertex(glm::vec3(x+width, y+height, 0));
+	mesh.addColor(ofColor(0, 64, 255));
+
+    // Middle color (Green)
+    float midY = y+height*0.10f;
+
+    mesh.addVertex(glm::vec3(x, midY, 0));
+	mesh.addColor(ofColor(0, 225, 0));
+
+    mesh.addVertex(glm::vec3(x+width, midY, 0));
+	mesh.addColor(ofColor(0, 225, 0));
+
+    mesh.draw();
 }
 
 //--------------------------------------------------------------

@@ -73,11 +73,11 @@ void ofApp::setup()
 	settings.numInputChannels = nChannels;
 	settings.bufferSize = nSamples;
 	if (soundStream.setup(settings)) {
-		printf("\nSoundstream setup\n");
-		printf("  nSamples     = %d --> %d\n", nSamples, soundStream.getBufferSize());
-		printf("  Sample rate  = %d --> %d\n", (int)settings.sampleRate, soundStream.getSampleRate());
-		printf("  N channels   = %d --> %d\n", (int)settings.numInputChannels, soundStream.getNumInputChannels());
-		printf("\n");
+		// printf("\nSoundstream setup\n");
+		// printf("  nSamples     = %d --> %d\n", nSamples, soundStream.getBufferSize());
+		// printf("  Sample rate  = %d --> %d\n", (int)settings.sampleRate, soundStream.getSampleRate());
+		// printf("  N channels   = %d --> %d\n", (int)settings.numInputChannels, soundStream.getNumInputChannels());
+		// printf("\n");
 		lAudio.assign(nSamples, 0.0);
 		rAudio.assign(nSamples, 0.0);
 		// Make sure the NDI sender and soundstream use the same sample number
@@ -191,15 +191,51 @@ void ofApp::DrawAudio()
         rCopy = rAudio;
     }
 
+	//
+	// Calculate volume (interleaved audio data)
+	//
+	float leftVol = 0.0f;
+	float rightVol = 0.0f;
+	float count = 0.0f;
+	for (int i=0; i < (int)lCopy.size(); i++) {
+		leftVol  += lCopy[i]*lCopy[i];
+		rightVol += rCopy[i]*rCopy[i];
+		count++;
+	}
+	leftVol  = sqrt(leftVol/count);  // left rms
+	rightVol = sqrt(rightVol/count); // right rms
+
+	//
+	// DB bar graph
+	//
+
+	//
+	// Left channel
+	//
+	// Clamp rms values to avoid log 0 and convert rms to db
+	float dB = 20.0f*log10(ofClamp(leftVol, 0.000001f, 1.0f));
+	// map to 2/3 window height
+	float mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
+	drawGradientBar(10, ofGetHeight()-mapDB, 7, mapDB);
+	//
+	// Right channel
+	//
+	dB = 20.0f*log10(ofClamp(rightVol, 0.000001f, 1.0f));
+	mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
+	drawGradientBar(20, ofGetHeight()-mapDB, 7, mapDB);
+
+	//
+	// Audio waveform graph
+	//
+
 	// Audio data is -1.0 - +1.0
-	// increase to +- third the window height
+	// increase to +- 1/3 the window height
 	// Maximum height of the waveform graph
 	float height = (float)(ofGetHeight()/3);
 	float ypos = 0.0f;
 	float lasty = ypos;
 	float xpos = 0.0f;
 	float lastx = xpos;
-	ofSetLineWidth(2);
 
 	// Audio is interleaved : L R L R L R .....
 	// nSamples spaced over the window width
@@ -216,6 +252,31 @@ void ofApp::DrawAudio()
 
 }
 
+// Similar to Studio Monitor
+void ofApp::drawGradientBar(float x, float y, float width, float height)
+{
+    ofMesh mesh;
+    mesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
+
+    // Bottom color (Blue)
+    mesh.addVertex(glm::vec3(x, y+height, 0));
+	mesh.addColor(ofColor(0, 64, 255));
+
+    mesh.addVertex(glm::vec3(x+width, y+height, 0));
+	mesh.addColor(ofColor(0, 64, 255));
+
+    // Middle color (Green)
+    float midY = y+height*0.10f;
+
+    mesh.addVertex(glm::vec3(x, midY, 0));
+	mesh.addColor(ofColor(0, 225, 0));
+
+    mesh.addVertex(glm::vec3(x+width, midY, 0));
+	mesh.addColor(ofColor(0, 225, 0));
+
+    mesh.draw();
+}
+
 //--------------------------------------------------------------
 void ofApp::audioIn(ofSoundBuffer& input)
 {
@@ -230,8 +291,8 @@ void ofApp::audioIn(ofSoundBuffer& input)
 		ndiSender.SendAudio();
 	}
 
-	// samples are interleaved
-	// L R L R L R .. etc
+	// SoundStream samples are interleaved
+	// L R L R L R L R L R L R L R .. etc
 	for (size_t i = 0; i < input.getNumFrames()*input.getNumChannels(); i+=2){
 		lAudio[i/2] = input[i];
 		rAudio[i/2] = input[i+1];

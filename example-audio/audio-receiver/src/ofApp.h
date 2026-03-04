@@ -1,4 +1,3 @@
-
 /*
 
 	OpenFrameworks ofxNDI audio graphics receiver example
@@ -71,11 +70,12 @@ class ofApp : public ofBaseApp{
 		bool bSoundStreamPlaying = false;
 		bool bAudioReceived = false;
 
-		// For drawing the audio
+		// For drawing the audio db bar graph and waveform
 		std::vector<float> latestAudio;
 		vector<float> lAudio;
 		vector<float> rAudio;
 		void DrawAudio();
+		void drawGradientBar(float x, float y, float width, float height);
 
 
 };
