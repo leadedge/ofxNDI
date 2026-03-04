@@ -128,9 +128,14 @@ void ofApp::draw()
 			// the addon does not have a FourCC member and
 			// the default planar type is used.
 			//
-			// < --       nSamples * 2         -->
-			// < -- nSamples --> < -- nSamples -->
-			// L L L L L L L L L R R R R R R R R R
+			// There are nSamples of audio per channel
+			// and nSamples*2 per frame for stereo
+			// nStride is the number of bytes of audio data
+			// for nSamples	per channel.
+			//
+			//     <-        nSamples*2       ->
+			//     <- nSamples ->  <- nSamples ->
+			//      L L L L L L L - R R R R R R R
 			//
 
 			//

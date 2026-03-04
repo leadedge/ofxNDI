@@ -60,8 +60,9 @@ void ofApp::setup()
 	nChannels = 2; // Stereo
 	sampleRate = 48000; // For NDI and Soundstream
 
-	// Stereo at 48000/30fps requires 1600 samples per frame
-	// Soundstream rounds up to the next power of 2 (2048)
+	// Stereo at 48000/30fps requires 1600 samples
+	// per channel per frame. Soundstream rounds up
+	// to the next power of 2 (2048)
 	nSamples = 2048;
 	
 	ofSoundStreamSettings settings;
@@ -80,7 +81,8 @@ void ofApp::setup()
 		// printf("\n");
 		lAudio.assign(nSamples, 0.0);
 		rAudio.assign(nSamples, 0.0);
-		// Make sure the NDI sender and soundstream use the same sample number
+		// Make sure the NDI sender and soundstream
+		// use the same sample number
 		nSamples = soundStream.getBufferSize();
 	}
 	else {
@@ -238,7 +240,7 @@ void ofApp::DrawAudio()
 	float lastx = xpos;
 
 	// Audio is interleaved : L R L R L R .....
-	// nSamples spaced over the window width
+	// For one channel there are nSamples spaced over the window width
 	float spacing = (float)ofGetWidth()/(int)lCopy.size();
 	float y = (float)(ofGetHeight()/2); // Centre of the window
 	for (int i=0; i < (int)lCopy.size(); i++) {
