@@ -822,7 +822,6 @@ namespace ofxNDIutils {
 		return planar;
 	}
 
-
 #endif
 
 } // end namespace
