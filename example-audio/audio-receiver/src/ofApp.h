@@ -63,12 +63,11 @@ class ofApp : public ofBaseApp{
 
 		ofSoundStream soundStream;  // Audio stream to send sound to speakers
 		bool SetupSoundStream();
+		bool bSoundStream = false;
+		bool bAudioReceived = false;
 		vector<float> audioBuffer;  // Buffer for the audio data
 		std::mutex audioMutex;
 		int bufferSize = 0;         // Buffer size (change with sample number)
-		bool bSoundStream = false;
-		bool bSoundStreamPlaying = false;
-		bool bAudioReceived = false;
 
 		// For drawing the audio db bar graph and waveform
 		std::vector<float> latestAudio;

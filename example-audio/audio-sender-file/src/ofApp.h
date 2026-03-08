@@ -37,7 +37,6 @@ class ofApp : public ofBaseApp{
 		int nChannels = 0;               // Decoder channel number
 		int sampleRate = 0;              // Decoder audio sample rate
 		void DrawAudio();                // Audio waveform
-		void drawGradientBar(float x, float y, float width, float height);
 		vector<float> lAudio;            // Audio to draw
 		vector<float> rAudio;
 

@@ -2,9 +2,13 @@
 
 /*
 
-	Openframeworks ofxNDI audio example
+	Openframeworks ofxNDI audio input example
 
-	Demonstrates sending system audio together with graphics
+	Demonstrates reading system audio in audioIn
+	and sending together with graphics
+
+	Play an audio file with a media player
+	so that audio data is available in audioIn
 
 	Uses Openframeworks ofSoundStream
 	https://openframeworks.cc/documentation/sound/ofSoundStream/
@@ -38,7 +42,7 @@ void ofApp::setup()
 	ofBackground(0);
 
 	// NDI sender name
-	senderName = "ofxNDI audio stream sender";
+	senderName = "ofxNDI audio input sender";
 	ofSetWindowTitle(senderName); // show it on the title bar
 
 	// NDI sender dimensions
@@ -46,24 +50,29 @@ void ofApp::setup()
 	senderHeight =  720;
 
 	// Video frame rate
-	videoFps = 30.00;
-	ndiSender.SetFrameRate(videoFps);
+	// 60, 30, 29.97 etc
+	float videofps = 30;
+	ndiSender.SetFrameRate(videofps);
 
-	// Important
-	// Decouple openframeworks frame rate from NDI sending
-	ndiSender.SetClockVideo(false);
+	// 30 fps NDI video frame rate
+	// For soundstream audio rate of 48000 hz
+	// ndiSender.SetFrameRate(30.00);
 
 	//
-	// Set up soundstream
+	// Set up soundstream for audioIn
 	//
-
 	nChannels = 2; // Stereo
-	sampleRate = 48000; // For NDI and Soundstream
 
-	// Stereo at 48000/30fps requires 1600 samples
-	// per channel per frame. Soundstream rounds up
-	// to the next power of 2 (2048)
-	nSamples = 2048;
+	// Audio rate for NDI and Soundstream
+	// 48000 or 44100
+	sampleRate = 48000;
+
+	// Stereo at 48000/30fps requires 1600 samples per channel per frame.
+	// Soundstream rounds up to the next power of 2 (2048)
+	//   48000/60fps -  800 (1024)
+	//   44100/30fps - 1470 (2048)
+	//   44100/60fps -  735 (1024)
+	nSamples = sampleRate/videofps;
 	
 	ofSoundStreamSettings settings;
 	auto alldevices = soundStream.getDeviceList();
@@ -74,34 +83,36 @@ void ofApp::setup()
 	settings.numInputChannels = nChannels;
 	settings.bufferSize = nSamples;
 	if (soundStream.setup(settings)) {
-		// printf("\nSoundstream setup\n");
-		// printf("  nSamples     = %d --> %d\n", nSamples, soundStream.getBufferSize());
-		// printf("  Sample rate  = %d --> %d\n", (int)settings.sampleRate, soundStream.getSampleRate());
-		// printf("  N channels   = %d --> %d\n", (int)settings.numInputChannels, soundStream.getNumInputChannels());
-		// printf("\n");
-		lAudio.assign(nSamples, 0.0);
-		rAudio.assign(nSamples, 0.0);
 		// Make sure the NDI sender and soundstream
 		// use the same sample number
 		nSamples = soundStream.getBufferSize();
+		// printf("\nSoundstream setup\n");
+		// printf("  nSamples     = %d\n", soundStream.getBufferSize());
+		// printf("  Sample rate  = %d\n", soundStream.getSampleRate());
+		// printf("  N channels   = %d\n", soundStream.getNumOutputChannels());
+
 	}
 	else {
 		printf("Soundstream setup failed\n");
 	}
 
+	audioBuffer.assign(nSamples*2, 0.0); // Number of audio samples per frame
+	lAudio.assign(nSamples, 0.0); // Number of audio samples per channel
+	rAudio.assign(nSamples, 0.0);
+
 	// NDI sender
 	ndiSender.SetAudio(true); // Allow audio
-	ndiSender.SetAudioSamples(nSamples); // Important - must match soundstream
-	ndiSender.SetAudioChannels(nChannels);
 	ndiSender.SetAudioSampleRate(sampleRate);
+	ndiSender.SetAudioChannels(nChannels);
+	// Audio samples per channel matching soundstream
+	ndiSender.SetAudioSamples(nSamples);
 
 	// Soundstream audio data is float interleaved
 	ndiSender.SetAudioType(audio_frame_interleaved_32f_t);
 
 	// Create an NDI sender with YUV output format for best speed
 	ndiSender.SetFormat(NDIlib_FourCC_video_type_UYVY);
-	bInitialized = ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight);
-	if(bInitialized)
+	if(ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight))
 		printf("Created sender [%s]\n", senderName.c_str());
 	else
 		printf("CreateSender failed\n");
@@ -110,15 +121,16 @@ void ofApp::setup()
 	m_fbo.allocate(senderWidth, senderHeight, GL_RGBA);
 
 	// 3D drawing setup for the demo graphics
-	glEnable(GL_DEPTH_TEST); // enable depth comparisons and update the depth buffer
+	glEnable(GL_DEPTH_TEST); // Depth comparisons are needed
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 	ofDisableAlphaBlending(); // To prevent trails with the rotating cube
-	// ofDisableArbTex is needed to create a texture with
-	// normalized coordinates for bind in DrawGraphics
-	ofDisableArbTex();
+	ofDisableArbTex(); // To create a texture with normalized coordinates
 	textureImage.load("SpoutBox.jpg");
 	ofEnableArbTex();
-	
+
+	// Important - disable vertical sync lock
+	// to use draw together with audioIn
+	ofSetVerticalSync(false);
 
 }
 
@@ -135,11 +147,14 @@ void ofApp::draw()
 	ofSetColor(255);
 
 	// Check success of CreateSender
-	if (!bInitialized)
+	if (!ndiSender.SenderCreated())
 		return;
 
 	// Draw graphics
 	DrawGraphics();
+
+	// Draw the fbo result fitted to the display window
+	m_fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
 
 	// Draw the audio waveform
 	DrawAudio();
@@ -154,8 +169,6 @@ void ofApp::draw()
 //--------------------------------------------------------------
 void ofApp::DrawGraphics()
 {
-	// Draw graphics into an fbo
-
 	// Rotating cube
 	m_fbo.begin();
 	ofEnableDepthTest();
@@ -171,64 +184,28 @@ void ofApp::DrawGraphics()
 	ofDisableDepthTest();
 	m_fbo.end();
 
-	// Draw the fbo result fitted to the display window
-	m_fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
-
-	// Rotate the cube (30 fps)
+	// Rotate the cube (best for 30 fps)
 	rotX += 1.5;
 	rotY += 1.5;
 
 }
 
 //--------------------------------------------------------------
+//
+// Audio waveform graph
+//
 void ofApp::DrawAudio()
 {
 	// Local copy of vectors to minimize mutex lock time
 	{
-        std::unique_lock<std::mutex> lock(audioMutex);
-		// lAudio/rAudio vectors must be assigned
+		// Mutex lock for lAudio and rAudio
+		// shared with the audioIn thread
+		std::unique_lock<std::mutex> lock(audioMutex);
 		if(lAudio.empty() || rAudio.empty())
 			return;
         lCopy = lAudio;
         rCopy = rAudio;
     }
-
-	//
-	// Calculate volume (interleaved audio data)
-	//
-	float leftVol = 0.0f;
-	float rightVol = 0.0f;
-	float count = 0.0f;
-	for (int i=0; i < (int)lCopy.size(); i++) {
-		leftVol  += lCopy[i]*lCopy[i];
-		rightVol += rCopy[i]*rCopy[i];
-		count++;
-	}
-	leftVol  = sqrt(leftVol/count);  // left rms
-	rightVol = sqrt(rightVol/count); // right rms
-
-	//
-	// DB bar graph
-	//
-
-	//
-	// Left channel
-	//
-	// Clamp rms values to avoid log 0 and convert rms to db
-	float dB = 20.0f*log10(ofClamp(leftVol, 0.000001f, 1.0f));
-	// map to 2/3 window height
-	float mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
-	drawGradientBar(10, ofGetHeight()-mapDB, 7, mapDB);
-	//
-	// Right channel
-	//
-	dB = 20.0f*log10(ofClamp(rightVol, 0.000001f, 1.0f));
-	mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
-	drawGradientBar(20, ofGetHeight()-mapDB, 7, mapDB);
-
-	//
-	// Audio waveform graph
-	//
 
 	// Audio data is -1.0 - +1.0
 	// increase to +- 1/3 the window height
@@ -254,49 +231,34 @@ void ofApp::DrawAudio()
 
 }
 
-// Similar to Studio Monitor
-void ofApp::drawGradientBar(float x, float y, float width, float height)
-{
-    ofMesh mesh;
-    mesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-
-    // Bottom color (Blue)
-    mesh.addVertex(glm::vec3(x, y+height, 0));
-	mesh.addColor(ofColor(0, 64, 255));
-
-    mesh.addVertex(glm::vec3(x+width, y+height, 0));
-	mesh.addColor(ofColor(0, 64, 255));
-
-    // Middle color (Green)
-    float midY = y+height*0.10f;
-
-    mesh.addVertex(glm::vec3(x, midY, 0));
-	mesh.addColor(ofColor(0, 225, 0));
-
-    mesh.addVertex(glm::vec3(x+width, midY, 0));
-	mesh.addColor(ofColor(0, 225, 0));
-
-    mesh.draw();
-}
 
 //--------------------------------------------------------------
 void ofApp::audioIn(ofSoundBuffer& input)
 {
+	// Mutex lock for lAudio and rAudio
+	// shared with DrawAudio in the draw thread
+	std::unique_lock<std::mutex> lock(audioMutex);
+
 	// Soundstream must be initialized
 	// and lAudio/rAudio vectors assigned
 	if(lAudio.empty() || rAudio.empty())
 		return;
 
-	// Send audio independently of graphics in draw
-	if (bInitialized && input.getBuffer().data()) {
+	// Send audio frames to NDI
+	if (ndiSender.SenderCreated() && input.getBuffer().data()) {
 		ndiSender.SetAudioData(input.getBuffer().data());
 		ndiSender.SendAudio();
 	}
 
+	//
+	// Fill the left and right channel audio vectors
+	// for draw of the waveform graph in DrawAudio
+	//
 	// SoundStream samples are interleaved
 	// L R L R L R L R L R L R L R .. etc
+	// Samples per video frame
 	for (size_t i = 0; i < input.getNumFrames()*input.getNumChannels(); i+=2){
-		lAudio[i/2] = input[i];
+		lAudio[i/2] = input[i]; // Samples per channel
 		rAudio[i/2] = input[i+1];
 	}
 
@@ -306,9 +268,7 @@ void ofApp::audioIn(ofSoundBuffer& input)
 void ofApp::exit()
 {
 	// Stop and close soundstream
-	soundStream.stop();
 	soundStream.close();
-
 	// Release the sender
 	// This releases the audio data buffer
 	ndiSender.ReleaseSender();

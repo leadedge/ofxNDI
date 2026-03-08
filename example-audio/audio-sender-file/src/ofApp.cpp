@@ -186,8 +186,11 @@ void ofApp::draw()
 		
 	}
 
-	// Draw graphics to an fbo and display it
+	// Draw graphics to an fbo
 	DrawGraphics();
+
+	// Draw the fbo result fitted to the display window
+	m_fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
 
 	// Send the graphics image
 	ndiSender.SendImage(m_fbo);
@@ -197,6 +200,7 @@ void ofApp::draw()
 
 }
 
+//--------------------------------------------------------------
 void ofApp::DrawGraphics()
 {
 	// Draw graphics into an fbo used for the examples
@@ -214,15 +218,17 @@ void ofApp::DrawGraphics()
 	ofDisableDepthTest();
 	m_fbo.end();
 
-	// Draw the fbo result fitted to the display window
-	m_fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
-
-	// Rotate the cube (30 fps)
+	// Rotate the cube (best for 30 fps)
 	rotX += 1.5;
 	rotY += 1.5;
 
 }
 
+
+//--------------------------------------------------------------
+//
+// Audio waveform graph
+//
 void ofApp::DrawAudio()
 {
 
@@ -244,43 +250,6 @@ void ofApp::DrawAudio()
 	// Right channel - assign starting at the second sample
 	audiodata++; 
 	rAudio.assign(audiodata, audiodata+nSamples*2);
-
-	//
-	// Calculate volume (interleaved audio data)
-	//
-	float leftVol = 0.0f;
-	float rightVol = 0.0f;
-	float count = 0.0f;
-	for (int i=0; i < nSamples*2; i+=2) { // Every second sample
-		leftVol  += lAudio[i]*lAudio[i];
-		rightVol += rAudio[i]*rAudio[i];
-		count++;
-	}
-	leftVol  = sqrt(leftVol/count);  // left rms
-	rightVol = sqrt(rightVol/count); // right rms
-
-	//
-	// DB bar graph
-	//
-
-	//
-	// Left channel
-	//
-	// Clamp rms values to avoid log 0 and convert rms to db
-	float dB = 20.0f*log10(ofClamp(leftVol, 0.000001f, 1.0f));
-	// map to 2/3 window height
-	float mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
-	drawGradientBar(10, ofGetHeight()-mapDB, 7, mapDB);
-	//
-	// Right channel
-	//
-	dB = 20.0f*log10(ofClamp(rightVol, 0.000001f, 1.0f));
-	mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
-	drawGradientBar(20, ofGetHeight()-mapDB, 7, mapDB);
-
-	//
-	// Audio waveform graph
-	//
 
 	// Audio data is -1.0 - +1.0
 	// increase to +- 1/3 window height
@@ -305,30 +274,6 @@ void ofApp::DrawAudio()
 
 }
 
-// Similar to Studio Monitor
-void ofApp::drawGradientBar(float x, float y, float width, float height)
-{
-    ofMesh mesh;
-    mesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-
-    // Bottom color (Blue)
-    mesh.addVertex(glm::vec3(x, y+height, 0));
-	mesh.addColor(ofColor(0, 64, 255));
-
-    mesh.addVertex(glm::vec3(x+width, y+height, 0));
-	mesh.addColor(ofColor(0, 64, 255));
-
-    // Middle color (Green)
-    float midY = y+height*0.10f;
-
-    mesh.addVertex(glm::vec3(x, midY, 0));
-	mesh.addColor(ofColor(0, 225, 0));
-
-    mesh.addVertex(glm::vec3(x+width, midY, 0));
-	mesh.addColor(ofColor(0, 225, 0));
-
-    mesh.draw();
-}
 
 //--------------------------------------------------------------
 void ofApp::exit()
