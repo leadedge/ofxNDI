@@ -252,8 +252,8 @@ void ofApp::DrawAudio()
 	rAudio.assign(audiodata, audiodata+nSamples*2);
 
 	// Audio data is -1.0 - +1.0
-	// increase to +- 1/3 window height
-	float height = (float)(ofGetHeight()/3);
+	// increase to +- 1/4 window height
+	float height = (float)(ofGetHeight()/4);
 	float ypos = 0.0f;
 	float lasty = ypos;
 	float xpos = 0.0f;

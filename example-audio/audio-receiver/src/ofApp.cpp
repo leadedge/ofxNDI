@@ -89,132 +89,124 @@ void ofApp::draw()
 		// Draw ofTexture below
 	}
 	else {
-		//
 		// If ReceiveImage fails, query for an audio frame
 		// Check for both the frame type and audio data
-		ndiAudioData = ndiReceiver.GetAudioData();
-		if (ndiAudioData && ndiReceiver.GetFrameType() == NDIlib_frame_type_audio) {
+		if (ndiReceiver.GetFrameType() == NDIlib_frame_type_audio) {
+			ndiAudioData = ndiReceiver.GetAudioData();
+			if (ndiAudioData) {
 
-			// Audio sample rate
-			sampleRate = ndiReceiver.GetAudioSampleRate();
-			// Number of audio channels
-			nChannels = ndiReceiver.GetAudioChannels();
-			// Number of audio samples per channel
-			nSamples = ndiReceiver.GetAudioSamples();
-			// Audio data stride in bytes
-			nStride = ndiReceiver.GetAudioDataStride();
+				// Audio sample rate
+				sampleRate = ndiReceiver.GetAudioSampleRate();
+				// Number of audio channels
+				nChannels = ndiReceiver.GetAudioChannels();
+				// Number of audio samples per channel
+				nSamples = ndiReceiver.GetAudioSamples();
+				// Audio data stride in bytes
+				nStride = ndiReceiver.GetAudioDataStride();
 
-			// nSamples and nStride may change every frame if
-			// the sender has an alternating sequence per frame
-			// For example : 48000hz audio at 29.97 video fps
-			//   1602, 1601, 1602, 1601, 1602
-			// 48000hz audio at 30 fps requires only one value
-			//   48000/30 = 1600
+				// nSamples and nStride may change every frame if
+				// the sender has an alternating sequence per frame
+				// For example : 48000hz audio at 29.97 video fps
+				//   1602, 1601, 1602, 1601, 1602
+				// 48000hz audio at 30 fps requires only one value
+				//   48000/30 = 1600
 
-			// printf("sampleRate = %d\n", sampleRate);
-			// printf("nChannels  = %d\n", nChannels);
-			// printf("nSamples   = %d\n", nSamples);
-			// printf("nStride    = %d\n", nStride);
-	
-			// Set up soundstream to match with the sender audio
-			if (!bSoundStream) {
-				SetupSoundStream();
-				// Return for the next frame
-				return;
-			}
+				// printf("sampleRate = %d\n", sampleRate);
+				// printf("nChannels  = %d\n", nChannels);
+				// printf("nSamples   = %d\n", nSamples);
+				// printf("nStride    = %d\n", nStride);
 
-			//
-			// NDI senders produce planar audio data
-			//
-			// NDIlib_audio_frame_v3_t audio frame has a 
-			// member "NDIlib_FourCC_audio_type_e FourCC"
-			// which allows the type of audio data to be described.
-			// The default is NDIlib_FourCC_audio_type_FLTP
-			// (planar 32-bit float)
-			//
-			// The NDIlib_audio_frame_v2_t currently used in
-			// the addon does not have a FourCC member and
-			// the default planar type is used.
-			//
-			// There are nSamples of audio per channel
-			// and nSamples*2 per frame for stereo
-			// nStride is the number of bytes of audio data
-			// for nSamples	per channel.
-			//
-			//     <-        nSamples*2       ->
-			//     <- nSamples ->  <- nSamples ->
-			//      L L L L L L L - R R R R R R R
-			//
-
-			//
-			// Get the left and right channels
-			//
-			float* left  = ndiAudioData;
-			float* right = ndiAudioData + nStride/sizeof(float);
-			for (int i = 0; i < nSamples; i++) {
-				// left channel
-				audioBuffer[writeIndex] = left[i];
-				writeIndex = (writeIndex + 1) % bufferCapacity;
-				// right channel
-				audioBuffer[writeIndex] = right[i];
-				writeIndex = (writeIndex + 1) % bufferCapacity;
-				availableSamples += 2;
-			}
-
-			// For DrawAudio
-			latestAudio.resize(nSamples*2);
-
-			// Half width for more than 2 channels
-			if (nChannels > 2) {
-				// Every second pair of samples
-				for (int i = 0; i < nSamples; i++) {
-					latestAudio[i*2]   = left[i];
-					latestAudio[i*2+1] = right[i];
+				// Set up soundstream to match with the sender audio
+				if (!bSoundStream) {
+					SetupSoundStream();
+					// Return for the next frame
+					return;
 				}
-			}
+
+				//
+				// NDI senders produce planar audio data
+				//
+				// NDIlib_audio_frame_v3_t audio frame has a 
+				// member "NDIlib_FourCC_audio_type_e FourCC"
+				// which allows the type of audio data to be described.
+				// The default is NDIlib_FourCC_audio_type_FLTP
+				// (planar 32-bit float)
+				//
+				// The NDIlib_audio_frame_v2_t currently used in
+				// the addon does not have a FourCC member and
+				// the default planar type is used.
+				//
+				// There are nSamples of audio per channel
+				// and nSamples*2 per frame for stereo
+				// nStride is the number of bytes of audio data
+				// for nSamples	per channel.
+				//
+				//     <-        nSamples*2       ->
+				//     <- nSamples ->  <- nSamples ->
+				//      L L L L L L L - R R R R R R R
+				//
+
+				float* left  = ndiAudioData;
+				float* right = ndiAudioData + nStride/sizeof(float);
+				{
+					// Mutex lock for variables shared with audioOut
+					// (availableSamples and audioBuffer)
+					std::lock_guard<std::mutex> lock(audioMutex);
+					//
+					// Get the left and right channels
+					//
+					lAudio.resize(nSamples);
+					rAudio.resize(nSamples);
+					for (int i = 0; i<nSamples; i++) {
+						// left channel
+						audioBuffer[writeIndex] = left[i];
+						writeIndex = (writeIndex+1) % bufferCapacity;
+						lAudio[i] = left[i];
+						// right channel
+						audioBuffer[writeIndex] = right[i];
+						writeIndex = (writeIndex+1) % bufferCapacity;
+						availableSamples += 2;
+						rAudio[i] = right[i];
+					}
+				} // end mutex lock
+
+			} // endif received audio data
 			else {
-				// Full width
-				for (int i = 0; i < nSamples*2-2; i++) {
-					latestAudio[i]   = left[i];
-					latestAudio[i+1] = right[i];
-				}
-			}
 
-		} // endif received audio data
-		else {
+				// Sender was connected but samples exhausted
+				std::lock_guard<std::mutex> lock(audioMutex);
 
-			// Mutex lock for shared variable - availableSamples
-			std::lock_guard<std::mutex> lock(audioMutex);
+				if (bAudioReceived && availableSamples == 0) {
 
-			// Sender was connected but samples exhausted
-			if (bAudioReceived && availableSamples == 0) {
+					//
+					// No audio data - sender closed
+					//
 
-				//
-				// No audio data - sender closed
-				//
+					// Release the current NDI receiver
+					// another one is created from the selected index
+					ndiReceiver.ReleaseReceiver();
 
-				// Release the current NDI receiver
-				// another one is created from the selected index
-				ndiReceiver.ReleaseReceiver();
+					// Stop and close soundstream
+					if (bSoundStream) {
+						// soundStream.stop();
+						soundStream.close();
+						// Re-set soundstream
+						bSoundStream = false;
+					}
 
-				// Stop and close soundstream
-				if (bSoundStream) {
-					// soundStream.stop();
-					soundStream.close();
-					// Re-set soundstream
-					bSoundStream = false;
-				}
+					// Clear audio data
+					audioBuffer.clear();
+					lAudio.clear();
+					rAudio.clear();
+					writeIndex = 0;
+					readIndex = 0;
+					bAudioReceived = false;
 
-				// Clear audio data
-				audioBuffer.clear();
-				latestAudio.clear();
-				writeIndex = 0;
-				readIndex = 0;
-				bAudioReceived = false;
+				} // endif NDI sender closed
 
-			} // endif NDI sender closed
+			} // endif no audio data received
 
-		} // endif no audio data received
+		} // endif audio frame
 
 	} // endif receiveimage failed
 
@@ -240,7 +232,8 @@ bool ofApp::SetupSoundStream()
 
 	// Clear audio data
 	audioBuffer.clear();
-	latestAudio.clear();
+	lAudio.clear();
+	rAudio.clear();
 	writeIndex = 0;
 	readIndex  = 0;
 	availableSamples = 0;
@@ -274,7 +267,8 @@ bool ofApp::SetupSoundStream()
 		// Buffer for receiving audio
 		bufferCapacity = nSamples*bufferSize*2; // Audio samples per frame
 		audioBuffer.resize(bufferCapacity);
-		latestAudio.clear();
+		lAudio.clear();
+		rAudio.clear();
 		writeIndex = 0;
 		readIndex  = 0;
 		bSoundStream = true;
@@ -288,38 +282,24 @@ bool ofApp::SetupSoundStream()
 }
 
 //--------------------------------------------------------------
-void ofApp::DrawAudio() {
-
-	// Copy so that the mutex is locked only briefly
-	// Copybuffer has left and right channels (planar audio data)
-	std::vector<float> copyBuffer;
-    {
-        std::lock_guard<std::mutex> lock(audioMutex);
-		if(latestAudio.empty())
-			return;
-        copyBuffer = latestAudio; // local copy for draw
-    }
-
+void ofApp::DrawAudio()
+{
+	if(lAudio.empty() || rAudio.empty())
+		return;
 
 	//
 	// Calculate volume
 	//
-
 	float leftVol = 0.0f;
 	float rightVol = 0.0f;
 	float count = 0;
-	for (int i = 0; i<(int)copyBuffer.size()/2; i++) {
-		leftVol += copyBuffer[i]*copyBuffer[i];
+	for (size_t i=0; i<lAudio.size(); i++) {
+		leftVol  += lAudio[i]*lAudio[i];
+		rightVol += rAudio[i]*rAudio[i];
 		count++;
 	}
-	leftVol = sqrt(leftVol/count); // left rms
-	
-	count = 0;
-	for (int i=0; i <(int)copyBuffer.size()/2; i++) {
-		rightVol += copyBuffer[i+nSamples]*copyBuffer[i+nSamples];
-		count++;
-	}
-	rightVol = sqrt(rightVol/count); // right rms
+	leftVol  = sqrt(leftVol/count); // left rms
+	rightVol = sqrt(rightVol/count); // left rms
 
 	//
 	// DB bar graph
@@ -330,7 +310,7 @@ void ofApp::DrawAudio() {
 	// map to 2/3 height
 	float mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
 	drawGradientBar(10, ofGetHeight()-mapDB, 7, mapDB);
-
+	// Right channel
 	dB = 20.0f*log10(ofClamp(rightVol, 0.000001f, 1.0f));
 	mapDB = ofMap(dB, -60, 0, 0, ofGetHeight()*2/3, true);
 	drawGradientBar(20, ofGetHeight()-mapDB, 7, mapDB);
@@ -354,10 +334,10 @@ void ofApp::DrawAudio() {
 	float lastx = 0.0f;
 	float lasty = 0.0f;
 
-	// Average of left and right channels (planar audio data)
-	for (int i = 0; i <(int)copyBuffer.size()/2; i++)
+	// Average of left and right channels
+	for (size_t i=0; i <lAudio.size(); i++)
 	{
-		sample = (copyBuffer[i]+copyBuffer[i+nSamples])/2.0f;
+		sample = (lAudio[i]+rAudio[i])/2.0f;
 		x = i*xStep;
 		y = yPos+sample*h;
 		if (x > lastx) ofDrawLine(lastx, lasty, x, y);
@@ -395,6 +375,8 @@ void ofApp::drawGradientBar(float x, float y, float width, float height)
 //--------------------------------------------------------------
 void ofApp::audioOut(ofSoundBuffer& outBuffer)
 {
+	// Mutex lock for variables shared with draw
+	// (availableSamples and audioBuffer)
 	std::lock_guard<std::mutex> lock(audioMutex);
 
 	for (size_t i = 0; i < outBuffer.size(); i++) {
@@ -486,24 +468,6 @@ void ofApp::keyPressed(int key) {
 
 	if (key == ' ') {
 
-		/*
-		// LJ DEBUG
-		// char tmp[256]{};
-		// sprintf_s(tmp, 256, "Select sender (0-%d)", nsenders);
-		// std::string str = ofSystemTextBoxDialog(tmp);
-		std::string str = "Number of senders found : ";
-		str += std::to_string(nsenders);
-		str += "\n";
-		for (int i = 0; i < nsenders; i++) {
-			ndiReceiver.GetSenderName(name, 256, i);
-			str += "[";
-			str += name;
-			str += "]\n";
-		}
-		MessageBoxA(NULL, str.c_str(), "NDI senders", MB_OK);
-		*/
-
-
 		// List all the senders
 		if (nsenders > 0) {
 			std::cout << "Number of NDI senders found: " << nsenders << std::endl;
@@ -527,13 +491,15 @@ void ofApp::keyPressed(int key) {
 			ndiReceiver.ReleaseReceiver();
 
 			// Stop and close soundstream
+			soundStream.close();
+
 			// Re-set to match the sender audio data
-			if (bSoundStream)
-				soundStream.close();
+			bSoundStream = false;
 
 			// Clear audio data
 			audioBuffer.clear();
-			latestAudio.clear();
+			lAudio.clear();
+			rAudio.clear();
 			writeIndex = 0;
 			readIndex = 0;
 			availableSamples = 0;

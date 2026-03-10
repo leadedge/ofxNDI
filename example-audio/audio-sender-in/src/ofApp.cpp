@@ -51,12 +51,10 @@ void ofApp::setup()
 
 	// Video frame rate
 	// 60, 30, 29.97 etc
-	float videofps = 30;
-	ndiSender.SetFrameRate(videofps);
-
 	// 30 fps NDI video frame rate
 	// For soundstream audio rate of 48000 hz
-	// ndiSender.SetFrameRate(30.00);
+	float videofps = 30;
+	ndiSender.SetFrameRate(videofps);
 
 	//
 	// Set up soundstream for audioIn
@@ -90,7 +88,6 @@ void ofApp::setup()
 		// printf("  nSamples     = %d\n", soundStream.getBufferSize());
 		// printf("  Sample rate  = %d\n", soundStream.getSampleRate());
 		// printf("  N channels   = %d\n", soundStream.getNumOutputChannels());
-
 	}
 	else {
 		printf("Soundstream setup failed\n");

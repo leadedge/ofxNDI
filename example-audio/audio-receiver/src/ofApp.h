@@ -59,7 +59,6 @@ class ofApp : public ofBaseApp{
 		size_t readIndex = 0;
 		size_t bufferCapacity = 0;
 		size_t availableSamples = 0;
-		float lastAudio[4]{};
 
 		ofSoundStream soundStream;  // Audio stream to send sound to speakers
 		bool SetupSoundStream();
@@ -70,7 +69,6 @@ class ofApp : public ofBaseApp{
 		int bufferSize = 0;         // Buffer size (change with sample number)
 
 		// For drawing the audio db bar graph and waveform
-		std::vector<float> latestAudio;
 		vector<float> lAudio;
 		vector<float> rAudio;
 		void DrawAudio();
