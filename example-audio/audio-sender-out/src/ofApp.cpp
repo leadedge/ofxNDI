@@ -46,6 +46,9 @@ void ofApp::setup()
 	senderWidth  = 1280;
 	senderHeight =  720;
 
+	// Set up NDI and soundtream to match with the audio that is generated.
+	// In this example it's a tone but it could be specific to the application.
+
 	// Video frame rate
 	// 60, 30, 29.97 etc
 	float videofps = 30;
@@ -79,10 +82,10 @@ void ofApp::setup()
 			// Make sure the NDI sender and soundstream
 			// use the same sample number per channel
 			nSamples = soundStream.getBufferSize();
-			// printf("\nSoundstream setup\n");
-			// printf("  nSamples     = %d\n", soundStream.getBufferSize());
-			// printf("  Sample rate  = %d\n", soundStream.getSampleRate());
-			// printf("  N channels   = %d\n", soundStream.getNumOutputChannels());
+			printf("\nSoundstream setup\n");
+			printf("  nSamples     = %d\n", soundStream.getBufferSize());
+			printf("  Sample rate  = %d\n", soundStream.getSampleRate());
+			printf("  N channels   = %d\n", soundStream.getNumOutputChannels());
 		}
 		else {
 			printf("Soundstream setup failed\n");
@@ -98,8 +101,8 @@ void ofApp::setup()
 	ndiSender.SetAudioSampleRate(sampleRate);
 	ndiSender.SetAudioChannels(nChannels);
 	// Audio samples per channel matching soundstream
+	// (interleaved audio data)
 	ndiSender.SetAudioSamples(nSamples);
-
 	// Audio data is float interleaved
 	ndiSender.SetAudioType(audio_frame_interleaved_32f_t);
 
@@ -205,13 +208,13 @@ void ofApp::DrawAudio()
 	// increase to +- 1/4 the window height
 	// Maximum height of the waveform graph
 	float height = (float)(ofGetHeight()/4);
-	float ypos = 0.0f;
-	float lasty = ypos;
-	float xpos = 0.0f;
-	float lastx = xpos;
+	float ypos  = 0.0f;
+	float lasty = 0.0f;
+	float xpos  = 0.0f;
+	float lastx = 0.0f;
 
 	// Audio is interleaved : L R L R L R .....
-	// For one channel there are nSamples spaced over the window width
+	// nSamples spaced over the window width for one channel
 	float spacing = (float)ofGetWidth()/(int)lAudio.size();
 	float y = (float)(ofGetHeight()/2); // Centre of the window
 	for (int i=0; i < (int)lCopy.size(); i++) {
@@ -245,14 +248,14 @@ void ofApp::audioOut(ofSoundBuffer &buffer)
 		audioBuffer[i*nChannels+1] = sample;
 		//
 		// Enable these lines to play the tone through the speakers
-		// Disable if on the same machine and the NDI receiver plays the audio.
+		// Disable if the NDI receiver plays the audio.
 		//
 		// buffer[i*nChannels  ] = sample;
 		// buffer[i*nChannels+1] = sample;
 		//
 	}
 
-	// Send audio frames to NDI
+	// Send the interleaved audio data to NDI
 	if (ndiSender.SenderCreated() && audioBuffer.data()) {
 		ndiSender.SetAudioData(audioBuffer.data());
 		ndiSender.SendAudio();
