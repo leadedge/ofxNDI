@@ -19,7 +19,6 @@ class ofApp : public ofBaseApp{
 		unsigned int senderWidth = 0;  // Width of the sender output
 		unsigned int senderHeight = 0; // Height of the sender output
 		float videoFps = 30.0f;        // NDI video frame rate
-		bool bInitialized = false;
 
 		// Graphics
 		ofImage textureImage;           // Texture image for the 3D cube graphics
@@ -37,7 +36,5 @@ class ofApp : public ofBaseApp{
 		int nChannels = 0;               // Decoder channel number
 		int sampleRate = 0;              // Decoder audio sample rate
 		void DrawAudio();                // Audio waveform
-		vector<float> lAudio;            // Audio to draw
-		vector<float> rAudio;
 
 };

@@ -39,6 +39,17 @@ void ofApp::setup()
 
 	ofBackground(0);
 
+	// NDI sender name
+	senderName = "ofxNDI audio file sender";
+	ofSetWindowTitle(senderName); // show it on the title bar
+
+	// NDI sender image dimensions
+	senderWidth  =  1280;
+	senderHeight =   720;
+
+	// Allocate an RGBA fbo for texture draw
+	m_fbo.allocate(senderWidth, senderHeight, GL_RGBA);
+
 	//
 	// Load an audio file.
 	// MiniAudio is used to read the file audio data.
@@ -105,6 +116,13 @@ void ofApp::setup()
 				//    "NDIlib_audio_frame_interleaved_32f_t"
 				//
 				ndiSender.SetAudioType(audio_frame_interleaved_32f_t);
+
+				// Create an NDI sender with YUV image output format
+				ndiSender.SetFormat(NDIlib_FourCC_video_type_UYVY);
+				if(ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight))
+					printf("Created sender [%s]\n", senderName.c_str());
+				else
+					printf("CreateSender failed\n");
 			}
 		}
 		else {
@@ -112,34 +130,13 @@ void ofApp::setup()
 		}
 	}
 
-	// NDI sender name
-	senderName = "ofxNDI audio file sender";
-	ofSetWindowTitle(senderName); // show it on the title bar
-
-	// NDI sender image dimensions
-	senderWidth  =  1280;
-	senderHeight =   720;
-
-	// Allocate an RGBA fbo for texture draw
-	m_fbo.allocate(senderWidth, senderHeight, GL_RGBA);
-
-	// Create an NDI sender with YUV image output format
-	ndiSender.SetFormat(NDIlib_FourCC_video_type_UYVY);
-	bInitialized = ndiSender.CreateSender(senderName.c_str(), senderWidth, senderHeight);
-	if(bInitialized)
-		printf("Created sender [%s]\n", senderName.c_str());
-	else
-		printf("CreateSender failed\n");
-
 	// 3D drawing setup for the demo graphics
-	glEnable(GL_DEPTH_TEST); // enable depth comparisons and update the depth buffer
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST); // Really Nice Perspective Calculations
+	glEnable(GL_DEPTH_TEST); // For depth comparisons
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 	ofDisableAlphaBlending(); // To prevent trails with the rotating cube
-	// ofDisableArbTex is needed to create a texture with
-	// normalized coordinates for bind in DrawGraphics
-	ofDisableArbTex();
+	ofDisableArbTex(); // For normalized texture coordinates
 	textureImage.load("SpoutBox.jpg");
-	ofEnableArbTex(); // Back to default pixel coordinates
+	ofEnableArbTex();
 
 }
 
@@ -152,24 +149,20 @@ void ofApp::update()
 //--------------------------------------------------------------
 void ofApp::draw()
 {
-	ofBackground(10, 100, 140, 255);
+	ofBackground(0);
 	ofSetColor(255);
 
-	// Check success of CreateSender
-	if (!bInitialized)
-		return;
-
 	// Send audio
-	if (!audiosamples.empty()) {
+	if (ndiSender.SenderCreated()) {
 
 		// Read data from the audio file using MiniAudio
 
 		// Set the number of audio samples to read for this frame
 		// based on the audio sample number sequence and it's size
+		// audioindex ranges from 0 to the sequnece size
 		nSamples = audiosamples[audioindex % (int)audiosamples.size()];
 		ndiSender.SetAudioSamples(nSamples);
 		audioindex++;
-		// Reset the index if it exceeds the sample size
 		if (audioindex > (int)audiosamples.size())
 			audioindex = 0;
 
@@ -189,13 +182,13 @@ void ofApp::draw()
 	// Draw graphics to an fbo
 	DrawGraphics();
 
-	// Draw the fbo result fitted to the display window
-	m_fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
-
 	// Send the graphics image
 	ndiSender.SendImage(m_fbo);
 
-	// Draw the audio waveform
+	// Draw the fbo result fitted to the display window
+	m_fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
+
+	// Draw the audio data waveform
 	DrawAudio();
 
 }
@@ -231,46 +224,34 @@ void ofApp::DrawGraphics()
 //
 void ofApp::DrawAudio()
 {
-
-	if (!ndiSender.GetAudio() || !ndiSender.GetAudioData())
+	if (!ndiSender.GetAudioData())
 		return;
 
-	//
 	// The audio type is set to 32 bit interleaved
 	// (SetAudioType(audio_frame_interleaved_32f_t))
-	// Assign left and right vectors for interleaved
 	//   L R L R L R L R L R L R L R L R ...
 	// nSamples*2 for each frame of 2 channels
-	//
-
-	// Left channel
 	float* audiodata = ndiSender.GetAudioData();
-	lAudio.assign(audiodata, audiodata+nSamples*2);
-
-	// Right channel - assign starting at the second sample
-	audiodata++; 
-	rAudio.assign(audiodata, audiodata+nSamples*2);
 
 	// Audio data is -1.0 - +1.0
-	// increase to +- 1/4 window height
-	float height = (float)(ofGetHeight()/4);
-	float ypos = 0.0f;
-	float lasty = ypos;
-	float xpos = 0.0f;
-	float lastx = xpos;
+	// increase to +- 1/3 window height
+	float height = (float)(ofGetHeight()/3);
+	float ypos  = 0.0f;
+	float lasty = 0.0f;
+	float xpos  = 0.0f;
+	float lastx = 0.0f;
 
-	// nSamples includes left and right channel data
-	// nSamples/2 spaced over the window width
-	float spacing = (float)ofGetWidth()/(float)nSamples/2;
+	float spacing = (float)ofGetWidth()/(float)nSamples;
 	float y = (float)(ofGetHeight()/2); // Centre of the window
 	for (int i=0; i < nSamples*2; i+=2) { // Every second sample
 		xpos = (float)i*spacing;
 		// Average of left and right channels
-		ypos = y + ((lAudio[i]*height) + (rAudio[i]*height))/2;
+		ypos = y + ((audiodata[i]*height) + (audiodata[i+1]*height))/2;
 		if (xpos > lastx) ofDrawLine(lastx, lasty, xpos, ypos);
 		lastx = xpos;
 		lasty = ypos;
 	}
+
 
 }
 
