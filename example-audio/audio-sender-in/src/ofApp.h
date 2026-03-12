@@ -45,6 +45,4 @@ class ofApp : public ofBaseApp{
 		size_t bufferCapacity = 0;
 		size_t availableSamples = 0;
 
-
-
 };

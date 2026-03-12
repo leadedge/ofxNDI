@@ -151,32 +151,6 @@ void ofApp::draw()
 	if (!ndiSender.SenderCreated())
 		return;
 
-	// Mutex lock for variables shared with audioIn
-	// (availableSamples and audioBuffer)
-	{
-		std::unique_lock<std::mutex> lock(audioMutex);
-		// Soundstream audio is interleaved, nSamples*2 per frame
-		// L R L R L R L R L R ...
-		if (availableSamples >= nSamples*2) {
-
-			// Send audio frames to NDI
-			if (ndiSender.SenderCreated()) {
-				ndiSender.SetAudioData(audioBuffer.data()+readIndex);
-				ndiSender.SendAudio();
-			}
-
-			// Get left and right channel audio data for DrawAudio
-			for (int i = 0; i <nSamples; i++) {
-				// left channel
-				lAudio[i] = audioBuffer[readIndex];
-				// right channel
-				rAudio[i] = audioBuffer[readIndex + 1];
-				readIndex = (readIndex + 2) % bufferCapacity;
-				availableSamples -= 2;
-			}
-		}
-	}
-
 	// Draw graphics into an fbo
 	DrawGraphics();
 
@@ -186,8 +160,31 @@ void ofApp::draw()
 	// Draw the fbo result fitted to the display window
 	m_fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
 
-	// Draw the audio waveform
-	DrawAudio();
+	// Mutex lock for variables shared with audioIn
+	// (availableSamples and audioBuffer)
+	{
+		std::unique_lock<std::mutex> lock(audioMutex);
+		// Soundstream audio is interleaved, nSamples*2 per frame
+		// L R L R L R L R L R ...
+		if (availableSamples >= nSamples*2) {
+			// Send audio frames to NDI
+			if (ndiSender.SenderCreated()) {
+				ndiSender.SetAudioData(audioBuffer.data()+readIndex);
+				ndiSender.SendAudio();
+			}
+			// Get left and right channel audio data for DrawAudio
+			for (int i = 0; i <nSamples; i++) {
+				// left channel
+				lAudio[i] = audioBuffer[readIndex];
+				// right channel
+				rAudio[i] = audioBuffer[readIndex + 1];
+				readIndex = (readIndex + 2) % bufferCapacity;
+				availableSamples -= 2;
+			}
+			// Draw the audio waveform
+			DrawAudio();
+		}
+	}
 
 }
 
@@ -225,9 +222,9 @@ void ofApp::DrawAudio()
 		return;
 
 	// Audio data is -1.0 - +1.0
-	// increase to +- 1/4 the window height
+	// increase to +- 1/3 the window height
 	// Maximum height of the waveform graph
-	float height = (float)(ofGetHeight()/4);
+	float height = (float)(ofGetHeight()/3);
 	float ypos  = 0.0f;
 	float lasty = 0.0f;;
 	float xpos  = 0.0f;
@@ -258,6 +255,26 @@ void ofApp::audioIn(ofSoundBuffer& input)
 	// Mutex lock for variables shared with draw
 	// (availableSamples and audioBuffer)
 	std::unique_lock<std::mutex> lock(audioMutex);
+
+	// Check the first 16 samples per channel
+	// to prevent continued sound from the speakers
+	// if the audio source has closed
+	//
+	// Note that if the NDI reciever is on the same machine
+	// and playing through the same speakers, the audio buffer
+	// will keep repeating even when the audio source has closed.
+	//
+	int i=0;
+	for (i=0; i<32; i++) {
+		float v = input[i];
+		if (v > 1e-6f || v < -1e-6f)
+			break;
+	}
+	if (i == 32) {
+		availableSamples = 0;
+		return;
+	}
+
 	// Soundstream audio is interleaved
 	// L R L R L R L R L R ...
 	for (size_t i = 0; i <input.size(); i++) {
@@ -265,6 +282,7 @@ void ofApp::audioIn(ofSoundBuffer& input)
 		writeIndex = (writeIndex + 1) % bufferCapacity;
 		availableSamples++;
 	}
+
 
 }
 
