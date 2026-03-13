@@ -65,6 +65,7 @@
 			   Gain 7.9 > 5.5 msec at 1920x1080
 			   ofxNDI version 2.001.000
 	09-02-26 - Add Audio functions
+	03-03-26 - ofxNDI version 2.002.000
 
 */
 #include "ofxNDIutils.h"
