@@ -1,6 +1,6 @@
-ofxNDI audio examples
+﻿ofxNDI audio examples
 
-The examples demonstrate sending or receiving audio together with video data.
+Openframeworks examples to send or receive audio together with video data.
 Openframeworks soundstream is used to get audio from or send audio to the speakers.
 
 audio-sender-file
@@ -22,4 +22,6 @@ audio-receiver
 Reads both audio and image data from an NDI sender.
 Plays via soundstream to audioOut.
 
+Details in the repository source code for each example.
 
+	
