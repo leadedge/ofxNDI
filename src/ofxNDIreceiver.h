@@ -224,6 +224,9 @@ public:
 	// Get audio frame data pointer
 	float* GetAudioData();
 
+	// Get audio frame data size
+	int GetAudioDataStride();
+
 	// Return audio frame data
 	void GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels);
 

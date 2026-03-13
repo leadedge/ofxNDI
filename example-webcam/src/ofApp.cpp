@@ -1,11 +1,10 @@
 /*
 	OpenFrameworks NDI webcam sender example
-
-	using the NDI SDK to send the frames via network
+	using the NewTek NDI SDK to send the frames via network
 
 	https://ndi.video
 
-	Copyright (C) 2016-2026 Lynn Jarvis.
+	Copyright (C) 2016-2025 Lynn Jarvis.
 
 	http://www.spout.zeal.co
 
@@ -53,7 +52,6 @@
 	11-04-25 - Remove unused include <conio.h> (not OSX compatible) issue #60.
 	12.04.25 - Add RGBA pixel buffer for use with RGB grabber source
 	19-01-25 - Update to NDI 6.2.0.3
-	01-01-26 - Update to NDI 6.2.1.0
 
 */
 #include "ofApp.h"

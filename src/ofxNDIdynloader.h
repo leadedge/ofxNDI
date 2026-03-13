@@ -29,7 +29,6 @@ typedef NDIlib_v5* (*NDIlib_v5_load_)(void);
 #include <vector>
 #include <iostream> // for cout
 
-
 class ofxNDIdynloader
 {
 	
@@ -49,10 +48,7 @@ private :
 	HMODULE m_hNDILib;
 #elif defined(TARGET_OSX) || defined(TARGET_LINUX)
 	const std::string FindRuntime();
-	
-	// LJ DEBUG
 	const std::string GetCurrentExePath();
-
 	void* m_hNDILib;
 #endif
 	const NDIlib_v5* p_NDILib;

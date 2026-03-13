@@ -85,7 +85,8 @@
 			   Add GetVideoType()
 	31.12.26   Increase pbo number from 2 to 3
 			   Receive to ofPixels - use revised YUV422_to_RGBA for UYVY data
-
+	06.03-26 - All ReceiveImage functions - check for allocation if not re-sized
+	
 */
 #include "ofxNDIreceiver.h"
 
@@ -164,10 +165,11 @@ void ofxNDIreceiver::ReleaseReceiver()
 bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 {
 	if (!texture.isAllocated()) {
+		printf("ofxNDIreceiver::ReceiveImage - texture not allocated\n");
 		return false;
 	}
 
-	// Check for receiver creation
+	// Check for receiver creation and a network source
 	if (!OpenReceiver()) {
 		return false;
 	}
@@ -179,19 +181,30 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
 		// Check for changed sender dimensions
-		if (width != (unsigned int)texture.getWidth() || height != (unsigned int)texture.getHeight()) {
+		if (width != (unsigned int)texture.getWidth()
+			|| height != (unsigned int)texture.getHeight()) {
 			texture.allocate(width, height, GL_RGBA);
 			// Allocate utility fbo to the sender size
 			ndiFbo.allocate(width, height, GL_RGBA);
 			// Allocate receiving UYVY texture
 			m_yuvtexture.allocate(width/2, height, GL_RGBA);
 		}
+		else {
+			// Check for allocation
+			if (!texture.isAllocated())
+				texture.allocate(width, height, GL_RGBA);
+			if (!m_yuvtexture.isAllocated())
+				m_yuvtexture.allocate(width/2, height, GL_RGBA);
+			if (!ndiFbo.isAllocated())
+				ndiFbo.allocate(width, height, GL_RGBA);
+		}
+
 		// Get NDI pixel data from the video frame
 		return GetPixelData(texture);
+		
 	}
 
 	return false;
-
 
 }
 
@@ -218,6 +231,15 @@ bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
 			ndiFbo.allocate(width, height, GL_RGBA);
 			// Allocate receiving UYVY texture
 			m_yuvtexture.allocate(width/2, height, GL_RGBA);
+		}
+		else {
+			// Check for allocation
+			if (!fbo.isAllocated())
+				fbo.allocate(width, height, GL_RGBA);
+			if (!m_yuvtexture.isAllocated())
+				m_yuvtexture.allocate(width/2, height, GL_RGBA);
+			if (!ndiFbo.isAllocated())
+				ndiFbo.allocate(width, height, GL_RGBA);
 		}
 
 
@@ -252,6 +274,15 @@ bool ofxNDIreceiver::ReceiveImage(ofImage &image)
 			// Allocate receiving UYVY texture
 			m_yuvtexture.allocate(width/2, height, GL_RGBA);
 		}
+		else {
+			// Check for allocation
+			if (!image.isAllocated())
+				image.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
+			if (!m_yuvtexture.isAllocated())
+				m_yuvtexture.allocate(width/2, height, GL_RGBA);
+			if (!ndiFbo.isAllocated())
+				ndiFbo.allocate(width, height, GL_RGBA);
+		}
 		
 		// Get NDI pixel data from the video frame
 		return GetPixelData(image.getTexture());
@@ -278,7 +309,10 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
 		// Check for changed sender dimensions
-		if (width != (unsigned int)buffer.getWidth() || height != (unsigned int)buffer.getHeight())
+		// or unallocated buffer
+		if (width != (unsigned int)buffer.getWidth()
+			|| height != (unsigned int)buffer.getHeight()
+			|| !buffer.isAllocated())
 			buffer.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
 
 		// Get the video frame buffer pointer
@@ -571,6 +605,12 @@ float * ofxNDIreceiver::GetAudioData()
 	return NDIreceiver.GetAudioData();
 }
 
+// Get audio frame data size
+int ofxNDIreceiver::GetAudioDataStride()
+{
+	return NDIreceiver.GetAudioDataStride();
+}
+
 // Return audio frame data
 // output - audio data pointer, samplerate, samples and channels
 void ofxNDIreceiver::GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels)
@@ -624,6 +664,7 @@ bool ofxNDIreceiver::GetPixelData(ofTexture &texture)
 	// int aCode = NDIreceiver.GetVideoType();
 	// char fourChar[5] = { (aCode >> 24) & 0xFF, (aCode >> 16) & 0xFF, (aCode >> 8) & 0xFF, aCode & 0xFF, 0 };
 	// printf("GetPixelData format FourCC = %d (%s)\n", NDIreceiver.GetVideoType(), fourChar); // 1094862674, 1094862674
+	// return false;
 
 	// Get the NDI video frame pixel data into the texture
 	switch (NDIreceiver.GetVideoType()) {

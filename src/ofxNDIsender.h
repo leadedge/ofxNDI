@@ -52,6 +52,8 @@
 #include "ofxNDIsend.h" // basic sender functions
 #include "ofxNDIutils.h" // buffer copy utilities
 
+using namespace ofxNDIutils;
+
 class ofxNDIsender {
 
 public:
@@ -179,6 +181,12 @@ public:
 	// Get whether clocked
 	bool GetClockVideo();
 
+	// Set audio frame type
+	void SetAudioType(int type);
+
+	// Get audio frame type
+	int GetAudioType();
+
 	// Set asynchronous sending mode
 	// (disables clocked video)
 	// Initialized false
@@ -196,6 +204,12 @@ public:
 	// Set to send Audio
 	// Initialized false
 	void SetAudio(bool bAudio = true);
+
+	// Get whether audio sending is set
+	bool GetAudio();
+
+	// Set audio clocked
+	void SetClockAudio(bool bClocked = true);
 
 	// Set audio sample rate
 	// - sampleRate | rate in hz
@@ -219,7 +233,16 @@ public:
 
 	// Set audio data
 	// - data | data to send (float)
-	void SetAudioData(float *data = NULL); // Audio data
+	void SetAudioData(const float *data = NULL); // Audio data
+
+	// Get audio data
+	float* GetAudioData();
+
+	// Get the sender audio frame
+	NDIlib_audio_frame_v2_t GetAudioFrame();
+
+	// Send an audio frame
+	bool SendAudio();
 
 	// Set to send metadata
 	// Initialized false
@@ -232,9 +255,12 @@ public:
 	// Get the current NDI SDK version
 	std::string GetNDIversion();
 
+	// Public for external use
+	ofxNDIsend NDIsender; // Basic sender functions
+
 private:
 
-	ofxNDIsend NDIsender; // Basic sender functions
+	// ofxNDIsend NDIsender; // Basic sender functions
 	std::string m_SenderName; // current sender name
 
 	ofPixels ndiBuffer[2]; // Two pixel buffers for async sending
@@ -271,6 +297,7 @@ private:
 
 	// Read YUV pixels from RGBA texture to pixel buffer
 	bool ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigned int height, ofPixels &buffer);
+
 
 };
 

@@ -64,6 +64,7 @@
 	01.01.26 - Revise YUV422_to_RGBA with lookup tables
 			   Gain 7.9 > 5.5 msec at 1920x1080
 			   ofxNDI version 2.001.000
+	09-02-26 - Add Audio functions
 
 */
 #include "ofxNDIutils.h"
@@ -80,7 +81,7 @@ namespace ofxNDIutils {
 
 	// ofxNDI version number string
 	// Major, minor, release
-	std::string ofxNDIversion = "2.001.000";
+	std::string ofxNDIversion = "2.002.000";
 
 #ifdef USE_CHRONO
 	// Timing counters
@@ -111,6 +112,9 @@ namespace ofxNDIutils {
     }
 #endif
 
+	//
+	// Image pixel copy
+	//
 
 #if defined(TARGET_WIN32) || defined (TARGET_OSX)
 
@@ -633,6 +637,10 @@ namespace ofxNDIutils {
 	} // end YUV422_to_RGBA
 
 
+	//
+	// Timing
+	//
+
 #ifdef USE_CHRONO
 	// Timing functions
 	void StartTiming() {
@@ -728,6 +736,92 @@ namespace ofxNDIutils {
 		}
 	}
 #endif
+
+	//
+	// Audio
+	//
+
+	//--------------------------------------------------------------
+	// Create an audio frame number sequence for a given video fps
+	//
+	// TODO - check and revise for correct average value
+	//
+	// The average of the sequence should be as close as possible
+	// to the Audio rate / Video fps
+	//
+	// Typical values
+	// Audio Rate | Video fps | Audio/Video | Sequence                 | Avg/Frame |
+	// ---------- | --------- | ----------- | ------------------------ | --------- |
+	// 48000      | 29.97     | 1601.602    | 1602,1601,1602,1601,1602 | 1601.6    |
+	// 44100      | 29.97     | 1470.147    | 1471,1470,1471,1470,1471 | 1470.2    |
+	//
+	std::vector<int> AudioFrameSequence(int audioSampleRate, double videoFps, int &maxSample, int sequenceLength)
+	{
+		std::vector<int> sequence;
+
+		if (videoFps <= 0.0)
+			return sequence;
+
+		// Ideal fractional number of samples per video frame
+		double S = audioSampleRate/videoFps;
+		int a = static_cast<int>(std::floor(S));
+		int b = a + 1;
+
+		// Fractional part
+		double frac = S-(double)a;
+
+		// If very small, no sequence is needed.
+		// Just return one number
+		if (frac < 1e-6) {
+			sequence.push_back(a);
+			maxSample = a;
+			return sequence;
+		}
+
+		 // limit the sequence length (default 100 and maximum 1000)
+		int64_t N = std::min(sequenceLength, 1000);
+		int64_t numB = static_cast<int64_t>(std::round(N*frac));
+		int64_t numA = N-numB;
+
+		// Alternate b and a for minimal jitter
+		while (numB > 0 || numA > 0) {
+			if (numB > 0) {
+				sequence.push_back(b);
+				numB--;
+			}
+			if (numA > 0) {
+				sequence.push_back(a);
+				numA--;
+			}
+		}
+
+		// Find the maximum sample number for buffer allocation
+		auto smax = std::max_element(sequence.begin(), sequence.end());
+		maxSample = *smax;
+
+		return sequence;
+	}
+
+	//
+	// Testing function
+	//
+	// Convert interleaved audio to a single planar buffer for NDI v2
+	// Returns a std::vector<float> containing all channels contiguously
+	// Channel 0 first, channel 1 next, etc.
+	// Interleaved : L R L R L R L R ...
+	// Planar:       L L L L ... R R R R ...
+	std::vector<float> InterleavedToPlanar(const float* interleaved, int nChannels, int nSamples)
+	{
+		// Resize the namespace buffer (same size > no action)
+		planar.resize(nChannels*nSamples);
+		for (int c = 0; c < nChannels; c++) {
+			for (int f = 0; f < nSamples; f++) {
+				planar[c*nSamples+f] = interleaved[f*nChannels+c];
+			}
+		}
+		return planar;
+	}
+	
 
 #endif
 

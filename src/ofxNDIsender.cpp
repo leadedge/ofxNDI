@@ -82,7 +82,7 @@
 			 - Revise SetFormat to find the shader folder and test existence
 	23.05.24 - SendImage ofTexture - RGBA only
 	16.09.24 - SendImage ofTexture and pixel data,
-			   Update class resources as well as NDI sender for changed size.
+			   Update class resources as well as NDI sendesender for changed size.
 	19.09.24 - Correct SendImage(ofTexture) for incorrect data format
 			   SendImage texture, image or pixels - test for sender created
 	20.09.24 - SendImage ofImage and ofPixels - pass by reference to avoid
@@ -104,6 +104,9 @@
 			   Use Openframeworks shader for RGBA to UYVY conversion
 			   BT601 if width is less than 720, otherwise BT709 for UYVY
 		       Restore additional test for "shaders" folder
+	23.02.26 - Add SendAudio for use independently of SendImage
+			   CreateSender - error if pNDI_send create failed
+			   Revise error messages in SetFormat and ReadYUVpixels
 
 */
 #include "ofxNDIsender.h"
@@ -272,13 +275,12 @@ bool ofxNDIsender::SendImage(ofFbo fbo, bool bInvert)
 }
 
 // Send ofTexture
-bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
-{
+bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert) {
 	// Quit is not initialized, texture not allocated
 	// or sending pixel buffers not allocated
 	if (!NDIsender.SenderCreated() || !tex.isAllocated()
 		|| !ndiBuffer[0].isAllocated() || !ndiBuffer[1].isAllocated()) {
-			return false;
+		return false;
 	}
 
 	// Quit if the texture is not RGBA, RGBA8, BGRA, RGB or BGR
@@ -290,6 +292,7 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 		|| tex.getTextureData().glInternalFormat == GL_BGR)) { // 0x80E0
 		return false;
 	}
+
 
 	ofDisableDepthTest(); // In case this was enabled, or textures do not show
 
@@ -320,7 +323,7 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert)
 	// NDI video frame line stride has been set to match the data format.
 	// (see ofxNDIsend::SetVideoStride)
 	if (bResult)
-		return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
+		return NDIsender.SendImage((const unsigned char*)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
 	return false;
 
@@ -436,7 +439,7 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 			  UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
 	}
 	else {
-		printf("Incompatible format\n");
+		printf("ofxNDIsender::SetFormat - Incompatible format\n");
 	}
 
 }
@@ -521,17 +524,36 @@ bool ofxNDIsender::GetProgressive()
 	return NDIsender.GetProgressive();
 }
 
-// Set clocked 
+// Set clocked video
 void ofxNDIsender::SetClockVideo(bool bClocked)
 {
 	NDIsender.SetClockVideo(bClocked);
 }
 
-// Get whether clocked
+// Get whether video is clocked
 bool ofxNDIsender::GetClockVideo()
 {
 	return NDIsender.GetClockVideo();
 }
+
+//
+// Set audio frame type
+//
+//   audio_frame_v2_t               0
+//   audio_frame_interleaved_16s_t  1
+//   audio_frame_interleaved_32s    2
+//   audio_frame_interleaved_32f_t  3
+//
+void ofxNDIsender::SetAudioType(int type)
+{
+	NDIsender.SetAudioType(type);
+}
+
+int ofxNDIsender::GetAudioType()
+{
+	return NDIsender.GetAudioType();
+}
+
 
 // Set asynchronous sending mode
 void ofxNDIsender::SetAsync(bool bActive)
@@ -539,7 +561,7 @@ void ofxNDIsender::SetAsync(bool bActive)
 	NDIsender.SetAsync(bActive);
 }
 
-// Get whether async sending mode
+// Get async sending mode
 bool ofxNDIsender::GetAsync()
 {
 	return NDIsender.GetAsync();
@@ -561,6 +583,18 @@ bool ofxNDIsender::GetReadback()
 void ofxNDIsender::SetAudio(bool bAudio)
 {
 	NDIsender.SetAudio(bAudio);
+}
+
+// Get whether audio sending is set
+bool ofxNDIsender::GetAudio()
+{
+	return NDIsender.GetAudio();
+}
+
+// Set clocked video
+void ofxNDIsender::SetClockAudio(bool bClocked)
+{
+	NDIsender.SetClockAudio(bClocked);
 }
 
 // Set audio sample rate
@@ -588,9 +622,30 @@ void ofxNDIsender::SetAudioTimecode(int64_t timecode)
 }
 
 // Set audio data
-void ofxNDIsender::SetAudioData(float *data)
+void ofxNDIsender::SetAudioData(const float *data)
 {
 	NDIsender.SetAudioData(data);
+}
+
+// Get audio data pointer
+float* ofxNDIsender::GetAudioData()
+{
+	return NDIsender.GetAudioData();
+}
+
+// Get the sender audio frame
+NDIlib_audio_frame_v2_t ofxNDIsender::GetAudioFrame() {
+	return NDIsender.GetAudioFrame();
+}
+
+//
+// Send an audio frame
+//
+// The audio frame is set up before the sender is created
+// The audio frame members can be modified before sending
+// 
+bool ofxNDIsender::SendAudio() {
+	return NDIsender.SendAudio();
 }
 
 // Set to send metadata
@@ -610,6 +665,7 @@ std::string ofxNDIsender::GetNDIversion()
 {
 	return NDIsender.GetNDIversion();
 }
+
 
 //
 // =========== Private functions ===========
@@ -768,12 +824,14 @@ bool ofxNDIsender::ReadYUVpixels(ofTexture &tex, unsigned int halfwidth, unsigne
 				shaderpath = ofToDataPath("rgba2yuv/GL2/rgba2yuv");
 			#endif
 		}
+
+
 		if (!rgba2yuv.load(shaderpath)) {
-			printf("rgba2yuv shader not loaded\n");
+			printf("ofxNDIsender::ReadYUVpixels - rgba2yuv shader not loaded\n%s\n", shaderpath.c_str());
 			return false;
 		}
 	}
-
+	
 	// YUV is half width
 	int width = halfwidth*2;
 	// BT601 SD, BT709 HD or BT2020 UHD

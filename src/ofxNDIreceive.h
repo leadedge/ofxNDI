@@ -52,6 +52,7 @@
 	14.12.23 - Add m_VideoTimecode, GetVideoTimecode()
 	19.01.25 - Update to NDI 6.1.1.0
 	21.12.25 - Update to NDI version 6.2.1.0
+	11.02.25 - Remove unused NDI_send_create_desc
 
 */
 #pragma once
@@ -268,6 +269,9 @@ public:
 	// Get audio frame data pointer
 	float* GetAudioData();
 
+	// Get audio frame data size
+	int GetAudioDataStride();
+
 	// Return audio frame data
 	void GetAudioData(float*& output, int& samplerate, int& samples, int& nChannels);
 
@@ -292,7 +296,6 @@ private:
 
 	const NDIlib_source_t* p_sources;
 	uint32_t no_sources;
-	NDIlib_send_create_t NDI_send_create_desc;
 	NDIlib_find_instance_t pNDI_find;
 	NDIlib_recv_instance_t pNDI_recv;
 	NDIlib_video_frame_v2_t video_frame;
@@ -340,6 +343,7 @@ private:
 	int m_nAudioSampleRate;
 	int m_nAudioSamples;
 	int m_nAudioChannels;
+	int m_AudioDataStride;
 
 	// Replacement function for deprecated NDIlib_find_get_sources
 	// If no timeout specified, return the sources that exist right now
