@@ -66,6 +66,7 @@
 	18.03.25	- FindRuntime add #ifdef for Linux runtime - ofxNDI Issue #61
 	21.07.25	- Update headers to NDI version 6.2.0.3
 	21.10.25	- Update headers to NDI version 6.2.1.0
+	13.03.26	- Update headers to NDI version 6.3.1.0
 
 */
 #include "ofxNDIdynloader.h"
