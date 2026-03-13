@@ -323,7 +323,7 @@ bool ofxNDIsender::SendImage(ofTexture tex, bool bInvert) {
 	// NDI video frame line stride has been set to match the data format.
 	// (see ofxNDIsend::SetVideoStride)
 	if (bResult)
-		return NDIsender.SendImage((const unsigned char *)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
+		return NDIsender.SendImage((const unsigned char*)ndiBuffer[m_idx].getData(), width, height, false, bInvert);
 
 	return false;
 

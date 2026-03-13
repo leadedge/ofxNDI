@@ -1,5 +1,31 @@
 ﻿## Updates
 --------------------------
+13.03.26
+Add audio functions and examples\
+ofxNDI version 2.003.000\
+NDI SDK Vers 6.3.1.0\
+ofxNDIreceiver.cpp\
+06.03-26 - All ReceiveImage functions - check for allocation if not re-sized
+ofxNDIreceive.cpp\
+23-02-26 - FindSenders - create finder and check for it on first call\
+  OpenReceiver - use FindSenders instead of FindGetSources\
+  Check existing sources in CreateReceiver instead of OpenReceiver\
+28-02-26 - FindGetSources - recover new or current sources\
+  FindSenders - allow for no senders left\
+ofxNDIsend.cpp\
+23.02.26 - Add SendAudio for use independently of SendImage\
+  CreateSender - error if pNDI_send create failed\
+  Revise out of memory error in SendImage\
+24.02.26 - ReleaseSender - set pointers to null after destroy sender :\
+  pNDI_send, m_AudioData, m_audio_frame.p_data, video_frame.p_data\
+  Set m_bMetadata = false\
+ofxNDIsender.cpp\
+23.02.26 - Add SendAudio for use independently of SendImage\
+  CreateSender - error if pNDI_send create failed\
+  Revise error messages in SetFormat and ReadYUVpixels\
+ofxNDIutils.cpp\
+09-02-26 - Add Audio functions\
+--------------------------
 01.01.26 - Updated for YUV to RGBA shader (NDI to Spout)\
 ofxNDI version 2.001.000\
 NDI SDK Vers 6.2.1.0\

@@ -141,7 +141,6 @@ namespace ofxNDIutils {
 	void rgb2rgba(const void* rgb_source, void* rgba_dest, unsigned int width, unsigned int height, bool bInvert);
 	void YUV422_to_RGBA(const unsigned char* source, unsigned char* dest, unsigned int width, unsigned int height, unsigned int stride = 0);
 
-
 	//
 	// Timing
 	//
@@ -169,7 +168,6 @@ namespace ofxNDIutils {
 	// Convert interleaved audio to a single planar buffer for NDI v2
 	std::vector<float> InterleavedToPlanar(const float* interleaved, int channels, int nsamples);
 	static std::vector<float> planar;
-
 
 #endif
 
