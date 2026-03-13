@@ -35,8 +35,8 @@
 //--------------------------------------------------------------
 void ofApp::setup()
 {
-
 	ofBackground(0);
+	ofSetColor(255);
 
 	// NDI sender name
 	senderName = "ofxNDI audio output sender";
@@ -139,9 +139,6 @@ void ofApp::update()
 //--------------------------------------------------------------
 void ofApp::draw()
 {
-	ofBackground(0);
-	ofSetColor(255);
-
 	// Check success of CreateSender
 	if (!ndiSender.SenderCreated())
 		return;
@@ -200,14 +197,18 @@ void ofApp::DrawAudio()
 		// lAudio/rAudio vectors must be assigned
 		if (lAudio.empty() || rAudio.empty())
 			return;
-		lCopy = lAudio;
-		rCopy = rAudio;
+		// Local copy to minimize mutex lock time
+		// Swap and resize for zero copy time
+        lCopy.swap(lAudio);
+        rCopy.swap(rAudio);
+		lAudio.resize(nSamples);
+		rAudio.resize(nSamples);
 	}
 
 	// Audio data is -1.0 - +1.0
-	// increase to +- 1/4 the window height
+	// increase to +- 1/3 the window height
 	// Maximum height of the waveform graph
-	float height = (float)(ofGetHeight()/4);
+	float height = (float)(ofGetHeight()/3);
 	float ypos  = 0.0f;
 	float lasty = 0.0f;
 	float xpos  = 0.0f;
@@ -244,8 +245,9 @@ void ofApp::audioOut(ofSoundBuffer &buffer)
         if(phase > TWO_PI)
 			phase -= TWO_PI;
 	    // Same signal for left and right channels
-   		audioBuffer[i*nChannels  ] = sample;
-		audioBuffer[i*nChannels+1] = sample;
+		// Reduce to half volume
+   		audioBuffer[i*nChannels  ] = sample/2;
+		audioBuffer[i*nChannels+1] = sample/2;
 		//
 		// Enable these lines to play the tone through the speakers
 		// Disable if the NDI receiver plays the audio.
@@ -278,7 +280,6 @@ void ofApp::exit()
 {
 	// Stop and close soundstream
 	soundStream.close();
-	// Release the sender
-	// This releases the audio data buffer
+	// Release the sender and the audio data buffer
 	ndiSender.ReleaseSender();
 }

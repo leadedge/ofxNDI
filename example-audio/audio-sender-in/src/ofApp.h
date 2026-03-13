@@ -18,31 +18,34 @@ class ofApp : public ofBaseApp{
 		std::string senderName;        // Sender name
 		unsigned int senderWidth = 0;  // Width of the sender output
 		unsigned int senderHeight = 0; // Height of the sender output
+		ofFbo m_fbo;                   // Fbo used for sending
 		float videoFps = 30.0f;        // Video frame rate
 
 		// Graphics
-		ofImage textureImage;          // Texture image for the 3D cube
-		ofFbo m_fbo;                   // Fbo used for sending
+		ofImage textureImage;          // Texture image for the 3D cube graphics
 		float rotX = 0.0f;
 		float rotY = 0.0f;             // Cube rotation increment
 		void DrawGraphics();           // Rotating cube draw
 
 		// Audio
-		int nSamples = 0;              // Sample number per frame
-		int nChannels = 0;             // Channel number
-		int sampleRate = 0;            // Sample rate
+		std::vector<int> audiosamples; // Sequence of sample numbers per frame
+		int nSamples = 0;              // Current sample number per frame
+		int audioindex = 0;            // Audio frame counter
+		int nChannels = 0;             // Decoder channel number
+		int sampleRate = 0;            // Decoder sample rate
+
+		ofSoundStream soundStream;     // To get sound to speakers
+		std::mutex audioMutex;
+		int bufferSize = 0;            // Buffer size
+
+		// Draw audio waveform
 		void DrawAudio();
+		bool bAudioReceived = false;
 		vector<float> lAudio;
 		vector<float> rAudio;
+		// Copies for mutex use
+		vector<float> lCopy;
+		vector<float> rCopy;
 
-		// soundstream and audioIn
-		ofSoundStream soundStream;
-		bool bSoundStream = false;
-		std::mutex audioMutex;
-		vector<float> audioBuffer; // Buffer for the audio data
-		size_t writeIndex = 0;
-		size_t readIndex = 0;
-		size_t bufferCapacity = 0;
-		size_t availableSamples = 0;
 
 };
