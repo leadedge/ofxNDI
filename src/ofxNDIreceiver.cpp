@@ -86,6 +86,8 @@
 	31.12.26   Increase pbo number from 2 to 3
 			   Receive to ofPixels - use revised YUV422_to_RGBA for UYVY data
 	06.03-26 - All ReceiveImage functions - check for allocation if not re-sized
+	02.05-26 - All ReceiveImage functions -
+			   call OpenReceiver before check for allocation
 	
 */
 #include "ofxNDIreceiver.h"
@@ -164,13 +166,13 @@ void ofxNDIreceiver::ReleaseReceiver()
 // Receive ofTexture
 bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 {
-	if (!texture.isAllocated()) {
-		printf("ofxNDIreceiver::ReceiveImage - texture not allocated\n");
-		return false;
-	}
-
 	// Check for receiver creation and a network source
 	if (!OpenReceiver()) {
+		return false;
+	}
+	
+	if (!texture.isAllocated()) {
+		printf("ofxNDIreceiver::ReceiveImage - texture not allocated\n");
 		return false;
 	}
 
@@ -212,11 +214,11 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 // Receive ofFbo
 bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
 {
-	if (!fbo.isAllocated())
-		return false;
-
 	// Check for receiver creation
 	if (!OpenReceiver())
+		return false;
+
+	if (!fbo.isAllocated())
 		return false;
 
 	// Receive a pixel image first
@@ -254,11 +256,11 @@ bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
 // Receive ofImage
 bool ofxNDIreceiver::ReceiveImage(ofImage &image)
 {
-	if (!image.isAllocated())
-		return false;
-
 	// Check for receiver creation
 	if (!OpenReceiver())
+		return false;
+
+	if (!image.isAllocated())
 		return false;
 
 	// Receive a pixel image first
@@ -295,11 +297,11 @@ bool ofxNDIreceiver::ReceiveImage(ofImage &image)
 // Receive ofPixels
 bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 {
-	if (!buffer.isAllocated())
-		return false;
-
 	// Check for receiver creation
 	if (!OpenReceiver())
+		return false;
+
+	if (!buffer.isAllocated())
 		return false;
 
 	unsigned int width = (unsigned int)buffer.getWidth();
@@ -379,11 +381,11 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 bool ofxNDIreceiver::ReceiveImage(unsigned char *pixels,
 	unsigned int &width, unsigned int &height, bool bInvert)
 {
-	if (!pixels)
-		return false;
-
 	// Check for receiver creation
 	if (!OpenReceiver())
+		return false;
+
+	if (!pixels)
 		return false;
 
 	return NDIreceiver.ReceiveImage(pixels, width, height, bInvert);
