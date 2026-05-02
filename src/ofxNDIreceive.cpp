@@ -169,7 +169,8 @@
 			   Check existing sources in CreateReceiver instead of OpenReceiver
 	28-02-26 - FindGetSources - recover new or current sources
 			   FindSenders - allow for no senders left
-
+	02-05-26 - GetSenderCount() - Add FindSenders so that the function
+			   can be called independently of ReceiveImage
 
 */
 
@@ -323,6 +324,9 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 	std::string name;
 	uint32_t nsources = 0; // New number of sources
 
+	// LJ DEBUG
+	printf("FindSenders 1\n");
+
 	if (!bNDIinitialized) {
 		printf("ofxNDIreceive::FindSenders - not intialized\n");
 		sendercount = 0;
@@ -349,10 +353,14 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 	// the sender count need to be saved locally.
 	//
 	p_sources = FindGetSources(pNDI_find, &nsources, 1);
+
 	if (p_sources) {
 
 		// If there are new sources and the number of sources has changed
 		if ((nsources != no_sources) || NDIsenders.size() == 0 ) {
+
+			// LJ DEBUG
+			printf("FindSenders 2 - nsources = %d\n", nsources);
 
 			// Rebuild the sender name list
 			no_sources = nsources;
@@ -483,6 +491,9 @@ bool ofxNDIreceive::GetSenderIndex(const char *sendername, int &index)
 // Return the number of senders
 int ofxNDIreceive::GetSenderCount()
 {
+	// Find senders so that the function can be
+	// called independently of ReceiveImage
+	FindSenders();
 	return (int)NDIsenders.size();
 }
 
