@@ -85,9 +85,11 @@
 			   Add GetVideoType()
 	31.12.26   Increase pbo number from 2 to 3
 			   Receive to ofPixels - use revised YUV422_to_RGBA for UYVY data
-	06.03-26 - All ReceiveImage functions - check for allocation if not re-sized
-	02.05-26 - All ReceiveImage functions -
-			   call OpenReceiver before check for allocation
+	06.03.26 - All ReceiveImage functions - check for allocation if not re-sized
+	02.05.26 - All ReceiveImage functions - call OpenReceiver before check for allocation
+	03.05.26 - All ReceiveImage functions - test for allocation together with size change
+			   to re-allocate. Remove initial return if not allocated.
+			   Receiving texture/fbo/image/buffer can be initially unallocated.
 	
 */
 #include "ofxNDIreceiver.h"
@@ -170,11 +172,6 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 	if (!OpenReceiver()) {
 		return false;
 	}
-	
-	if (!texture.isAllocated()) {
-		printf("ofxNDIreceiver::ReceiveImage - texture not allocated\n");
-		return false;
-	}
 
 	// Receive a pixel image first
 	unsigned int width  = (unsigned int)texture.getWidth();
@@ -182,23 +179,17 @@ bool ofxNDIreceiver::ReceiveImage(ofTexture &texture)
 
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
-		// Check for changed sender dimensions
-		if (width != (unsigned int)texture.getWidth()
+		// Check for allocation or changed sender dimensions
+		if (!texture.isAllocated()
+			|| !ndiFbo.isAllocated()
+			|| !m_yuvtexture.isAllocated()
+			|| width != (unsigned int)texture.getWidth()
 			|| height != (unsigned int)texture.getHeight()) {
 			texture.allocate(width, height, GL_RGBA);
 			// Allocate utility fbo to the sender size
 			ndiFbo.allocate(width, height, GL_RGBA);
 			// Allocate receiving UYVY texture
-			m_yuvtexture.allocate(width/2, height, GL_RGBA);
-		}
-		else {
-			// Check for allocation
-			if (!texture.isAllocated())
-				texture.allocate(width, height, GL_RGBA);
-			if (!m_yuvtexture.isAllocated())
-				m_yuvtexture.allocate(width/2, height, GL_RGBA);
-			if (!ndiFbo.isAllocated())
-				ndiFbo.allocate(width, height, GL_RGBA);
+			m_yuvtexture.allocate(width / 2, height, GL_RGBA);
 		}
 
 		// Get NDI pixel data from the video frame
@@ -218,32 +209,24 @@ bool ofxNDIreceiver::ReceiveImage(ofFbo &fbo)
 	if (!OpenReceiver())
 		return false;
 
-	if (!fbo.isAllocated())
-		return false;
-
 	// Receive a pixel image first
 	unsigned int width = (unsigned int)fbo.getWidth();
 	unsigned int height = (unsigned int)fbo.getHeight();
+
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
-		// Check for changed sender dimensions
-		if (width != (unsigned int)fbo.getWidth() || height != (unsigned int)fbo.getHeight()) {
+		// Check for allocation or changed sender dimensions
+		if (!fbo.isAllocated()
+			|| !ndiFbo.isAllocated()
+			|| !m_yuvtexture.isAllocated()
+			|| width != (unsigned int)fbo.getWidth()
+			|| height != (unsigned int)fbo.getHeight()) {
 			fbo.allocate(width, height, GL_RGBA);
 			// Allocate utility fbo to the sender size
 			ndiFbo.allocate(width, height, GL_RGBA);
 			// Allocate receiving UYVY texture
-			m_yuvtexture.allocate(width/2, height, GL_RGBA);
+			m_yuvtexture.allocate(width / 2, height, GL_RGBA);
 		}
-		else {
-			// Check for allocation
-			if (!fbo.isAllocated())
-				fbo.allocate(width, height, GL_RGBA);
-			if (!m_yuvtexture.isAllocated())
-				m_yuvtexture.allocate(width/2, height, GL_RGBA);
-			if (!ndiFbo.isAllocated())
-				ndiFbo.allocate(width, height, GL_RGBA);
-		}
-
 
 		// Get NDI pixel data from the video frame
 		return GetPixelData(fbo.getTexture());
@@ -260,32 +243,25 @@ bool ofxNDIreceiver::ReceiveImage(ofImage &image)
 	if (!OpenReceiver())
 		return false;
 
-	if (!image.isAllocated())
-		return false;
-
 	// Receive a pixel image first
 	unsigned int width = (unsigned int)image.getWidth();
 	unsigned int height = (unsigned int)image.getHeight();
+
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
-		// Check for changed sender dimensions
-		if (width != (unsigned int)image.getWidth() || height != (unsigned int)image.getHeight()) {
+		// Check for allocation or changed sender dimensions
+		if (!image.isAllocated()
+			|| !ndiFbo.isAllocated()
+			|| !m_yuvtexture.isAllocated()
+			|| width != (unsigned int)image.getWidth()
+			|| height != (unsigned int)image.getHeight()) {
 			image.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
 			// Allocate utility fbo to the sender size
 			ndiFbo.allocate(width, height, GL_RGBA);
 			// Allocate receiving UYVY texture
-			m_yuvtexture.allocate(width/2, height, GL_RGBA);
+			m_yuvtexture.allocate(width / 2, height, GL_RGBA);
 		}
-		else {
-			// Check for allocation
-			if (!image.isAllocated())
-				image.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
-			if (!m_yuvtexture.isAllocated())
-				m_yuvtexture.allocate(width/2, height, GL_RGBA);
-			if (!ndiFbo.isAllocated())
-				ndiFbo.allocate(width, height, GL_RGBA);
-		}
-		
+
 		// Get NDI pixel data from the video frame
 		return GetPixelData(image.getTexture());
 	}
@@ -301,21 +277,18 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 	if (!OpenReceiver())
 		return false;
 
-	if (!buffer.isAllocated())
-		return false;
-
 	unsigned int width = (unsigned int)buffer.getWidth();
 	unsigned int height = (unsigned int)buffer.getHeight();
 
 	// Receive a pixel image first
 	if (NDIreceiver.ReceiveImage(width, height)) {
 
-		// Check for changed sender dimensions
-		// or unallocated buffer
-		if (width != (unsigned int)buffer.getWidth()
-			|| height != (unsigned int)buffer.getHeight()
-			|| !buffer.isAllocated())
+		// Check for allocation or changed sender dimensions
+		if (!buffer.isAllocated()
+			|| width != (unsigned int)buffer.getWidth()
+			|| height != (unsigned int)buffer.getHeight()) {
 			buffer.allocate(width, height, OF_IMAGE_COLOR_ALPHA);
+		}
 
 		// Get the video frame buffer pointer
 		unsigned char *videoData = NDIreceiver.GetVideoData();
@@ -370,10 +343,11 @@ bool ofxNDIreceiver::ReceiveImage(ofPixels &buffer)
 
 }
 
-// Receive image pixels to aun unsigned char buffer
+// Receive image pixels to an unsigned char buffer
 // Retained for compatibility with previous version of ofxNDI
 // Return sender width and height
 // Test width and height for change with true return
+// Pixell buffer should be allocated width*height*4 rgba
 // For false return :
 //   Check for metadata using IsMetadata()
 //   Use IsAudioFrame() to determine whether audio has been received
