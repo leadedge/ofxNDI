@@ -356,9 +356,6 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 		// If there are new sources and the number of sources has changed
 		if ((nsources != no_sources) || NDIsenders.size() == 0 ) {
 
-			// LJ DEBUG
-			printf("FindSenders 2 - nsources = %d\n", nsources);
-
 			// Rebuild the sender name list
 			no_sources = nsources;
 			NDIsenders.clear();
