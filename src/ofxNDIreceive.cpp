@@ -324,9 +324,6 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 	std::string name;
 	uint32_t nsources = 0; // New number of sources
 
-	// LJ DEBUG
-	printf("FindSenders 1\n");
-
 	if (!bNDIinitialized) {
 		printf("ofxNDIreceive::FindSenders - not intialized\n");
 		sendercount = 0;
@@ -358,9 +355,6 @@ bool ofxNDIreceive::FindSenders(int &sendercount)
 
 		// If there are new sources and the number of sources has changed
 		if ((nsources != no_sources) || NDIsenders.size() == 0 ) {
-
-			// LJ DEBUG
-			printf("FindSenders 2 - nsources = %d\n", nsources);
 
 			// Rebuild the sender name list
 			no_sources = nsources;
