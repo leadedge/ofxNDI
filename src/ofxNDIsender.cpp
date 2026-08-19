@@ -107,6 +107,7 @@
 	23.02.26 - Add SendAudio for use independently of SendImage
 			   CreateSender - error if pNDI_send create failed
 			   Revise error messages in SetFormat and ReadYUVpixels
+	16.08-26 - Add GetConnections - number of receiver connections
 
 */
 #include "ofxNDIsender.h"
@@ -242,6 +243,11 @@ void ofxNDIsender::ReleaseSender()
 bool ofxNDIsender::SenderCreated()
 {
 	return NDIsender.SenderCreated();
+}
+
+// Return the number of receiver connections
+int ofxNDIsender::GetConnections(uint32_t msec_timeout) {
+	return NDIsender.GetConnections(msec_timeout);
 }
 
 // Return current sender width

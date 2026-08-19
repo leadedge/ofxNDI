@@ -78,6 +78,9 @@ public:
 	// Return whether the sender has been created
 	bool SenderCreated();
 
+	// Return the number of receiver connections
+	int GetConnections(uint32_t msec_timeout);
+
 	// Return current sender width
 	unsigned int GetWidth();
 

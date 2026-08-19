@@ -111,6 +111,7 @@
 	24.02.26	- ReleaseSender - set pointers to null after destroy sender :
 				- pNDI_send, m_AudioData, m_audio_frame.p_data, video_frame.p_data
 				- Set m_bMetadata = false
+	16.08-26	- Add GetConnections - number of receiver connections
 
 */
 #include "ofxNDIsend.h"
@@ -422,7 +423,7 @@ bool ofxNDIsend::SendImage(const unsigned char * pixels,
 
 		if (m_bAsync) {
 			// Submit the video frame asynchronously.
-			// This means that this call will return  immediately
+			// This means that this call will return immediately
 			// and the API will "own" the memory location until there is
 			// a synchronizing event. A synchronizing event is one of : 
 			//  - NDIlib_send_send_video_async
@@ -567,6 +568,12 @@ void ofxNDIsend::ReleaseSender()
 bool ofxNDIsend::SenderCreated()
 {
 	return bSenderInitialized;
+}
+
+// Return the number of receiver connections
+int ofxNDIsend::GetConnections(uint32_t msec_timeout)
+{
+	return p_NDILib->send_get_no_connections(pNDI_send, msec_timeout);
 }
 
 // Return current sender width
