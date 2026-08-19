@@ -108,6 +108,7 @@
 			   CreateSender - error if pNDI_send create failed
 			   Revise error messages in SetFormat and ReadYUVpixels
 	16.08-26 - Add GetConnections - number of receiver connections
+	18.08.26 - SetFormat - add printf error message if shader path not found
 
 */
 #include "ofxNDIsender.h"
@@ -434,6 +435,9 @@ void ofxNDIsender::SetFormat(NDIlib_FourCC_video_type_e format)
 			// to re-create pbos, buffers and NDI video frame
 			// Update sender if already created (UpdateSender checks)
 			UpdateSender(NDIsender.GetWidth(), NDIsender.GetHeight());
+		}
+		else {
+			printf("ofxNDIsender::SetFormat - could not find shader folder\n%s\n", shaderpath.c_str());
 		}
 	}
 	else if (format == NDIlib_FourCC_video_type_BGRA
